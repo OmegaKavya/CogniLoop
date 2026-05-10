@@ -132,7 +132,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Install and start Ollama
+### 4. Initialize Data
+
+```bash
+python scripts/init_data.py
+```
+
+### 5. Install and start Ollama
 
 Make sure Ollama is installed and running locally.
 
@@ -157,7 +163,13 @@ python app.py
 Then open the local address shown in the terminal, usually:
 
 ```bash
-http://127.0.0.1:5000
+http://127.0.0.1:5001
+```
+
+### 7. Run tests
+
+```bash
+PYTHONPATH=. pytest -v tests/
 ```
 
 ## How the learning flow works

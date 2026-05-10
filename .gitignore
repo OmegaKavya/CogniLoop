@@ -15,7 +15,7 @@ ENV/
 .coverage
 coverage.xml
 htmlcov/
-
+data/
 # Flask / app runtime
 instance/
 *.log
@@ -42,3 +42,9 @@ ollama_models/
 # Temporary files
 *.tmp
 *.swp
+
+# Environment variables
+.env
+
+# Local models
+*.pkl
