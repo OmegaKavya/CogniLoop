@@ -7,6 +7,12 @@ class QuizEvaluator:
         self.model = "llama3.2"
 
     def _ai_verify_and_explain(self, question, selected, correct_answer):
+        if not selected or str(selected).strip() == "" or str(selected).strip().lower() == "none":
+            return {
+                "is_correct": False,
+                "feedback": f"No answer was selected. The correct concept focuses on: {correct_answer}"
+            }
+
         prompt = f"""
         Question: {question}
         Student's Answer: {selected}
