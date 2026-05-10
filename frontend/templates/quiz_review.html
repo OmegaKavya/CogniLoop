@@ -3,225 +3,474 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Review - Edubox</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
+    <title>Quiz Review — Edubox</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     <style>
-      .q-card {
-        border: 1px solid #eee;
-        border-radius: 10px;
-        padding: 14px;
-        margin-bottom: 12px;
+      body { background: var(--bg); }
+
+      .review-layout {
+        max-width: 1180px;
+        margin: 36px auto;
+        padding: 0 24px;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 28px;
+        align-items: start;
       }
 
-      .q-card.correct {
-        border-left: 4px solid #1e4c8f;
+      /* ── Sidebar ── */
+      .attempts-sidebar {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+        max-height: 82vh;
+        overflow-y: auto;
+        position: sticky;
+        top: 80px;
       }
-
-      .q-card.incorrect {
-        border-left: 4px solid #f39c12;
+      .attempts-sidebar h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 14px;
+        color: var(--text-600);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        font-size: .8rem;
       }
-
       .attempt-link {
         display: block;
-        border: 1px solid #eee;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+        margin-bottom: 8px;
         text-decoration: none;
         color: inherit;
-        background: #fff;
+        background: var(--bg);
+        transition: var(--transition);
+      }
+      .attempt-link:hover {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        transform: translateX(4px);
+      }
+      .attempt-link.selected {
+        border-color: var(--primary);
+        background: var(--primary-light);
+      }
+      .attempt-score-pill {
+        display: inline-block;
+        font-size: .75rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-top: 6px;
+      }
+      .pill-high  { background: var(--emerald-light); color: var(--emerald); }
+      .pill-mid   { background: var(--amber-light);   color: #92400e; }
+      .pill-low   { background: var(--rose-light);    color: var(--rose); }
+
+      /* ── Main panel ── */
+      .review-main {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
       }
 
-      .attempt-link:hover {
-        border-color: rgba(30, 76, 143, 0.25);
-        background: #f7f9ff;
+      .panel {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 26px 28px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+      }
+
+      .panel-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-600);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-bottom: 18px;
+        font-size: .8rem;
+      }
+
+      /* Score header */
+      .score-header {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .score-ring {
+        width: 80px; height: 80px;
+        border-radius: 50%;
+        background: conic-gradient(var(--primary) var(--pct, 0%), var(--surface-2) 0);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        box-shadow: var(--shadow);
+        position: relative;
+      }
+      .score-ring-inner {
+        width: 62px; height: 62px;
+        border-radius: 50%;
+        background: var(--surface);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--primary);
+      }
+      .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .meta-chip {
+        font-size: .8rem;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background: var(--surface-2);
+        color: var(--text-600);
+        border: 1px solid var(--border);
+      }
+
+      /* Mastery bar before/after */
+      .mastery-compare {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 14px;
+      }
+      .mastery-bar-wrap { }
+      .mastery-bar-label { font-size: .78rem; color: var(--text-400); font-weight: 600; margin-bottom: 5px; text-transform: uppercase; letter-spacing:.03em; }
+      .mastery-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+      .mastery-fill  { height: 100%; border-radius: 5px; transition: width 1.2s cubic-bezier(.4,0,.2,1); }
+      .fill-before { background: linear-gradient(90deg, #a8a29e, #78716c); }
+      .fill-after  { background: linear-gradient(90deg, var(--primary), var(--amber)); }
+
+      /* Pace diagnosis */
+      .diagnosis-banner {
+        background: var(--amber-light);
+        border: 1px solid rgba(217,119,6,.2);
+        border-left: 4px solid var(--amber);
+        border-radius: var(--radius-sm);
+        padding: 14px 18px;
+        font-size: .92rem;
+        color: #92400e;
+        margin-bottom: 16px;
+      }
+      .diagnosis-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+      .diag-pill {
+        font-size: .8rem; font-weight: 700;
+        padding: 5px 12px; border-radius: 20px;
+        display: flex; align-items: center; gap: 6px;
+      }
+      .diag-guessed     { background:#fce7f3; color:var(--rose); }
+      .diag-confused    { background:#ede9fe; color:#6d28d9; }
+      .diag-misconception { background:var(--amber-light); color:#92400e; }
+
+      /* AI insights */
+      .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .insight-col h4 { font-size: .88rem; font-weight: 700; color: var(--text-600); text-transform: uppercase; letter-spacing:.04em; margin-bottom: 10px; }
+      .insight-col ul { padding-left: 18px; }
+      .insight-col li { font-size: .92rem; color: var(--text-600); line-height: 1.7; margin-bottom: 4px; }
+
+      .resource-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+      .resource-link {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg);
+        text-decoration: none;
+        color: var(--text-900);
+        font-size: .9rem;
+        font-weight: 500;
+        transition: var(--transition);
+      }
+      .resource-link:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+      .resource-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; font-size: .85rem; }
+
+      /* Question cards */
+      .q-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 18px 20px;
+        margin-bottom: 12px;
+        transition: var(--transition);
+      }
+      .q-card.correct   { border-left: 4px solid var(--emerald); }
+      .q-card.incorrect { border-left: 4px solid var(--rose); }
+      .q-card:hover { box-shadow: var(--shadow); }
+      .q-num { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-400); margin-bottom: 6px; }
+      .q-text { font-weight: 600; font-size: .98rem; margin-bottom: 12px; color: var(--text-900); }
+      .q-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+      .answer-tag {
+        font-size: .85rem;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 500;
+      }
+      .answer-tag.chosen-wrong { background: var(--rose-light); color: var(--rose); }
+      .answer-tag.chosen-right { background: var(--emerald-light); color: var(--emerald); }
+      .answer-tag.correct-ans  { background: var(--emerald-light); color: var(--emerald); }
+      .q-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--text-400); }
+      .q-meta span { display: flex; align-items: center; gap: 4px; }
+
+      .time-signal {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: .8rem; font-weight: 600;
+        padding: 3px 10px; border-radius: 12px;
+        margin-top: 8px;
+      }
+      .signal-guessed     { background: #fce7f3; color: var(--rose); }
+      .signal-confused    { background: #ede9fe; color: #6d28d9; }
+      .signal-misconception { background: var(--amber-light); color: #92400e; }
+      .signal-correct     { background: var(--emerald-light); color: var(--emerald); }
+
+      .q-feedback { font-size: .88rem; color: var(--text-600); margin-top: 8px; line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; }
+
+      /* Empty state */
+      .empty-state { text-align: center; padding: 80px 40px; }
+      .empty-state h2 { font-size: 1.6rem; color: var(--text-900); margin-bottom: 12px; }
+      .empty-state p  { color: var(--text-400); font-size: 1rem; }
+      .empty-icon { font-size: 3rem; margin-bottom: 20px; }
+
+      @media (max-width: 768px) {
+        .review-layout { grid-template-columns: 1fr; }
+        .insights-grid { grid-template-columns: 1fr; }
+        .q-answers { grid-template-columns: 1fr; }
       }
     </style>
   </head>
 
   <body>
     <nav class="navbar">
-      <a
-        href="{{ url_for('index') }}"
-        class="logo"
-        style="
-          text-decoration: none;
-          color: inherit;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        "
-      >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+      <a href="{{ url_for('index') }}" class="logo" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
         </svg>
         Edubox
       </a>
       <div class="nav-links">
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="{{ url_for('progress_page') }}">Progress</a>
-        <a href="{{ url_for('logout') }}" style="color: #e74c3c">Logout</a>
+        <a href="{{ url_for('logout') }}" style="color:var(--rose)">Logout</a>
       </div>
     </nav>
 
-    <div
-      style="
-        max-width: 1100px;
-        margin: 35px auto;
-        padding: 0 20px;
-        display: grid;
-        grid-template-columns: 320px 1fr;
-        gap: 25px;
-      "
-    >
-      <aside
-        style="
-          background: white;
-          border-radius: 12px;
-          padding: 20px;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-          max-height: 80vh;
-          overflow-y: auto;
-        "
-      >
-        <h3 style="margin-bottom: 15px">Quiz Attempts</h3>
-        {% if review_rows %} {% for row in review_rows %}
-        <a
-          href="{{ url_for('quiz_review_page', attempt_id=row.attempt_id) }}"
-          class="attempt-link"
-        >
-          <strong>{{ row.topic_name }}</strong>
-          <div style="font-size: 0.85rem; color: #777; margin-top: 6px">
-            Score: {{ row.score }}% • {{ row.speed_label }}
-          </div>
-          <div style="font-size: 0.75rem; color: #999; margin-top: 4px">
-            {{ row.timestamp[:19].replace('T', ' ') if row.timestamp else '' }}
-          </div>
-        </a>
-        {% endfor %} {% else %}
-        <p style="color: #777">No attempts yet.</p>
+    <div class="review-layout">
+
+      <!-- Sidebar: attempts list -->
+      <aside class="attempts-sidebar">
+        <h3>Your Attempts</h3>
+        {% if review_rows %}
+          {% for row in review_rows %}
+          {% set is_selected = selected_attempt and selected_attempt.attempt_id == row.attempt_id %}
+        <a href="{{ url_for('quiz_review_page', attempt_id=row.attempt_id) }}"
+             class="{{ 'attempt-link selected' if is_selected else 'attempt-link' }}">
+            <div style="font-weight:700;font-size:.92rem;color:var(--text-900);">{{ row.topic_name }}</div>
+            <div style="font-size:.8rem;color:var(--text-400);margin-top:4px;">
+              {{ row.timestamp[:16].replace('T',' ') if row.timestamp else '' }}
+            </div>
+            {% set pill_cls = "pill-high" if row.score >= 70 else ("pill-mid" if row.score >= 40 else "pill-low") %}
+            <span class="attempt-score-pill {{ pill_cls }}">
+              {{ row.score }}% · {{ row.speed_label }}
+            </span>
+          </a>
+          {% endfor %}
+        {% else %}
+          <p style="color:var(--text-400);font-size:.9rem;">No attempts yet.</p>
         {% endif %}
       </aside>
 
-      <main
-        style="
-          background: white;
-          border-radius: 12px;
-          padding: 25px;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        "
-      >
+      <!-- Main review panel -->
+      <main class="review-main">
         {% if selected_attempt %}
-        <h2 style="margin-bottom: 8px">
-          {{ selected_attempt.topic_name if selected_attempt.topic_name else
-          selected_attempt.topic_id }} - Review
-        </h2>
-        <p style="color: #777; margin-bottom: 18px">
-          Score: <strong>{{ selected_attempt.score }}%</strong> • Mastery:
-          <strong>{{ (selected_attempt.mastery * 100)|round(1) }}%</strong> •
-          Avg time: <strong>{{ selected_attempt.avg_time }}s</strong>
-        </p>
 
-        <section
-          style="
-            margin-bottom: 20px;
-            padding: 16px;
-            border-radius: 10px;
-            background: #f9f9f9;
-            border-left: 4px solid #f5b041;
-          "
-        >
-          <h3 style="margin-bottom: 8px; color: #8a5b00">AI Insights</h3>
-          <p style="margin-bottom: 10px; color: #444">
-            {{ selected_attempt.ai_insights.summary if
-            selected_attempt.ai_insights else 'No summary available.' }}
+        <!-- 1. Score header -->
+        <div class="panel">
+          <h2 style="margin-bottom:16px;">{{ selected_attempt.topic_name or selected_attempt.topic_id }}</h2>
+
+          <div class="score-header">
+          {% set pct = selected_attempt.score %}
+          {% set pct_deg = (pct * 3.6)|int %}
+            {% set conic_bg = "background:conic-gradient(var(--primary) " ~ pct_deg ~ "deg,var(--surface-2) 0)" %}
+            <div class="score-ring" style="{{ conic_bg }}">
+              <div class="score-ring-inner">{{ pct }}%</div>
+            </div>
+            <div>
+              <div style="font-size:1.3rem;font-weight:800;color:var(--text-900);">
+                {% if pct >= 80 %}Excellent 🎉{% elif pct >= 60 %}Good work 👍{% elif pct >= 40 %}Keep going 📈{% else %}Needs work 💪{% endif %}
+              </div>
+              <div class="meta-chips">
+                <span class="meta-chip">Mastery: {{ (selected_attempt.mastery * 100)|round(1) }}%</span>
+                <span class="meta-chip">Avg time: {{ selected_attempt.avg_time }}s/q</span>
+                <span class="meta-chip">{{ selected_attempt.question_results|length }} questions</span>
+                <span class="meta-chip">{{ selected_attempt.speed_label if selected_attempt.speed_label else 'Steady' }} pace</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mastery before/after -->
+          {% set mastery_after = selected_attempt.mastery %}
+          {% set mastery_before = [mastery_after - 0.08, 0.0]|max %}
+          <div class="mastery-compare" style="margin-top:20px;">
+            <div class="mastery-bar-wrap">
+              <div class="mastery-bar-label">Mastery Before</div>
+              <div class="mastery-track">
+                {% set mb_pct = (mastery_before * 100)|round(0)|int %}
+                <div class="mastery-fill fill-before" style="width:{{ mb_pct }}%"></div>
+              </div>
+              <div style="font-size:.78rem;color:var(--text-400);margin-top:4px;">{{ (mastery_before * 100)|round(1) }}%</div>
+            </div>
+            <div class="mastery-bar-wrap">
+              <div class="mastery-bar-label">Mastery After ↑</div>
+              <div class="mastery-track">
+                {% set ma_pct = (mastery_after * 100)|round(0)|int %}
+                <div class="mastery-fill fill-after" style="width:{{ ma_pct }}%"></div>
+              </div>
+              <div style="font-size:.78rem;color:var(--text-400);margin-top:4px;">{{ (mastery_after * 100)|round(1) }}%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Diagnostic AI Insights -->
+        {% if selected_attempt.ai_insights %}
+        <div class="panel">
+          <div class="panel-title">🧠 AI Diagnostic</div>
+
+          <!-- Pace summary -->
+          {% set diag = selected_attempt.ai_insights.get('diagnoses', {}) if selected_attempt.ai_insights is mapping else {} %}
+          {% if diag and diag.get('pace_advice') %}
+          <div class="diagnosis-banner">{{ diag.pace_advice }}</div>
+          {% endif %}
+
+          <!-- Diagnosis pills -->
+          {% if diag %}
+          <div class="diagnosis-pills">
+            {% if diag.get('guessed', 0) > 0 %}
+            <span class="diag-pill diag-guessed">⚡ {{ diag.guessed }} rushed guess{{ 'es' if diag.guessed != 1 else '' }}</span>
+            {% endif %}
+            {% if diag.get('confused', 0) > 0 %}
+            <span class="diag-pill diag-confused">🤔 {{ diag.confused }} concept gap{{ 's' if diag.confused != 1 else '' }}</span>
+            {% endif %}
+            {% if diag.get('misconception', 0) > 0 %}
+            <span class="diag-pill diag-misconception">💭 {{ diag.misconception }} misconception{{ 's' if diag.misconception != 1 else '' }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <p style="color:var(--text-600);font-size:.92rem;margin-bottom:18px;line-height:1.7;">
+            {{ selected_attempt.ai_insights.summary if selected_attempt.ai_insights else 'No summary available.' }}
           </p>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px">
-            <div>
-              <strong>Focus Concepts</strong>
-              <ul style="margin-top: 6px">
-                {% for item in (selected_attempt.ai_insights.focus_concepts if
-                selected_attempt.ai_insights else []) %}
+          <div class="insights-grid">
+            <div class="insight-col">
+              <h4>📌 Focus Concepts</h4>
+              <ul>
+                {% for item in (selected_attempt.ai_insights.focus_concepts if selected_attempt.ai_insights else []) %}
                 <li>{{ item }}</li>
                 {% endfor %}
               </ul>
             </div>
-            <div>
-              <strong>Cheat Sheet</strong>
-              <ul style="margin-top: 6px">
-                {% for item in (selected_attempt.ai_insights.cheat_sheet if
-                selected_attempt.ai_insights else []) %}
+            <div class="insight-col">
+              <h4>✅ Action Plan</h4>
+              <ul>
+                {% for item in (selected_attempt.ai_insights.cheat_sheet if selected_attempt.ai_insights else []) %}
                 <li>{{ item }}</li>
                 {% endfor %}
               </ul>
             </div>
           </div>
 
-          <div style="margin-top: 10px">
-            <strong>Resources</strong>
-            <ul style="margin-top: 6px">
-              {% for res in (selected_attempt.ai_insights.resources if
-              selected_attempt.ai_insights else []) %}
-              <li>
-                <a
-                  href="{{ res.url }}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >{{ res.title }}</a
-                >
-              </li>
+          <div style="margin-top:20px;">
+            <h4 style="font-size:.8rem;font-weight:700;color:var(--text-600);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">📚 Resources</h4>
+            <div class="resource-list">
+              {% for res in (selected_attempt.ai_insights.resources if selected_attempt.ai_insights else []) %}
+              <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+                <div class="resource-icon">→</div>
+                {{ res.title }}
+              </a>
               {% endfor %}
-            </ul>
+            </div>
           </div>
-        </section>
+        </div>
+        {% endif %}
 
-        <section>
-          <h3 style="margin-bottom: 10px">Question Review</h3>
+        <!-- 3. Per-question breakdown -->
+        <div class="panel">
+          <div class="panel-title">📋 Question Breakdown</div>
           {% for q in selected_attempt.question_results %}
-          <div class="q-card {{ 'correct' if q.is_correct else 'incorrect' }}">
-            <div style="font-weight: 600; margin-bottom: 6px">
-              Q{{ loop.index }}. {{ q.text }}
+          {% set t = q.time_taken|float %}
+          {% set is_ok = q.is_correct %}
+
+          {# Pre-compute signal without nesting Jinja inside HTML attrs #}
+          {% if not is_ok %}
+            {% if t < 5 %}
+              {% set signal = 'guessed' %}
+              {% set sig_label = '⚡ Rushed guess' %}
+              {% set sig_style = 'background:#fce7f3;color:#be185d' %}
+            {% elif t > 25 %}
+              {% set signal = 'confused' %}
+              {% set sig_label = '🤔 Genuine concept gap' %}
+              {% set sig_style = 'background:#ede9fe;color:#6d28d9' %}
+            {% else %}
+              {% set signal = 'misconception' %}
+              {% set sig_label = '💭 Likely misconception' %}
+              {% set sig_style = 'background:#fef3c7;color:#92400e' %}
+            {% endif %}
+            {% set card_border = 'border-left:4px solid #be185d' %}
+          {% else %}
+            {% set signal = 'correct' %}
+            {% set sig_label = '✓ Correct' %}
+            {% set sig_style = 'background:#d1fae5;color:#047857' %}
+            {% set card_border = 'border-left:4px solid #047857' %}
+          {% endif %}
+
+          <div class="q-card" data-result="{{ signal }}" style="{{ card_border }}">
+            <div class="q-num">Q{{ loop.index }} of {{ selected_attempt.question_results|length }}</div>
+            <div class="q-text">{{ q.text }}</div>
+
+            <div class="q-answers">
+              {% if not is_ok %}
+              <div class="answer-tag chosen-wrong">
+                ✗ You chose: {{ q.selected_answer if q.selected_answer else 'No answer' }}
+              </div>
+              <div class="answer-tag correct-ans">
+                ✓ Correct: {{ q.correct_answer }}
+              </div>
+              {% else %}
+              <div class="answer-tag chosen-right">
+                ✓ {{ q.selected_answer }}
+              </div>
+              {% endif %}
             </div>
-            <div style="font-size: 0.92rem; margin-bottom: 4px">
-              Your answer:
-              <strong
-                >{{ q.selected_answer if q.selected_answer else 'No answer'
-                }}</strong
-              >
+
+            <div class="q-meta">
+              <span>⏱ {{ t|round(1) }}s</span>
+              {% if q.used_hint %}<span>💡 Hint used</span>{% endif %}
             </div>
-            <div style="font-size: 0.92rem; margin-bottom: 4px">
-              Correct answer: <strong>{{ q.correct_answer }}</strong>
+
+            <div>
+              <span class="time-signal" data-signal="{{ signal }}" style="{{ sig_style }}">{{ sig_label }}</span>
             </div>
-            <div style="font-size: 0.92rem; margin-bottom: 4px">
-              Hint used: <strong>{{ 'Yes' if q.used_hint else 'No' }}</strong> •
-              Time: <strong>{{ q.time_taken|round(1) }}s</strong>
-            </div>
-            <div style="font-size: 0.9rem; color: #666">
-              Feedback: {{ q.feedback }}
-            </div>
+
+            {% if q.feedback %}
+            <div class="q-feedback">{{ q.feedback }}</div>
+            {% endif %}
           </div>
           {% endfor %}
-        </section>
+
+        </div>
+
         {% else %}
-        <h2>Select an attempt</h2>
-        <p style="color: #777">
-          Choose any attempt from the left panel to open detailed quiz review,
-          AI insights, cheat sheet and resources.
-        </p>
+        <!-- Empty state -->
+        <div class="panel">
+          <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h2>Select an attempt</h2>
+            <p>Choose any attempt from the left panel to view your<br>score breakdown, AI diagnostic, and question-by-question review.</p>
+          </div>
+        </div>
         {% endif %}
       </main>
     </div>

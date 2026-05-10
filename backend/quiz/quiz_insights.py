@@ -1,111 +1,170 @@
 import json
 import re
 import requests
+from utils.constants import STATIC_CHEAT_SHEETS
 
 
 class QuizInsightsEngine:
-    def __init__(self, ollama_url="http://localhost:11434/api/generate", model="llama3.2"):
-        self.ollama_url = ollama_url
+    def __init__(self, ollama_url=None, model="llama3.2"):
+        import os
+        self.ollama_url = ollama_url or os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+        self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
+        self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
         self.model = model
+        self.groq_model = "llama-3.1-8b-instant"
 
-    def _extract_keywords(self, text):
-        tokens = re.findall(r"[A-Za-z]{4,}", (text or "").lower())
-        stop = {
-            "which", "what", "when", "where", "while", "about", "their", "there", "these", "those",
-            "option", "question", "correct", "answer", "following", "primary", "topic", "student"
-        }
-        words = [w for w in tokens if w not in stop]
-        ranked = []
-        seen = set()
-        for word in words:
-            if word not in seen:
-                seen.add(word)
-                ranked.append(word)
-            if len(ranked) >= 5:
-                break
-        return ranked
+    def _diagnose_question(self, q):
+        """Return a time-based learning signal for each wrong answer."""
+        time_taken = q.get("time_taken", 0) or 0
+        is_correct = q.get("is_correct", False)
+        if is_correct:
+            return None
+        if time_taken < 5:
+            return "guessed"       # answered too fast — likely random
+        elif time_taken > 25:
+            return "confused"      # took long and still wrong — genuine gap
+        else:
+            return "misconception" # moderate time — likely a specific misconception
 
-    def _fallback(self, topic_name, incorrect_questions):
-        joined = " ".join(q.get("text", "") for q in incorrect_questions)
-        keywords = self._extract_keywords(joined)
-        if not keywords:
-            keywords = [topic_name.lower(), "core concepts", "problem solving"]
+    def _concept_from_cheat_sheet(self, topic_id, question_text):
+        """Map a wrong question to the closest concept bullet in the cheat sheet."""
+        sheet = STATIC_CHEAT_SHEETS.get(topic_id, {})
+        core = sheet.get("core", [])
+        pitfalls = sheet.get("pitfalls", [])
+        q_lower = question_text.lower()
+        for item in core + pitfalls:
+            words = re.findall(r"[a-z]{4,}", item.lower())
+            if any(w in q_lower for w in words[:6]):
+                return item
+        return None
 
-        focus_concepts = [k.replace("_", " ").title() for k in keywords[:3]]
-        cheat_sheet = [
-            f"Define {focus_concepts[0]} in one line and write one example.",
-            "Create a compare/contrast table for two closely related ideas.",
-            "Practice 5 short MCQs and explain each answer in one sentence."
-        ]
+    def _smart_fallback(self, topic_id, topic_name, score, mastery, incorrect_questions):
+        """Diagnostic fallback that uses the cheat sheet for concept mapping."""
+        sheet = STATIC_CHEAT_SHEETS.get(topic_id, {})
+        pitfalls = sheet.get("pitfalls", [])
+        drills = sheet.get("drills", [])
+        core = sheet.get("core", [])
+
+        # Map wrong questions to cheat-sheet concepts
+        focus_concepts = []
+        for q in incorrect_questions[:3]:
+            concept = self._concept_from_cheat_sheet(topic_id, q.get("text", ""))
+            if concept and concept not in focus_concepts:
+                focus_concepts.append(concept)
+
+        if not focus_concepts:
+            # Extract keywords from wrong question text
+            joined = " ".join(q.get("text", "") for q in incorrect_questions)
+            tokens = re.findall(r"[A-Za-z]{5,}", joined)
+            stop = {"which", "state", "about", "their", "there", "these", "those",
+                    "option", "question", "correct", "answer", "following", "primary", "topic"}
+            seen, kws = set(), []
+            for t in tokens:
+                tl = t.lower()
+                if tl not in stop and tl not in seen:
+                    seen.add(tl); kws.append(t.title())
+                if len(kws) >= 3: break
+            focus_concepts = kws or [topic_name, "core concepts"]
+
+        # Time-based diagnosis
+        diagnoses = [self._diagnose_question(q) for q in incorrect_questions]
+        guessed  = diagnoses.count("guessed")
+        confused = diagnoses.count("confused")
+        n = len(incorrect_questions) or 1
+
+        if guessed / n > 0.5:
+            pace_advice = "Many answers were selected very quickly — slow down and read each option carefully before answering."
+        elif confused / n > 0.5:
+            pace_advice = "Several questions took a long time and were still wrong — these are genuine concept gaps that need targeted review."
+        else:
+            pace_advice = "Some answers reflect specific misconceptions — targeted re-reading of those concepts should help."
+
+        # Build action plan from pitfalls + drills
+        cheat_sheet = []
+        if pitfalls:
+            cheat_sheet.append(f"Watch out: {pitfalls[0]}")
+        if drills:
+            cheat_sheet.append(f"Drill: {drills[0]}")
+        if len(drills) > 1:
+            cheat_sheet.append(f"Drill: {drills[1]}")
+        if not cheat_sheet:
+            cheat_sheet = [
+                "Re-read the core definition of each wrong concept in one sentence.",
+                "Write one example for each concept you missed.",
+                "Attempt 3 similar questions before retaking the quiz."
+            ]
+
         resources = [
-            {"title": f"{topic_name} - GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/search/?q={topic_name.replace(' ', '+')}"},
-            {"title": f"{topic_name} - Tutorialspoint", "url": f"https://www.tutorialspoint.com/search/{topic_name.replace(' ', '-')}.htm"},
-            {"title": f"{topic_name} - YouTube quick revision", "url": f"https://www.youtube.com/results?search_query={topic_name.replace(' ', '+')}+revision"}
+            {"title": f"{topic_name} — NPTEL Lecture Notes", "url": f"https://nptel.ac.in/search?query={topic_name.replace(' ', '+')}"},
+            {"title": f"{topic_name} — GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}/"},
+            {"title": f"{topic_name} — GATE Practice Questions", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"}
         ]
+
+        if score >= 80:
+            summary = f"Strong performance ({score}%). {pace_advice} Focus on the {len(incorrect_questions)} question(s) you missed to push toward mastery."
+        elif score >= 50:
+            summary = f"Moderate performance ({score}%). {pace_advice} The concepts listed below need targeted review before retaking."
+        else:
+            summary = f"Low score ({score}%). {pace_advice} Revisit the video modules covering these concepts before attempting another quiz."
+
         return {
-            "focus_concepts": focus_concepts,
-            "cheat_sheet": cheat_sheet,
+            "focus_concepts": focus_concepts[:3],
+            "cheat_sheet": cheat_sheet[:4],
             "resources": resources,
-            "summary": "Focus on concept clarity and short iterative practice before the next quiz."
+            "summary": summary,
+            "diagnoses": {
+                "guessed": guessed,
+                "confused": confused,
+                "misconception": diagnoses.count("misconception"),
+                "pace_advice": pace_advice
+            }
         }
 
-    def generate_insights(self, topic_name, score, mastery, question_results):
+    def generate_insights(self, topic_name, score, mastery, question_results, topic_id=""):
         incorrect = [q for q in question_results if not q.get("is_correct")]
+
         if not incorrect:
             return {
                 "focus_concepts": ["Advanced Application", "Speed + Accuracy", "Concept Transfer"],
                 "cheat_sheet": [
-                    "Attempt mixed-difficulty questions with a strict timer.",
-                    "Teach one concept aloud in 2 minutes from memory.",
-                    "Solve one unseen problem and write your reasoning steps."
+                    "Attempt mixed-difficulty questions with a strict 10s timer.",
+                    "Teach one concept aloud in 2 minutes from memory — no notes.",
+                    "Solve one unseen problem and write your full reasoning.",
+                    "Review the exam-angle notes in each submodule."
                 ],
                 "resources": [
-                    {"title": f"Advanced {topic_name} practice sets", "url": f"https://www.google.com/search?q=advanced+{topic_name.replace(' ', '+')}+practice"},
-                    {"title": f"{topic_name} interview questions", "url": f"https://www.google.com/search?q={topic_name.replace(' ', '+')}+interview+questions"}
+                    {"title": f"Advanced {topic_name} — GATE PYQs", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"},
+                    {"title": f"{topic_name} interview questions", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}-interview-questions/"}
                 ],
-                "summary": "Strong attempt. Shift toward advanced and transfer-based practice."
+                "summary": f"Perfect score! You have strong recall. Shift focus to application-level and transfer-based questions to cement mastery.",
+                "diagnoses": {"guessed": 0, "confused": 0, "misconception": 0, "pace_advice": "Excellent pace — keep it consistent."}
             }
 
-        prompt = f"""
-You are an expert learning coach.
-Topic: {topic_name}
-Score: {score}
-Mastery: {mastery}
-Incorrect question signals: {json.dumps(incorrect)[:2500]}
+        # Try Groq first (fast), then fallback
+        if self.groq_api_key:
+            try:
+                prompt = f"""You are an expert CS learning coach. A student scored {score}% on a {topic_name} quiz (mastery: {mastery:.0%}).
+Wrong answers: {json.dumps([{"question": q.get("text",""), "chosen": q.get("selected_answer",""), "correct": q.get("correct_answer",""), "time_s": q.get("time_taken",0)} for q in incorrect])[:1800]}
 
-Return ONLY JSON with this exact structure:
-{{
-  "focus_concepts": ["concept 1", "concept 2", "concept 3"],
-  "cheat_sheet": ["short bullet 1", "short bullet 2", "short bullet 3", "short bullet 4"],
-  "resources": [
-    {{"title": "resource 1", "url": "https://..."}},
-    {{"title": "resource 2", "url": "https://..."}},
-    {{"title": "resource 3", "url": "https://..."}}
-  ],
-  "summary": "one concise paragraph"
-}}
+Return ONLY JSON:
+{{"focus_concepts":["concept 1","concept 2","concept 3"],"cheat_sheet":["action 1","action 2","action 3"],"resources":[{{"title":"...","url":"https://..."}}],"summary":"one diagnostic paragraph"}}"""
 
-Constraints:
-- Keep all items concise and practical.
-- Focus on weak concepts from the mistakes.
-- Resource links should be broadly accessible learning links.
-"""
+                headers = {"Authorization": f"Bearer {self.groq_api_key}", "Content-Type": "application/json"}
+                resp = requests.post(self.groq_url, headers=headers, json={
+                    "model": self.groq_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 600,
+                    "response_format": {"type": "json_object"}
+                }, timeout=12)
+                if resp.status_code == 200:
+                    parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
+                    if parsed.get("focus_concepts") and parsed.get("summary"):
+                        parsed["diagnoses"] = {"guessed": 0, "confused": 0, "misconception": 0, "pace_advice": ""}
+                        return parsed
+            except Exception as e:
+                print(f"[Insights] Groq error: {e}")
 
-        try:
-            response = requests.post(self.ollama_url, json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json"
-            }, timeout=25)
-            if response.status_code == 200:
-                parsed = json.loads(response.json().get("response", "{}"))
-                if parsed.get("focus_concepts") and parsed.get("cheat_sheet") and parsed.get("resources"):
-                    return parsed
-        except Exception as e:
-            print(f"AI insight generation error: {e}")
-
-        return self._fallback(topic_name, incorrect)
+        return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
 
 
 insights_engine = QuizInsightsEngine()

@@ -341,15 +341,21 @@
       </div>
     </div>
 
-    <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
+    <div id="video-js-data"
+      data-submodules="{{ submodules | tojson | forceescape }}"
+      data-video-id="{{ video.id }}"
+      style="display:none"
+    ></div>
     <script>
       function showLoading() {
           document.getElementById('ai-loading-overlay').style.display = 'flex';
       }
 
+      const _vdata = document.getElementById('video-js-data');
       let player;
-      const submodules = {{ submodules | tojson | safe }};
+      const submodules = JSON.parse(_vdata.dataset.submodules);
+      const videoId = _vdata.dataset.videoId;
       let activeSubmoduleIndex = 0;
       let checkpointTriggered = new Set();
       let activeCheckpoint = null;
@@ -565,7 +571,7 @@
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                      topic_id: '{{ video.id }}',
+                      topic_id: videoId,
                       ...trackingData
                   })
               });

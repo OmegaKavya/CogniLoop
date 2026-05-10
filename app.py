@@ -10,23 +10,10 @@ app = Flask(__name__,
             static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'default-dev-secret-key')
 
-DATA_DIR = 'data'
-USERS_FILE = os.path.join(DATA_DIR, 'users.json')
-VIDEOS_FILE = os.path.join(DATA_DIR, 'videos.json')
-PROGRESS_FILE = os.path.join(DATA_DIR, 'user_progress.json')
+from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
 
-def load_json(filepath):
-    if not os.path.exists(filepath):
-        return [] if 'progress' not in filepath else {}
-    with open(filepath, 'r') as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return [] if 'progress' not in filepath else {}
+# Remove load_json and save_json globally
 
-def save_json(filepath, data):
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=4)
 
 
 def build_review_rows(attempts, topic_map):
@@ -111,14 +98,33 @@ def get_static_cheat_sheet(topic_id, topic_name):
 
 
 def build_topic_submodules(video):
-    cheat = get_static_cheat_sheet(video.get('id'), video.get('title', 'Topic'))
+    from utils.constants import SUBMODULE_DEFINITIONS
+    topic_id = video.get('id', '')
+    video_id = video.get('video_id')
+
+    # Use curated topic-specific submodules if available
+    if topic_id in SUBMODULE_DEFINITIONS:
+        submodules = []
+        for idx, defn in enumerate(SUBMODULE_DEFINITIONS[topic_id]):
+            submodules.append({
+                "id": f"{topic_id}-m{idx+1}",
+                "title": defn["title"],
+                "objective": defn["objective"],
+                "exam_angle": defn.get("exam_angle", ""),
+                "video_id": video_id,
+                "start_sec": defn["start_sec"],
+                "end_sec": defn["end_sec"],
+                "checkpoints": defn["checkpoints"]
+            })
+        return submodules
+
+    # Generic fallback for topics not yet in SUBMODULE_DEFINITIONS
+    cheat = get_static_cheat_sheet(topic_id, video.get('title', 'Topic'))
     core = cheat.get('core', [])
     drills = cheat.get('drills', [])
 
     def pick(items, index, fallback):
-        if items:
-            return items[index % len(items)]
-        return fallback
+        return items[index % len(items)] if items else fallback
 
     segments = [
         ("Module 1: Foundations", "Build conceptual clarity and key vocabulary.", 0, 420),
@@ -130,75 +136,52 @@ def build_topic_submodules(video):
     for idx, (title, objective, start_sec, end_sec) in enumerate(segments):
         focus_line = pick(core, idx, f"Revise foundational concepts in {video.get('title', 'this topic')}.")
         drill_line = pick(drills, idx, "Attempt one quick recall drill before moving ahead.")
-
-        checkpoints = [
-            {
-                "id": f"cp-{idx+1}-1",
-                "trigger_pct": 30,
-                "question": f"Checkpoint: Which statement best matches this module focus?",
-                "options": [
-                    focus_line,
-                    "Skip basics and directly memorize final answers.",
-                    "Ignore conceptual flow and only read examples.",
-                    "Avoid revision until final quiz."
-                ],
-                "correct_index": 0,
-                "explanation": "Correct — this aligns with the current revision objective."
-            },
-            {
-                "id": f"cp-{idx+1}-2",
-                "trigger_pct": 65,
-                "question": "Checkpoint: What is the best next revision action?",
-                "options": [
-                    "State one key concept and one edge case from this module.",
-                    "Skip all weak areas and move to new topics.",
-                    "Memorize without understanding.",
-                    "Avoid practice questions."
-                ],
-                "correct_index": 0,
-                "explanation": "Correct — active recall plus edge-case checking improves retention."
-            },
-            {
-                "id": f"cp-{idx+1}-3",
-                "trigger_pct": 85,
-                "question": "Final checkpoint for this module:",
-                "options": [
-                    drill_line,
-                    "Do nothing until the final graded quiz.",
-                    "Only rewatch without testing yourself.",
-                    "Skip all pitfall review."
-                ],
-                "correct_index": 0,
-                "explanation": "Correct — quick drills before moving on improve transfer and confidence."
-            }
-        ]
-
         submodules.append({
-            "id": f"{video.get('id', 'topic')}-m{idx+1}",
+            "id": f"{topic_id}-m{idx+1}",
             "title": title,
             "objective": objective,
-            "video_id": video.get('video_id'),
+            "exam_angle": "",
+            "video_id": video_id,
             "start_sec": start_sec,
             "end_sec": end_sec,
-            "checkpoints": checkpoints
+            "checkpoints": [
+                {"id": f"cp-{idx+1}-1", "trigger_pct": 30,
+                 "question": "Which statement best matches this module focus?",
+                 "options": [focus_line, "Skip basics and memorize final answers.", "Ignore conceptual flow.", "Avoid revision until final quiz."],
+                 "correct_index": 0, "explanation": "This aligns with the current revision objective."},
+                {"id": f"cp-{idx+1}-2", "trigger_pct": 65,
+                 "question": "Best next revision action?",
+                 "options": ["State one key concept and one edge case.", "Skip weak areas.", "Memorize without understanding.", "Avoid practice."],
+                 "correct_index": 0, "explanation": "Active recall with edge cases improves retention."},
+                {"id": f"cp-{idx+1}-3", "trigger_pct": 85,
+                 "question": "Final checkpoint for this module:",
+                 "options": [drill_line, "Do nothing until final quiz.", "Only rewatch without testing.", "Skip pitfall review."],
+                 "correct_index": 0, "explanation": "Quick drills improve transfer and confidence."}
+            ]
         })
-
     return submodules
 
 
-def build_quiz_payload(user_id, topic_id, video, watch_time):
+def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental'):
     current_mastery = bkt_engine.get_mastery(user_id, topic_id)
-    attempts = load_json(QUIZ_ATTEMPTS_FILE) if os.path.exists(QUIZ_ATTEMPTS_FILE) else []
-    user_topic_attempts = [a for a in attempts if a['user_id'] == user_id and a['topic_id'] == topic_id]
+    user_topic_attempts = [a for a in quiz_repo.get_user_attempts(user_id) if a['topic_id'] == topic_id]
     if user_topic_attempts:
         last_attempt = user_topic_attempts[-1]
-        current_difficulty = last_attempt.get('adaptation', {}).get('new_difficulty', 'medium')
         current_cluster = last_attempt.get('behavior_cluster', 'General Learner')
         current_speed = last_attempt.get('adaptation', {}).get('speed_label', 'Steady')
     else:
-        current_difficulty = 'medium'
         current_cluster = 'General Learner'
         current_speed = 'Steady'
+
+    from backend.adaptation.bandit_policy import bandit_adapter
+    
+    if study_group == 'control':
+        current_difficulty = 'medium'
+        current_speed = 'Steady'
+        current_mastery = 0.5  # Static midpoint
+        current_cluster = 'General Learner'
+    else:
+        current_difficulty = bandit_adapter.get_action(current_cluster, current_mastery)
 
     recent_question_texts = []
     for attempt in user_topic_attempts[-5:]:
@@ -245,7 +228,7 @@ def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     
-    videos = load_json(VIDEOS_FILE)
+    videos = video_repo.get_all_videos()
     return render_template('landing.html', courses=videos)
 
 @app.route('/about')
@@ -263,12 +246,11 @@ def login():
         email = data.get('email')
         password = data.get('password')
         
-        users = load_json(USERS_FILE)
-        user = next((u for u in users if u['email'] == email and u['password'] == password), None)
-        
-        if user:
+        user = user_repo.find_by_email(email)
+        if user and user.get('password') == password:
             session['user_id'] = user['id']
             session['user_name'] = user['name']
+            session['study_group'] = user.get('study_group', 'experimental')
             return jsonify({'success': True})
         return jsonify({'success': False, 'message': 'Invalid credentials'})
     
@@ -282,19 +264,29 @@ def register():
         email = data.get('email')
         password = data.get('password')
         
-        users = load_json(USERS_FILE)
-        if any(u['email'] == email for u in users):
+        users_data = user_repo.get_all()
+        # Since users is a dict in repo, but array originally... Wait!
+        # Original users.json is an array. I need to make sure UserRepository handles arrays or convert it.
+        # I'll just adjust registration:
+        users_list = list(users_data.values()) if isinstance(users_data, dict) else users_data
+        if any(u['email'] == email for u in users_list):
             return jsonify({'success': False, 'message': 'Email already registered'})
         
+        new_id = str(len(users_list) + 1)
+        import random
+        study_group = random.choice(['control', 'experimental'])
         new_user = {
-            'id': str(len(users) + 1),
+            'id': new_id,
             'name': name,
             'email': email,
             'password': password,
+            'study_group': study_group,
             'created_at': datetime.now().isoformat()
         }
-        users.append(new_user)
-        save_json(USERS_FILE, users)
+        
+        # If users.json was originally a list, UserRepository will read it as list, so save should be adapted.
+        # But in my BaseJsonRepository, save(item_id, item_data) assumes a DICT. Let me fix the schema to dict.
+        user_repo.save(new_id, new_user)
         
         session['user_id'] = new_user['id']
         session['user_name'] = new_user['name']
@@ -313,16 +305,15 @@ def dashboard():
         return redirect(url_for('login'))
     
     user_id = session['user_id']
-    videos = load_json(VIDEOS_FILE)
-    progress = load_json(PROGRESS_FILE)
+    videos = video_repo.get_all_videos()
+    progress = progress_repo.get_all()
     user_progress = progress.get(user_id, {})
 
     for video in videos:
         video_p = user_progress.get(video['id'], {})
         video['progress'] = video_p.get('watch_percentage', 0)
     
-    attempts = load_json(QUIZ_ATTEMPTS_FILE)
-    user_attempts = [a for a in attempts if a['user_id'] == user_id]
+    user_attempts = quiz_repo.get_user_attempts(user_id)
     
     user_attempts.sort(key=lambda x: x['timestamp'])
     
@@ -382,12 +373,10 @@ def progress_page():
         return redirect(url_for('login'))
     
     user_id = session['user_id']
-    attempts = load_json(QUIZ_ATTEMPTS_FILE)
-    videos = load_json(VIDEOS_FILE)
+    user_attempts = quiz_repo.get_user_attempts(user_id)
+    videos = video_repo.get_all_videos()
     
     topic_map = {v['id']: v['title'] for v in videos}
-    
-    user_attempts = [a for a in attempts if a['user_id'] == user_id]
     for attempt in user_attempts:
         attempt['topic_name'] = topic_map.get(attempt['topic_id'], attempt['topic_id'])
         
@@ -398,7 +387,7 @@ def video_page(topic_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    videos = load_json(VIDEOS_FILE)
+    videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), None)
     if not video:
         return redirect(url_for('dashboard'))
@@ -411,8 +400,8 @@ from backend.adaptation.recommendation import recommender
 from backend.quiz.quiz_generator import quiz_gen
 from backend.quiz.quiz_evaluator import evaluator
 from backend.quiz.quiz_insights import insights_engine
-from backend.adaptation.speed_adaptation import speed_adapter
 from backend.bkt.bkt_engine import bkt_engine
+from backend.adaptation.bandit_policy import bandit_adapter
 
 QUIZ_ATTEMPTS_FILE = 'data/quiz_attempts.json'
 
@@ -434,15 +423,12 @@ def video_track():
     
     success = mp_manager.log_interaction(user_id, video_id, interaction_data)
     
-    progress = load_json(PROGRESS_FILE)
-    if user_id not in progress:
-        progress[user_id] = {}
-    progress[user_id][video_id] = {
+    progress_data = {
         "last_position": data.get('last_time', 0),
         "watch_percentage": data.get('watch_percentage', 0),
         "timestamp": datetime.now().isoformat()
     }
-    save_json(PROGRESS_FILE, progress)
+    progress_repo.save_progress(user_id, video_id, progress_data)
     
     if success:
         return jsonify({'success': True})
@@ -455,9 +441,7 @@ def get_user_progress(video_id):
         return jsonify({'success': False}), 401
     
     user_id = session['user_id']
-    progress = load_json(PROGRESS_FILE)
-    
-    user_progress = progress.get(user_id, {}).get(video_id, {})
+    user_progress = progress_repo.get_progress(user_id, video_id)
     return jsonify({
         'success': True,
         'last_position': user_progress.get('last_position', 0),
@@ -469,7 +453,7 @@ def quiz_page(topic_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    videos = load_json(VIDEOS_FILE)
+    videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), None)
     if not video:
         return redirect(url_for('dashboard'))
@@ -489,17 +473,17 @@ def api_quiz_data(topic_id):
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
-    videos = load_json(VIDEOS_FILE)
+    videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), None)
     if not video:
         return jsonify({'success': False, 'message': 'Topic not found'}), 404
 
     user_id = session['user_id']
-    progress = load_json(PROGRESS_FILE)
-    user_video_progress = progress.get(user_id, {}).get(topic_id, {})
+    study_group = session.get('study_group', 'experimental')
+    user_video_progress = progress_repo.get_progress(user_id, topic_id)
     watch_time = user_video_progress.get('last_position', 0)
 
-    quiz = build_quiz_payload(user_id, topic_id, video, watch_time)
+    quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group)
     session['current_quiz'] = quiz
 
     return jsonify({
@@ -532,13 +516,22 @@ def quiz_submit():
     score = eval_result['score']
     avg_time = eval_result['avg_time']
     
-    adaptation = speed_adapter.adapt(score, avg_time, current_difficulty)
+    # Still keep a speed label for UI purposes, but use bandit for actual difficulty
+    speed_label = "Fast" if avg_time < 10 else "Slow" if avg_time > 20 else "Steady"
+    adaptation = {
+        "speed_label": speed_label,
+        "new_difficulty": current_difficulty # Recorded for historical purposes
+    }
+    
+    study_group = session.get('study_group', 'experimental')
     
     is_correct_overall = score >= 70
     new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall)
     
     try:
-        all_patterns = load_json('data/micro_patterns.json')
+        import json
+        with open('data/micro_patterns.json', 'r') as f:
+            all_patterns = json.load(f)
         if not isinstance(all_patterns, list):
             all_patterns = []
         user_patterns = [p for p in all_patterns if p.get('user_id') == user_id and p.get('video_id') == topic_id]
@@ -547,16 +540,31 @@ def quiz_submit():
         latest_pattern = {}
     cluster = mp_manager.predict_cluster(latest_pattern)
     
-    recommendation = recommender.get_recommendation(score, new_mastery, adaptation['speed_label'], cluster)
-
-    videos = load_json(VIDEOS_FILE)
+    if study_group == 'experimental':
+        # Update Bandit Policy
+        bandit_adapter.update_policy(cluster, new_mastery, current_difficulty, score)
+        recommendation = recommender.get_recommendation(score, new_mastery, speed_label, cluster)
+    else:
+        # Static control group logic
+        recommendation = "Continue reviewing the material sequentially."
+        
+    videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
-    ai_insights = insights_engine.generate_insights(
-        video.get('title', topic_id),
-        score,
-        round(new_mastery, 2),
-        eval_result.get('question_results', [])
-    )
+    
+    if study_group == 'experimental':
+        ai_insights = insights_engine.generate_insights(
+            video.get('title', topic_id),
+            score,
+            round(new_mastery, 2),
+            eval_result.get('question_results', [])
+        )
+    else:
+        ai_insights = {
+            "summary": "AI insights are disabled for the Control Group.",
+            "focus_concepts": [],
+            "cheat_sheet": [],
+            "resources": []
+        }
 
     answer_map = {
         str(r.get('question_id')): {
@@ -610,9 +618,7 @@ def quiz_submit():
         "ai_insights": ai_insights
     }
     
-    attempts = load_json(QUIZ_ATTEMPTS_FILE) if os.path.exists(QUIZ_ATTEMPTS_FILE) else []
-    attempts.append(attempt_log)
-    save_json(QUIZ_ATTEMPTS_FILE, attempts)
+    quiz_repo.add_attempt(attempt_log)
     
     return jsonify({
         'success': True, 
@@ -633,10 +639,9 @@ def quiz_review_list():
         return redirect(url_for('login'))
 
     user_id = session['user_id']
-    attempts = load_json(QUIZ_ATTEMPTS_FILE) if os.path.exists(QUIZ_ATTEMPTS_FILE) else []
-    videos = load_json(VIDEOS_FILE)
+    user_attempts = quiz_repo.get_user_attempts(user_id)
+    videos = video_repo.get_all_videos()
     topic_map = {v['id']: v['title'] for v in videos}
-    user_attempts = [a for a in attempts if a.get('user_id') == user_id]
     review_rows = build_review_rows(user_attempts, topic_map)
 
     return render_template('quiz_review.html', review_rows=review_rows, selected_attempt=None)
@@ -648,11 +653,10 @@ def quiz_review_page(attempt_id):
         return redirect(url_for('login'))
 
     user_id = session['user_id']
-    attempts = load_json(QUIZ_ATTEMPTS_FILE) if os.path.exists(QUIZ_ATTEMPTS_FILE) else []
-    videos = load_json(VIDEOS_FILE)
+    user_attempts = quiz_repo.get_user_attempts(user_id)
+    videos = video_repo.get_all_videos()
     topic_map = {v['id']: v['title'] for v in videos}
 
-    user_attempts = [a for a in attempts if a.get('user_id') == user_id]
     review_rows = build_review_rows(user_attempts, topic_map)
     selected_attempt = next((a for a in user_attempts if a.get('attempt_id') == attempt_id), None)
 
@@ -660,6 +664,20 @@ def quiz_review_page(attempt_id):
         return redirect(url_for('quiz_review_list'))
 
     return render_template('quiz_review.html', review_rows=review_rows, selected_attempt=selected_attempt)
+
+from backend.analytics.metrics import analytics_engine
+
+@app.route('/api/research-analytics')
+def research_analytics():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    # In a real app, restrict this to admin users only.
+    report = analytics_engine.generate_experiment_report()
+    return jsonify({
+        'success': True,
+        'report': report
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

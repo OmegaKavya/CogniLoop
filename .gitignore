@@ -1,50 +1,72 @@
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.so
-.venv/
-venv/
-env/
-ENV/
 .python-version
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# ─── Virtual Environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Test Coverage ────────────────────────────────────────────────────────────
 .coverage
 coverage.xml
 htmlcov/
-data/
-# Flask / app runtime
+
+# ─── Runtime Data (user data, quiz history, model state) ──────────────────────
+# videos.json is SEED DATA — it must stay in the repo
+data/users.json
+data/user_progress.json
+data/quiz_attempts.json
+data/micro_patterns.json
+data/bkt_states.json
+data/bandit_q_table.json
+data/chroma_db/
+
+# ─── Trained ML Models ────────────────────────────────────────────────────────
+*.pkl
+models/
+
+# ─── Flask / App Runtime ──────────────────────────────────────────────────────
 instance/
 *.log
 logs/
 *.sqlite3
 
-# Jupyter
+# ─── Jupyter ──────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# macOS
+# ─── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# VS Code
+# ─── VS Code ──────────────────────────────────────────────────────────────────
 .vscode/
 
-# Build / packaging
+# ─── Build / Packaging ────────────────────────────────────────────────────────
 dist/
 build/
 *.egg-info/
 
-# Ollama / local model artifacts
-ollama_models/
-
-# Temporary files
+# ─── Temporary files ──────────────────────────────────────────────────────────
 *.tmp
 *.swp
+*.bak
 
-# Environment variables
+# ─── Environment Variables ────────────────────────────────────────────────────
 .env
 
-# Local models
-*.pkl
+# ─── Ollama / Local LLM Artifacts ────────────────────────────────────────────
+ollama_models/
+
+# ─── Local diagnostic / one-off scripts (not part of core codebase) ──────────
+# (No current root-level one-off scripts)
+

@@ -77,21 +77,37 @@
         transition: width 1s linear;
       }
 
-      /* AI Loading Overlay */
+      /* ── Immersive AI Loading Overlay ──────────────────── */
+      @keyframes floatUp {
+        0%   { opacity:0; transform:translateY(0) scale(1); }
+        15%  { opacity:.5; }
+        85%  { opacity:.2; }
+        100% { opacity:0; transform:translateY(-80vh) scale(.4); }
+      }
+      .steps-list { display:flex; flex-direction:column; gap:10px; margin:20px 0 24px; text-align:left; width:min(400px,90vw); }
+      .step-item { display:flex; align-items:center; gap:12px; padding:10px 16px; border-radius:10px; background:#fff; border:1px solid #e8e4de; color:#a8a29e; font-size:.9rem; font-weight:500; transition:all .4s; opacity:.5; }
+      .step-item.active { border-color:#1a6b72; color:#1a6b72; background:#e8f5f6; opacity:1; }
+      .step-item.done   { border-color:#047857; color:#047857; background:#d1fae5; opacity:1; }
+      .step-dot { width:22px; height:22px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:.7rem; font-weight:800; transition:all .3s; }
+      .step-item.active .step-dot { background:#1a6b72; color:#fff; border-color:#1a6b72; animation:spin 1s linear infinite; }
+      .step-item.done .step-dot   { background:#047857; border-color:#047857; color:#fff; }
+      .dyk-card { width:min(460px,92vw); background:#fff; border:1px solid #e8e4de; border-left:4px solid #d97706; border-radius:12px; padding:16px 20px; text-align:left; }
+      .dyk-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#d97706; margin-bottom:8px; }
+      .dyk-text  { font-size:.92rem; color:#57534e; line-height:1.6; min-height:42px; transition:opacity .4s; }
+      .loading-dots::after { content:'.'; animation:loadDots 1.4s steps(4,end) infinite; }
+      @keyframes loadDots { 0%,20%{content:'.'} 40%{content:'..'} 60%{content:'...'} 80%,100%{content:''} }
+      .particle-field { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
       #ai-loading-overlay {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 245, 0.98);
+        inset: 0;
+        background: rgba(250,249,247,.97);
         z-index: 9999;
         display: none;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         text-align: center;
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(10px);
       }
 
       .ai-eval-icon {
@@ -410,37 +426,53 @@
       </div>
     </nav>
 
-    <!-- AI Loading Overlay HTML -->
+    <!-- Immersive AI Loading Overlay -->
     <div id="ai-loading-overlay">
-      <div class="ai-eval-icon">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 2v4" />
-          <path d="M12 18v4" />
-          <path d="M4.93 4.93l2.83 2.83" />
-          <path d="M16.24 16.24l2.83 2.83" />
-          <path d="M2 12h4" />
-          <path d="M18 12h4" />
-          <path d="M4.93 19.07l2.83-2.83" />
-          <path d="M16.24 7.76l2.83-2.83" />
+      <!-- Particle dots background -->
+      <div class="particle-field" id="particleField"></div>
+
+      <!-- Spinning ring icon -->
+      <div style="position:relative;width:80px;height:80px;margin-bottom:20px;">
+        <svg style="position:absolute;inset:0;animation:spin 2.4s linear infinite;color:var(--primary);" viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="36" stroke="currentColor" stroke-width="3" stroke-dasharray="56 170" stroke-linecap="round" opacity=".8"/>
+        </svg>
+        <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;color:var(--primary);animation:pulse 2s ease-in-out infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
         </svg>
       </div>
-      <div class="loading-text">
-        <h2 style="color: var(--text-dark); margin-bottom: 10px">
-          AI is evaluating your responses<span class="loading-dots"></span>
-        </h2>
-        <p style="color: var(--text-light); font-size: 1.1rem">
-          Calculating mastery levels and crafting personalized feedback...
-        </p>
+
+      <h2 style="font-size:1.5rem;margin-bottom:4px;color:var(--text-900);">
+        Building your adaptive quiz<span class="loading-dots"></span>
+      </h2>
+      <p style="color:var(--text-400);font-size:.9rem;margin-bottom:20px;">Personalised to your mastery & learning pace</p>
+
+      <!-- 4 animated steps -->
+      <div class="steps-list" id="loadingSteps">
+        <div class="step-item" id="step-0">
+          <div class="step-dot">1</div>
+          <span>Analysing your learning profile</span>
+        </div>
+        <div class="step-item" id="step-1">
+          <div class="step-dot">2</div>
+          <span>Retrieving video context via RAG</span>
+        </div>
+        <div class="step-item" id="step-2">
+          <div class="step-dot">3</div>
+          <span>Crafting adaptive questions</span>
+        </div>
+        <div class="step-item" id="step-3">
+          <div class="step-dot">4</div>
+          <span>Calibrating difficulty & hints</span>
+        </div>
+      </div>
+
+      <!-- DYK rotating fact -->
+      <div class="dyk-card">
+        <div class="dyk-label">💡 Did you know?</div>
+        <div class="dyk-text" id="dykText">Loading fact...</div>
       </div>
     </div>
+
 
     <div class="quiz-container loading-mode animate-fade" id="quiz-container">
       {% set cheat = static_cheat_sheet if static_cheat_sheet is mapping else {
@@ -795,6 +827,11 @@
       </div>
     </div>
 
+    <div id="quiz-js-data"
+      data-loading-tips="{{ (cheat.core if cheat and cheat.core else []) | tojson | forceescape }}"
+      data-topic-id="{{ topic_id | tojson | forceescape }}"
+      style="display:none"
+    ></div>
     <script>
       let quizData = null;
       let quizQuestions = [];
@@ -808,9 +845,13 @@
       let hintsUnlocked = false;
       let isAdvancing = false;
       const hintUsedByQuestion = {};
-      const loadingTips = {{ (cheat.core if cheat and cheat.core else []) | tojson | safe }};
+      const _jsData = document.getElementById('quiz-js-data');
+      const loadingTips = JSON.parse(_jsData.dataset.loadingTips);
       let loadingTipIndex = 0;
-      const currentTopicId = {{ topic_id | tojson | safe }};
+      const currentTopicId = JSON.parse(_jsData.dataset.topicId);
+      const dykFacts={os:["The first OS (GM-NAA I/O, 1956) was just 4 KB of code.","A context switch takes 1-10 microseconds on modern CPUs.","Linux CFS scheduler is built on a red-black tree.","The term deadlock was formally defined by Dijkstra in 1965."],ds:["Quicksort beats Merge Sort in practice due to cache locality.","Skip lists match BST O(log n) ops via randomisation.","Fibonacci heap gets O(1) amortized decrease-key for Dijkstra.","Tries store a million words using less memory than a million strings."],dbms:["Codd proposed the relational model at IBM in 1970.","PostgreSQL MVCC means readers never block writers.","NULL in SQL means unknown - not 0 or empty string.","The term ACID was coined by Reuter and Harder in 1983."],cn:["The first ARPANET message in 1969 crashed after just 'lo'.","IPv6 has 2^128 addresses - enough for every atom on Earth.","TCP congestion control was added after a 1988 Internet meltdown.","HTTP/3 runs over QUIC (UDP), eliminating TCP head-of-line blocking."]};
+      function startLoadingOverlayAnimations(){const tid=currentTopicId||'os';const facts=dykFacts[tid]||dykFacts.os;let fi=0;const el=document.getElementById('dykText');if(el){el.textContent=facts[0];el.style.transition='opacity .4s';setInterval(()=>{el.style.opacity='0';setTimeout(()=>{fi=(fi+1)%facts.length;el.textContent=facts[fi];el.style.opacity='1';},420);},4000);}[600,1400,2400,3600].forEach((ms,i)=>{setTimeout(()=>{const prev=document.getElementById('step-'+(i-1));if(prev){prev.classList.remove('active');prev.classList.add('done');const d=prev.querySelector('.step-dot');if(d)d.textContent='';}const curr=document.getElementById('step-'+i);if(curr)curr.classList.add('active');},ms);});const field=document.getElementById('particleField');if(field){['#1a6b72','#d97706','#047857','#7c3aed','#be185d'].forEach(c=>{for(let j=0;j<4;j++){const p=document.createElement('div');const sz=4+Math.random()*7;p.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+(Math.random()*100)+'%;bottom:-10px;background:'+c+';border-radius:50%;position:absolute;animation:floatUp '+(6+Math.random()*8)+'s '+(Math.random()*6)+'s ease-in infinite;opacity:0;';field.appendChild(p);}});}}
+      function showLoadingOverlay(){document.getElementById('ai-loading-overlay').style.display='flex';startLoadingOverlayAnimations();}
 
       const topicMainTips = {
           os: [
@@ -998,7 +1039,7 @@
 
       async function submitQuiz() {
           clearInterval(timerInterval);
-          document.getElementById('ai-loading-overlay').style.display = 'flex';
+          showLoadingOverlay();
 
           const response = await fetch('/api/quiz-submit', {
               method: 'POST',
