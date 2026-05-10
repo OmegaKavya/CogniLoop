@@ -13,19 +13,24 @@ flowchart LR
     F --> QG[Quiz Generator]
     F --> QE[Quiz Evaluator]
     F --> AI[Quiz Insights Engine]
-    F --> SA[Speed Adaptation Engine]
+    F --> CB[Contextual Bandit Policy]
     F --> BKT[BKT Mastery Engine]
     F --> MP[Micro-Pattern Manager]
     F --> RE[Recommendation Engine]
 
-    QG --> O[Ollama API\nllama3.2]
-    QE --> O
-    AI --> O
+    QG -->|Primary ~2s| GR[Groq API\nllama-3.1-8b-instant]
+    QG -->|Fallback| O[Ollama API\nllama3.2]
+    QG -->|Static fallback| SF[Curated Questions]
+    AI -->|Primary| GR
+    AI -->|Fallback| O
 
-    QG --> YT[YouTube Transcript API]
-
-    F --> D[(JSON Data Store\nusers/progress/attempts/patterns/videos)]
+    QG --> RAG[RAG Retriever\nChromaDB + SentenceTransformers]
+    RAG --> YT[YouTube Transcript API]
+    F --> REP[Repository Layer\nuser_repo/quiz_repo/etc.]
+    REP --> D[(JSON Data Store\nusers/progress/attempts/patterns/videos)]
     MP --> M[(Clustering Model\nKMeans pickle)]
+    BKT --> REP
+    F --> AN[Analytics Engine\nA/B Testing & NLG]
     BKT --> D
 ```
 
@@ -35,6 +40,7 @@ flowchart LR
 
 - HTML views in `frontend/templates/`.
 - CSS and client-side behavior in `static/`.
+- **Design System**: Built on a bespoke "Warm Slate and Amber" palette (#1c1917, #d97706) for a premium academic aesthetic, utilizing *Plus Jakarta Sans* and responsive glassmorphism components.
 - Dynamic pages:
   - dashboard,
   - video player with checkpoints,
@@ -54,21 +60,28 @@ flowchart LR
 ### Domain services (`backend/`)
 
 - `backend/quiz/quiz_generator.py`:
-  - conceptual question generation,
-  - dynamic question count and difficulty,
-  - non-repetition filtering.
+  - **3-tier LLM fallback**: Groq API (primary, ~2s) → Ollama local (fallback) → static questions.
+  - conceptual question generation with trimmed prompt (~40% smaller than v1).
+  - dynamic question count (6–10) and difficulty adaptation.
+  - non-repetition filtering via `avoid_questions` deduplication.
 - `backend/quiz/quiz_evaluator.py`:
-  - semantic answer validation and feedback.
+  - semantic answer validation and per-question feedback.
 - `backend/quiz/quiz_insights.py`:
-  - summary/focus/revision insights.
-- `backend/adaptation/speed_adaptation.py`:
-  - score/time-based difficulty policy.
+  - **time-based diagnosis** per wrong answer (guessed < 5s / confused > 25s / misconception).
+  - cheat-sheet concept mapping for wrong questions using `STATIC_CHEAT_SHEETS`.
+  - Groq primary → smart fallback (non-generic, topic-aware).
+- `backend/quiz/rag_retriever.py`:
+  - Semantic transcript chunking and retrieval to mitigate hallucinations.
+- `backend/adaptation/bandit_policy.py`:
+  - Epsilon-Greedy Contextual Bandit mapping (Cluster+Mastery) to Difficulty.
 - `backend/bkt/bkt_engine.py`:
   - Bayesian mastery update.
 - `backend/adaptation/micro_pattern.py`:
   - behavior logging and KMeans cluster prediction.
-- `backend/adaptation/recommendation.py`:
-  - final next-step recommendation synthesis.
+- `backend/analytics/metrics.py`:
+  - A/B testing framework calculating Normalized Learning Gain and statistical significance.
+- `backend/repositories/`:
+  - Data access layer abstracting file/DB operations with advisory fcntl locking.
 
 ### Infrastructure layer
 
@@ -93,7 +106,7 @@ flowchart TB
 
     subgraph ADAPT[Adaptation Modules]
       BKT[bkt_engine]
-      SPD[speed_adapter]
+      CB[bandit_adapter]
       MP[mp_manager]
       REC[recommender]
     end
@@ -123,7 +136,7 @@ flowchart TB
     R5 --> J3
 
     R6 --> EVAL
-    R6 --> SPD
+    R6 --> CB
     R6 --> BKT
     R6 --> MP
     R6 --> REC
@@ -147,7 +160,7 @@ sequenceDiagram
     participant G as Quiz Generator
     participant O as Ollama
     participant E as Quiz Evaluator
-    participant S as Speed Adapter
+    participant CB as Contextual Bandit
     participant M as Micro-Pattern Manager
     participant R as Recommendation Engine
     participant I as Insights Engine
@@ -163,14 +176,14 @@ sequenceDiagram
     A-->>C: quiz + timer + hint metadata
 
     C->>A: POST /api/quiz-submit (responses)
-    A->>E: evaluate(quiz, responses)
-    E->>O: semantic verify + feedback
+    A->>E: evaluate(quiz, responses) (Batched LLM Prompt)
+    E->>O: semantic verify + feedback (O(1) latency)
     O-->>E: per-question correctness + feedback
     E-->>A: score + avg_time + results
 
-    A->>S: adapt(score, avg_time, current_difficulty)
     A->>B: update_mastery(user, topic, pass/fail)
     A->>M: predict_cluster(latest interaction)
+    A->>CB: update_policy(cluster, mastery, difficulty, score)
     A->>R: get_recommendation(score, mastery, speed, cluster)
     A->>I: generate_insights(topic, score, mastery, question_results)
 
@@ -212,10 +225,11 @@ Failure behavior:
 - Maintains probability of latent concept mastery per user/topic.
 - Updates mastery after each attempt using Bayesian observation update + transition.
 
-### 5.4 Speed adaptation engine
+### 5.4 Contextual Bandit Adaptation Engine
 
-- Computes speed label from response latency thresholds.
-- Applies policy-based difficulty transition for the next attempt.
+- Maps state (`Learner Cluster` + `Mastery`) to an action (`easy`, `medium`, `hard`).
+- Replaces static speed rules with an Epsilon-Greedy policy (default `epsilon=0.2`).
+- Evaluates reward dynamically `(score / 100) * difficulty_multiplier` to push users to their threshold.
 
 ### 5.5 Behavior clustering engine
 
@@ -232,11 +246,16 @@ Failure behavior:
 
 ### Web pages
 
-- `GET /dashboard`
-- `GET /video/<topic_id>`
-- `GET /quiz/<topic_id>`
-- `GET /quiz-review`
-- `GET /quiz-review/<attempt_id>`
+- `GET /` (Landing page)
+- `GET, POST /login` (Authentication)
+- `GET, POST /register` (User onboarding)
+- `GET /logout` (Session termination)
+- `GET /dashboard` (Main adaptive hub)
+- `GET /progress` (Learning analytics view)
+- `GET /video/<topic_id>` (Video playback & checkpoints)
+- `GET /quiz/<topic_id>` (Adaptive quiz interface)
+- `GET /quiz-review` (History of all attempts)
+- `GET /quiz-review/<attempt_id>` (Diagnostic question breakdown)
 
 ### JSON APIs
 
@@ -244,6 +263,7 @@ Failure behavior:
 - `GET /api/user-progress/<video_id>`
 - `GET /api/quiz-data/<topic_id>`
 - `POST /api/quiz-submit`
+- `GET /api/research-analytics`
 
 ## 7) Data model summary (JSON persistence)
 
@@ -282,7 +302,7 @@ Failure behavior:
 
 ## 9) Extensibility points
 
-- Replace JSON persistence with PostgreSQL/MongoDB by swapping load/save adapters.
+- Replace JSON persistence with PostgreSQL/MongoDB by swapping load/save logic in `backend/repositories/`. Since the repository pattern is fully implemented, zero application logic changes are required.
 - Add checkpoint-performance persistence endpoint for in-video quizzes.
 - Add offline model fallback (rule-based distractor generation) for no-LLM mode.
 - Introduce event bus (Redis/Kafka) for analytics decoupling at scale.
@@ -293,3 +313,18 @@ Failure behavior:
 - LLM generation/evaluation guarded with timeout and exception handling.
 - Deterministic fallback quiz/evaluation prevents user-facing hard failure.
 - Version-aware model loading retrains clustering model on sklearn mismatch.
+## 9) Quality Assurance & Testing Suite
+
+The platform includes a comprehensive suite of **158 automated tests** covering every layer of the system.
+
+### A) Test categories
+- **Unit Tests**: Deep verification of the math behind the BKT engine, Bandit rewards, and diagnostic time boundaries.
+- **Integration Tests**: Verification of the Repository pattern with file locking, and the 3-tier LLM fallback logic (Groq -> Ollama -> Static).
+- **Stress Tests**: Concurrency tests for file-based persistence under simulated high load.
+- **End-to-End (E2E) Routes**: Full-stack verification of user flows (registration, login, video watch, quiz submit, and diagnostic review).
+
+### B) CI/CD readiness
+The codebase is structured for CI/CD integration with:
+- `pytest` for all test execution.
+- Deterministic JSON-based persistence for test isolation.
+- Mocked LLM endpoints for consistent test results without external API costs.

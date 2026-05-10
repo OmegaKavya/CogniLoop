@@ -6,11 +6,11 @@ def test_get_question_count():
     
     # Low mastery -> higher question count
     count_low = gen._get_question_count(mastery=0.2, speed_label="Steady")
-    assert 9 <= count_low <= 13 # base max (12) + 1
+    assert 8 <= count_low <= 10  # Steady + low mastery: min=8, max capped at 10
     
     # High mastery -> lower question count
     count_high = gen._get_question_count(mastery=0.9, speed_label="Steady")
-    assert 8 <= count_high <= 12 # base min (9) - 1
+    assert 6 <= count_high <= 10  # Steady + high mastery: min reduced to 7
     
 def test_ensure_unique_questions():
     gen = QuizGenerator()

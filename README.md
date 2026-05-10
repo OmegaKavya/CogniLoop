@@ -10,10 +10,11 @@ For full system architecture, module boundaries, adaptive-engine pipeline, and r
 
 ## Why this project stands out
 
-- Adaptive intelligence stack: BKT mastery + speed adaptation + behavior clustering.
-- Concept-first assessment quality: basic-to-advanced question progression with anti-generic prompt constraints.
-- Reliability by design: graceful fallback paths for transcript and LLM failures.
-- End-to-end product depth: video checkpoints, adaptive quiz engine, review analytics, and heatmap-driven insights.
+- Adaptive intelligence stack: BKT mastery + Epsilon-Greedy Contextual Bandits + behavior clustering.
+- RAG-powered assessment quality: Semantic chunking of transcripts using `chromadb` to eliminate hallucination.
+- Reliability by design: graceful fallback paths for transcript, LLM, and vector-database failures.
+- Production-ready architecture: Repository pattern for data access, Docker containerization, and batched LLM inference.
+- Scientific rigor: Built-in A/B Testing framework measuring Normalized Learning Gain (NLG) with SciPy T-tests.
 
 ## What this project does
 
@@ -31,11 +32,13 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 
 ### 1. Adaptive quiz generation
 
-- Generates topic-based MCQ quizzes using local Ollama models.
+- Generates topic-based MCQ quizzes using **Groq API** (primary, ~2s) with Ollama as local offline fallback.
+- Default Groq model: `llama-3.1-8b-instant` (free tier, 30 RPM). Ollama model: `llama3.2`.
 - Questions adapt to learner mastery and speed.
-- Quiz length can vary from 7 to 15 questions.
-- Difficulty is adjusted based on learner behavior.
-- Question repetition is minimized across attempts.
+- Quiz length: **6–10 questions** (adaptive).
+- Difficulty is adjusted based on learner behavior cluster and BKT mastery.
+- Question repetition is minimized across attempts via a `avoid_questions` deduplication list.
+- **3-tier graceful fallback**: Groq → Ollama → static curated questions.
 
 ### 2. Conceptual question quality
 
@@ -48,10 +51,11 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 
 ### 3. Quiz review and explanations
 
-- Every attempt can be reviewed later.
-- Shows correct answer, user answer, score, and performance details.
-- Includes AI-generated insights and focus areas.
-- Helps the learner understand where reasoning broke down.
+- Every attempt can be reviewed with a full **diagnostic breakdown**.
+- Per-question **time-signal diagnosis**: rushed guess (< 5s), concept gap (> 25s), or misconception.
+- Shows mastery before/after bars, score ring, and pace analysis.
+- AI-generated action plan maps wrong answers to cheat-sheet concepts (not generic Google links).
+- Resources link to NPTEL lecture notes, GeeksforGeeks GATE sets, and topic-specific references.
 
 ### 4. AI insights and revision support
 
@@ -60,12 +64,15 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 - Builds a quick cheat-sheet style summary.
 - Suggests related learning resources.
 
-### 5. Video learning with submodules
+### 5. Video learning with curated submodules
 
-- Each topic page is structured into submodules.
-- Submodules provide a more guided learning path instead of a single video-only experience.
-- Includes checkpoint mini-quizzes during video playback.
-- Checkpoints help reinforce concepts before moving ahead.
+- Each topic has **3 real curriculum submodules** with specific CS concepts:
+  - OS: Process & Thread Lifecycle / Virtual Memory / Synchronisation & Deadlock
+  - DS: Linear Structures / Trees & Heaps / Graphs & Hashing
+  - DBMS: Relational Model / Normalisation / Transactions
+  - CN: Architecture & Addressing / TCP vs UDP / Application & Routing
+- Each module includes a **GATE exam angle tip** and 3 topic-specific checkpoint MCQs.
+- Checkpoints are curated MCQs (not generic "which statement matches") testing real concepts.
 
 ### 6. Timer and hint behavior
 
@@ -80,35 +87,51 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 - Displays topic-wise heatmaps.
 - Surfaces mastery, score, timing, and learning trends.
 
-### 8. Local Ollama integration
+### 8. LLM integration — Groq primary, Ollama fallback
 
-- Uses Ollama for quiz generation and evaluation.
-- Default model is `llama3.2`.
-- Falls back safely when the model is unavailable.
+- **Groq API** (free at `console.groq.com`) is used as the primary LLM for ~2s quiz generation.
+- **Ollama** (`llama3.2`) is the local offline fallback with no changes to existing setup.
+- Set `GROQ_API_KEY` in `.env` to enable fast generation; omit to use Ollama only.
+- Both insights engine and quiz generator follow the same Groq → Ollama → static priority chain.
+
+### 9. Design system — Warm Slate + Amber
+
+- Premium "Warm Slate" palette: deep teal `#1a6b72` primary, amber `#d97706` accent, cream-white background.
+- Per-topic card accent colours (violet/sky/brown/emerald for OS/DS/DBMS/CN).
+- Plus Jakarta Sans typography, amber top stripe on navbar, glassmorphism panels.
+- Immersive quiz loading overlay: 4 animated steps + rotating did-you-know facts per topic.
 
 ## Tech stack
 
 - Python 3.12
-- Flask
-- Jinja templates
-- JavaScript
-- Ollama local LLM API
-- scikit-learn
-- pandas
-- numpy
-- pyBKT
-- YouTube transcript extraction
+- Flask 3.1
+- Jinja2 templates
+- Vanilla JS + CSS (Warm Slate design system)
+- **Groq API** (`llama-3.1-8b-instant`) — primary LLM, ~2s quiz generation (free tier)
+- Ollama (`llama3.2`) — local offline LLM fallback
+- ChromaDB (Vector DB for RAG-based context retrieval)
+- Sentence-Transformers (Semantic Embeddings)
+- scikit-learn & scipy (Clustering & Statistical Testing)
+- pandas & numpy
+- pyBKT (Bayesian Knowledge Tracing)
+- python-dotenv
+- Docker & Docker Compose
 
 ## Project structure
 
-- `app.py` - Main Flask application and route handling.
-- `backend/` - Quiz generation, evaluation, adaptation, and recommendation logic.
-- `frontend/templates/` - HTML templates for landing, dashboard, video, quiz, review, login, and register pages.
-- `static/` - Shared CSS and other static assets.
-- `data/` - JSON data used by the app for users, progress, quiz attempts, and video metadata.
-- `models/` - Saved learning/adaptation models.
-- `scripts/` - Utility scripts for training models.
-- `utils/` - Ollama client and helper utilities.
+- `app.py` — Main Flask application and route handling.
+- `backend/repositories/` — Data access layer isolating JSON file access (ready for SQL migration).
+- `backend/adaptation/` — Contextual Bandit algorithms, clustering, and recommendation logic.
+- `backend/quiz/` — Groq/Ollama quiz generation, RAG retrieval, insights engine, and evaluator.
+- `backend/analytics/` — A/B testing framework, simulation scripts, and statistical metrics.
+- `frontend/templates/` — HTML templates for landing, dashboard, video, quiz, review, login, and register pages.
+- `static/css/style.css` — Warm Slate + Amber design system (single source of truth for all styles).
+- `data/` — JSON data used by the app for users, progress, quiz attempts, and video metadata.
+- `models/` — Saved learning/adaptation models.
+- `scripts/` — Utility scripts for training models.
+- `utils/constants.py` — `STATIC_CHEAT_SHEETS` and `SUBMODULE_DEFINITIONS` (curated topic content).
+- `utils/` — LLM client and helper utilities.
+- `tests/` — **158 tests**: unit, integration, stress, Groq fallback, insights diagnostics, submodule integrity, and full-stack E2E route testing.
 
 ## Setup
 
@@ -132,29 +155,44 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Initialize Data
+### 4. Configure environment variables
+
+Copy the template and fill in your values:
 
 ```bash
-python scripts/init_data.py
+cp .env.template .env
 ```
 
-### 5. Install and start Ollama
+Required variables:
+
+```env
+SECRET_KEY=your_secret_key_here
+FLASK_ENV=development
+
+# Fast quiz generation (~2s) — free at https://console.groq.com
+GROQ_API_KEY=gsk_...
+
+# Local LLM fallback (used if GROQ_API_KEY is empty)
+OLLAMA_URL=http://localhost:11434/api/generate
+```
+
+### 5. Install and start Ollama (optional — only needed if not using Groq)
 
 Make sure Ollama is installed and running locally.
-
-Check available models:
-
-```bash
-ollama list
-```
-
-If needed, pull the default model:
 
 ```bash
 ollama pull llama3.2
 ```
 
-### 5. Run the app
+### 6. Run the app (Docker)
+
+The recommended way to run the application is via Docker:
+```bash
+docker-compose up --build
+```
+This maps port `5001` to your local machine.
+
+### 7. Run the app (Local)
 
 ```bash
 python app.py
@@ -255,34 +293,27 @@ AvgTime=\frac{\sum\_{i=1}^{Q} t_i}{Q}
 
 where \(t_i\) is time spent on question \(i\), and \(Q\) is number of questions in that attempt.
 
-### 3) Speed-adaptive difficulty policy
+### 3) Contextual Bandit Adaptation Policy
 
-Speed labels are computed from average response time using thresholds:
+The system uses an **Epsilon-Greedy Contextual Bandit** to map learner states to difficulty levels.
+- **State**: Defined by `Learner Cluster` (General, Fast, Detail) + `BKT Mastery Bin` (Low, Medium, High).
+- **Actions**: `easy`, `medium`, `hard`.
+- **Reward**: Calculated as `(Score / 100) * Difficulty Multiplier` where `easy=0.8`, `medium=1.0`, `hard=1.2`.
 
-- Fast if \(AvgTime < 10s\)
-- Slow if \(AvgTime > 25s\)
-- Steady otherwise
+The bandit learns over time, exploring random difficulties 20% of the time (`epsilon=0.2`) and exploiting the best known Q-value for the remainder. This pushes learners to the maximum difficulty they can handle while maintaining high scores.
 
-Difficulty transition rules:
-
-- If score \(\ge 80\) and Fast, increase one level.
-- If score \(< 50\) and Slow, decrease one level.
-- Else keep current level.
-
-Difficulty levels are ordinal: easy \(\rightarrow\) medium \(\rightarrow\) hard.
-
-### 4) Dynamic question-count policy (7 to 15)
+### 4) Dynamic question-count policy (6 to 10)
 
 Question count is sampled from a range determined by speed and adjusted by mastery:
 
-- Slow: base range [12, 15]
-- Steady: base range [9, 12]
-- Fast: base range [7, 9]
+- Slow: base range [9, 10]
+- Steady: base range [8, 10]
+- Fast: base range [7, 8]
 
 Mastery refinement:
 
-- If mastery \(< 0.35\), upper bound increases by 1 (capped at 15).
-- If mastery \(> 0.75\), lower bound decreases by 1 (floored at 7).
+- If mastery \(< 0.35\), upper bound increases by 1 (capped at 10).
+- If mastery \(> 0.75\), lower bound decreases by 1 (floored at 6).
 
 Final question count is selected uniformly at random from the final integer interval.
 
@@ -309,8 +340,9 @@ Cluster outputs are mapped to behavior labels:
 
 This cluster label is then fed into recommendation messaging and adaptation context.
 
-### 6) Conceptual quiz generation constraints
+### 6) RAG Pipeline & Quiz Generation Constraints
 
+The generator uses `chromadb` and `sentence-transformers` to chunk transcripts and retrieve the Top-K semantically relevant segments. This completely mitigates LLM hallucinations.
 The generator enforces these constraints in prompt policy:
 
 - Topic-concept focus only (no study-habit or exam-strategy questions).
@@ -320,6 +352,7 @@ The generator enforces these constraints in prompt policy:
 - Duplicate suppression against recent question stems.
 
 Duplicate suppression is done by normalizing stems (trim + lowercase + whitespace collapse) and filtering seen/avoided items before finalizing the attempt.
+The LLM inference is **batched**, meaning all 7-15 questions are evaluated in a single API call rather than sequentially, reducing latency by 90%.
 
 ### 7) AI-assisted semantic evaluation
 
