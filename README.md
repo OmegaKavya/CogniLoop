@@ -1,4 +1,4 @@
-# Enhanced NPTEL Learning Platform
+# CogniLoop Learning Platform
 
 An adaptive learning platform that converts passive video watching into a personalized mastery loop.
 It combines in-video checkpoints, concept-focused quiz generation, Bayesian mastery tracking, and behavior-aware difficulty adaptation.
@@ -55,7 +55,7 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 - Per-question **time-signal diagnosis**: rushed guess (< 5s), concept gap (> 25s), or misconception.
 - Shows mastery before/after bars, score ring, and pace analysis.
 - AI-generated action plan maps wrong answers to cheat-sheet concepts (not generic Google links).
-- Resources link to NPTEL lecture notes, GeeksforGeeks GATE sets, and topic-specific references.
+- Resources link to CogniLoop study notes, GeeksforGeeks GATE sets, and topic-specific references.
 
 ### 4. AI insights and revision support
 
@@ -66,11 +66,11 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 
 ### 5. Video learning with curated submodules
 
-- Each topic has **3 real curriculum submodules** with specific CS concepts:
-  - OS: Process & Thread Lifecycle / Virtual Memory / Synchronisation & Deadlock
-  - DS: Linear Structures / Trees & Heaps / Graphs & Hashing
-  - DBMS: Relational Model / Normalisation / Transactions
-  - CN: Architecture & Addressing / TCP vs UDP / Application & Routing
+- Each topic has **4 real curriculum submodules** with specific CS concepts:
+  - OS: Process & Thread Lifecycle / Virtual Memory / Synchronisation & Deadlock / File Systems & Disk Scheduling
+  - DS: Linear Structures / Trees & Balanced Structures / Graphs & Hashing / Advanced Trees & Heap Operations
+  - DBMS: Relational Model & SQL / Normalisation & Design / Transactions & Concurrency / Indexing & Query Optimization
+  - CN: Network Architecture & Addressing / TCP vs UDP / Application Layer & Routing / Network Security & Cryptography
 - Each module includes a **GATE exam angle tip** and 3 topic-specific checkpoint MCQs.
 - Checkpoints are curated MCQs (not generic "which statement matches") testing real concepts.
 
@@ -131,7 +131,7 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 - `scripts/` — Utility scripts for training models.
 - `utils/constants.py` — `STATIC_CHEAT_SHEETS` and `SUBMODULE_DEFINITIONS` (curated topic content).
 - `utils/` — LLM client and helper utilities.
-- `tests/` — **158 tests**: unit, integration, stress, Groq fallback, insights diagnostics, submodule integrity, and full-stack E2E route testing.
+- `tests/` — **162 tests**: unit, integration, stress, Groq fallback, insights diagnostics, submodule integrity, and full-stack E2E route testing.
 
 ## Setup
 

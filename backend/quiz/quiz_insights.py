@@ -95,7 +95,7 @@ class QuizInsightsEngine:
             ]
 
         resources = [
-            {"title": f"{topic_name} — NPTEL Lecture Notes", "url": f"https://nptel.ac.in/search?query={topic_name.replace(' ', '+')}"},
+            {"title": f"{topic_name} — CogniLoop Study Notes", "url": f"https://nptel.ac.in/search?query={topic_name.replace(' ', '+')}"},
             {"title": f"{topic_name} — GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}/"},
             {"title": f"{topic_name} — GATE Practice Questions", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"}
         ]

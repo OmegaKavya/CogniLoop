@@ -71,3 +71,8 @@ ollama_models/
 diag_yt.py
 fix_quiz.py
 test_ollama.py
+
+# ─── Internal Reviews & Roadmaps (not for public git commit) ─────────────────
+SUGGESTIONS_FOR_REVIEW.md
+PROJECT_EVALUATION_REPORT.md
+

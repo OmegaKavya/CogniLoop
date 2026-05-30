@@ -207,6 +207,36 @@ Return ONLY valid JSON:
         return quiz_data
 
     def _get_fallback_quiz(self, topic_id, topic_name, difficulty, num_questions=7, avoid_questions=None):
+        try:
+            from utils.constants import SUBMODULE_DEFINITIONS
+            if topic_id in SUBMODULE_DEFINITIONS:
+                all_questions = []
+                for sub in SUBMODULE_DEFINITIONS[topic_id]:
+                    for cp in sub.get("checkpoints", []):
+                        correct_text = cp["options"][cp["correct_index"]]
+                        all_questions.append({
+                            "id": cp["id"],
+                            "text": cp["question"],
+                            "options": cp["options"],
+                            "answer": correct_text,
+                            "hint": cp["explanation"]
+                        })
+                if all_questions:
+                    random.shuffle(all_questions)
+                    unique_questions = self._ensure_unique_questions(all_questions, num_questions, avoid_questions=avoid_questions)
+                    if not unique_questions:
+                        unique_questions = all_questions[:num_questions]
+                    for idx, question in enumerate(unique_questions, start=1):
+                        question["id"] = idx
+                    return {
+                        "topic_id": topic_id,
+                        "difficulty": difficulty,
+                        "num_questions": len(unique_questions),
+                        "questions": unique_questions
+                    }
+        except Exception as e:
+            print(f"[QuizGen] Specific fallback failed, using generic: {e}")
+
         all_questions = [
             {"id": 1, "text": f"Which statement best defines the core purpose of {topic_name}?",
              "options": ["A framework for modeling and solving domain-specific problems", "A memorization-only method with no decision-making", "A topic used only for historical context", "A concept unrelated to system behavior"],

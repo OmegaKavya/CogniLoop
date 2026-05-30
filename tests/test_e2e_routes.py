@@ -1,5 +1,5 @@
 """
-End-to-end tests for the full NPTEL platform.
+End-to-end tests for the full CogniLoop platform.
 Covers: all routes, auth flow, API correctness, quiz data structure, quiz submit,
         video tracking, review page, research analytics, and security boundaries.
 Uses the conftest fixtures to isolate test data.

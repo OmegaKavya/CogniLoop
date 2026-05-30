@@ -52,7 +52,7 @@ def simulate_users(num_users=40):
             
             # 3. Update state
             is_correct = score >= 70
-            mastery = bkt_engine.update_mastery(uid, topic_id, is_correct)
+            mastery = bkt_engine.update_mastery(uid, topic_id, is_correct, difficulty=difficulty)
             
             if group == "experimental":
                 bandit_adapter.update_policy("General Learner", mastery, difficulty, score)

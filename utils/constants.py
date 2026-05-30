@@ -158,7 +158,7 @@ SUBMODULE_DEFINITIONS = {
             "objective": "Understand race conditions, critical sections, semaphores, monitors, and all four Coffman deadlock conditions.",
             "exam_angle": "🎯 GATE Tip: Deadlock detection questions often ask you to identify the missing Coffman condition.",
             "start_sec": 900,
-            "end_sec": None,
+            "end_sec": 1200,
             "checkpoints": [
                 {
                     "id": "os-cp3-1", "trigger_pct": 30,
@@ -180,6 +180,36 @@ SUBMODULE_DEFINITIONS = {
                     "options": ["Monitor enforces mutual exclusion automatically; semaphore requires explicit lock/unlock", "Semaphore is faster than a monitor", "Monitor can only be used in user space", "Semaphore prevents all deadlocks automatically"],
                     "correct_index": 0,
                     "explanation": "Monitors encapsulate shared data and enforce mutual exclusion by design, reducing programmer error vs raw semaphores."
+                }
+            ]
+        },
+        {
+            "title": "File Systems & Disk Scheduling",
+            "objective": "Master file allocation methods (contiguous, linked, indexed) and disk scheduling algorithms like SCAN, LOOK, and SSTF.",
+            "exam_angle": "🎯 GATE Tip: Disk scheduling questions usually require calculating total head movement in cylinder steps.",
+            "start_sec": 1200,
+            "end_sec": None,
+            "checkpoints": [
+                {
+                    "id": "os-cp4-1", "trigger_pct": 30,
+                    "question": "Which file allocation method suffers from external fragmentation and restricts files from expanding dynamically?",
+                    "options": ["Contiguous Allocation", "Linked Allocation", "Indexed Allocation", "Inverted Allocation"],
+                    "correct_index": 0,
+                    "explanation": "Contiguous allocation requires continuous blocks, leading to external fragmentation and sizing limits."
+                },
+                {
+                    "id": "os-cp4-2", "trigger_pct": 65,
+                    "question": "What is the key advantage of Indexed Allocation over Linked Allocation for file blocks?",
+                    "options": ["Direct/random access support without sequential pointer traversal", "No disk space overhead for index pointers", "Simple single-pointer header", "Elimination of file system crashes"],
+                    "correct_index": 0,
+                    "explanation": "Indexed allocation groups all block pointers into an index block, permitting O(1) random access to any block."
+                },
+                {
+                    "id": "os-cp4-3", "trigger_pct": 85,
+                    "question": "In disk scheduling, how does the LOOK algorithm differ from the SCAN (elevator) algorithm?",
+                    "options": ["LOOK reverses direction immediately if no more requests exist in the current direction, without reaching the disk edge", "LOOK only moves in one direction and never reverses", "LOOK is a non-preemptive CPU scheduler", "LOOK guarantees zero variance in response times"],
+                    "correct_index": 0,
+                    "explanation": "LOOK only travels as far as the furthest request in each direction and reverses, avoiding unnecessary sweeps to the disk ends."
                 }
             ]
         }
@@ -250,7 +280,7 @@ SUBMODULE_DEFINITIONS = {
             "objective": "Apply BFS/DFS, shortest path algorithms, and hash table design with collision resolution strategies.",
             "exam_angle": "🎯 GATE Tip: Dijkstra vs Bellman-Ford trade-offs (negative edges, complexity) appear frequently.",
             "start_sec": 900,
-            "end_sec": None,
+            "end_sec": 1200,
             "checkpoints": [
                 {
                     "id": "ds-cp3-1", "trigger_pct": 30,
@@ -272,6 +302,36 @@ SUBMODULE_DEFINITIONS = {
                     "options": ["Kruskal's Algorithm", "Prim's Algorithm", "Dijkstra's Algorithm", "Bellman-Ford"],
                     "correct_index": 0,
                     "explanation": "Kruskal's sorts all edges by weight and greedily adds the cheapest that doesn't form a cycle (uses Union-Find)."
+                }
+            ]
+        },
+        {
+            "title": "Advanced Trees & Heap Operations",
+            "objective": "Master AVL tree self-balancing rotations, the optimal cost of building a heap (heapify), and prefix/Trie structures.",
+            "exam_angle": "🎯 GATE Tip: The time complexity of building a heap from scratch is O(n), NOT O(n log n). This is a frequent trick question.",
+            "start_sec": 1200,
+            "end_sec": None,
+            "checkpoints": [
+                {
+                    "id": "ds-cp4-1", "trigger_pct": 30,
+                    "question": "After inserting a node in an AVL tree, what is the maximum height difference allowed between left and right subtrees of any node?",
+                    "options": ["1", "2", "0", "Unlimited"],
+                    "correct_index": 0,
+                    "explanation": "An AVL tree is a self-balancing binary search tree where the height difference (balance factor) must be at most 1."
+                },
+                {
+                    "id": "ds-cp4-2", "trigger_pct": 65,
+                    "question": "What is the worst-case time complexity of building a binary heap of size n using the bottom-up heapify (Build-Heap) algorithm?",
+                    "options": ["O(n)", "O(n log n)", "O(log n)", "O(n²)"],
+                    "correct_index": 0,
+                    "explanation": "Build-Heap runs in O(n) because the work done at each level decreases exponentially as height increases."
+                },
+                {
+                    "id": "ds-cp4-3", "trigger_pct": 85,
+                    "question": "Which data structure is most efficient for prefix-matching and autocomplete lookups on a set of strings?",
+                    "options": ["Trie (Prefix Tree)", "Hash Table", "Red-Black Tree", "Binary Search Tree"],
+                    "correct_index": 0,
+                    "explanation": "Tries store characters in edges/nodes, allowing O(L) prefix search, where L is the prefix length, independent of table size."
                 }
             ]
         }
@@ -342,7 +402,7 @@ SUBMODULE_DEFINITIONS = {
             "objective": "Master ACID properties, isolation levels, concurrency control protocols, and crash recovery mechanisms.",
             "exam_angle": "🎯 GATE Tip: Serializability of schedules (conflict vs view) and lock-based protocol questions are very common.",
             "start_sec": 900,
-            "end_sec": None,
+            "end_sec": 1200,
             "checkpoints": [
                 {
                     "id": "db-cp3-1", "trigger_pct": 30,
@@ -364,6 +424,36 @@ SUBMODULE_DEFINITIONS = {
                     "options": ["Read Uncommitted", "Read Committed", "Repeatable Read", "Serializable"],
                     "correct_index": 0,
                     "explanation": "Read Uncommitted allows reading uncommitted (dirty) data from other transactions — the lowest isolation level."
+                }
+            ]
+        },
+        {
+            "title": "Indexing & Query Optimization",
+            "objective": "Master index structures (B and B+ trees), sparse vs dense indexing, and algebraic query plan optimizations.",
+            "exam_angle": "🎯 GATE Tip: Understanding the minimum and maximum node capacity of a B+ Tree of order 'p' is a core GATE calculation.",
+            "start_sec": 1200,
+            "end_sec": None,
+            "checkpoints": [
+                {
+                    "id": "db-cp4-1", "trigger_pct": 30,
+                    "question": "In a B+ Tree index, where are the actual data pointers (or database rows) stored?",
+                    "options": ["Only in the leaf nodes", "In both internal and leaf nodes", "Only in the root node", "In a separate hash bucket"],
+                    "correct_index": 0,
+                    "explanation": "B+ Trees store all keys and data pointers in the leaf nodes, while internal nodes contain only routing keys."
+                },
+                {
+                    "id": "db-cp4-2", "trigger_pct": 65,
+                    "question": "What is the difference between a dense index and a sparse index?",
+                    "options": ["Dense index has an entry for every search key value in the relation; sparse index has entries for only some values", "Sparse index has more keys than a dense index", "Dense index only works for primary keys", "Sparse index is always stored in main memory"],
+                    "correct_index": 0,
+                    "explanation": "A dense index indexes every record, whereas a sparse index indexes blocks or only subset records to save index space."
+                },
+                {
+                    "id": "db-cp4-3", "trigger_pct": 85,
+                    "question": "Which relational algebra optimization rule is most critical for reducing intermediate relation sizes early in execution?",
+                    "options": ["Pushing selections (σ) down past joins", "Pushing projections (π) up past selections", "Combining selections into Cartesian products", "Converting left joins to outer joins"],
+                    "correct_index": 0,
+                    "explanation": "Pushing selections (σ) down reduces the number of rows processed by subsequent costly operations like joins (⨝)."
                 }
             ]
         }
@@ -434,7 +524,7 @@ SUBMODULE_DEFINITIONS = {
             "objective": "Understand DNS resolution, HTTP/HTTPS, email protocols, and how routing algorithms (RIP, OSPF, BGP) work.",
             "exam_angle": "🎯 GATE Tip: Distance Vector vs Link State routing (Bellman-Ford vs Dijkstra) is a classic protocol design question.",
             "start_sec": 900,
-            "end_sec": None,
+            "end_sec": 1200,
             "checkpoints": [
                 {
                     "id": "cn-cp3-1", "trigger_pct": 30,
@@ -456,6 +546,36 @@ SUBMODULE_DEFINITIONS = {
                     "options": ["TLS/SSL encryption and server certificate authentication", "Faster packet routing", "Compression of HTML content", "Stateful session tracking"],
                     "correct_index": 0,
                     "explanation": "HTTPS wraps HTTP in TLS — providing encryption (confidentiality), integrity, and server authentication via certificates."
+                }
+            ]
+        },
+        {
+            "title": "Network Security & Cryptography",
+            "objective": "Master cryptographic concepts (symmetric vs asymmetric keys), digital signatures, firewalls, and the RSA algorithm.",
+            "exam_angle": "🎯 GATE Tip: Number theory questions in cryptography frequently ask you to calculate RSA ciphertexts using modular arithmetic.",
+            "start_sec": 1200,
+            "end_sec": None,
+            "checkpoints": [
+                {
+                    "id": "cn-cp4-1", "trigger_pct": 30,
+                    "question": "In asymmetric-key cryptography, if Alice wants to send a confidential message to Bob, which key should she encrypt it with?",
+                    "options": ["Bob's public key", "Alice's private key", "Bob's private key", "Alice's public key"],
+                    "correct_index": 0,
+                    "explanation": "To ensure confidentiality, encrypt with the recipient's public key so that only the recipient's private key can decrypt it."
+                },
+                {
+                    "id": "cn-cp4-2", "trigger_pct": 65,
+                    "question": "How is a digital signature created to guarantee authenticity and non-repudiation of a message sent by Alice?",
+                    "options": ["Alice encrypts the message hash with her private key", "Alice encrypts the message with Bob's public key", "Alice encrypts the message hash with Bob's private key", "Alice encrypts the message with a shared symmetric key"],
+                    "correct_index": 0,
+                    "explanation": "A digital signature is created by hashing the message and encrypting that hash with the sender's (Alice's) private key."
+                },
+                {
+                    "id": "cn-cp4-3", "trigger_pct": 85,
+                    "question": "In the RSA algorithm, given primes p = 3 and q = 11, the modulus n = 33, and public exponent e = 7, what is the private key exponent d?",
+                    "options": ["3", "7", "11", "9"],
+                    "correct_index": 0,
+                    "explanation": "Compute phi(n) = (p-1)(q-1) = 2 * 10 = 20. Find d such that (d * e) mod phi(n) = 1. (3 * 7) mod 20 = 21 mod 20 = 1. So d = 3."
                 }
             ]
         }

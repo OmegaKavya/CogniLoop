@@ -76,19 +76,20 @@ class QuizEvaluator:
                     }
                     continue
                     
+                correct_ans = question_data.get('answer') or question_data.get('correct_answer') or question_data.get('correct') or ""
                 if not selected or str(selected).strip() == "" or str(selected).strip().lower() == "none":
                     results_map[q_id] = {
                         "question_id": q_id,
                         "is_correct": False,
                         "time_taken": time_taken,
-                        "feedback": f"No answer was selected. The correct concept focuses on: {question_data['answer']}"
+                        "feedback": f"No answer was selected. The correct concept focuses on: {correct_ans}"
                     }
                     continue
                     
                 eval_requests.append({
                     "id": q_id,
-                    "question": question_data['text'],
-                    "correct_answer": question_data['answer'],
+                    "question": question_data.get('text', ''),
+                    "correct_answer": correct_ans,
                     "selected": selected,
                     "time_taken": time_taken
                 })

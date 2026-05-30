@@ -4,7 +4,7 @@ from unittest.mock import patch
 def test_landing_page(client):
     response = client.get('/')
     assert response.status_code == 200
-    assert b"Enhanced NPTEL" in response.data or b"Test Topic" in response.data
+    assert b"Personalized Learning" in response.data or b"Test Topic" in response.data
 
 def test_register_login_flow(client):
     # Register

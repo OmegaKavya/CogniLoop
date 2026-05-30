@@ -1,4 +1,4 @@
-# Architecture — Enhanced NPTEL Learning Platform
+# Architecture — CogniLoop Learning Platform
 
 This document describes the full technical architecture of the platform, including system layers, module boundaries, adaptive engine flow, and runtime request pipelines.
 
@@ -315,11 +315,11 @@ Failure behavior:
 - Version-aware model loading retrains clustering model on sklearn mismatch.
 ## 9) Quality Assurance & Testing Suite
 
-The platform includes a comprehensive suite of **158 automated tests** covering every layer of the system.
+The platform includes a comprehensive suite of **162 automated tests** covering every layer of the system.
 
 ### A) Test categories
 - **Unit Tests**: Deep verification of the math behind the BKT engine, Bandit rewards, and diagnostic time boundaries.
-- **Integration Tests**: Verification of the Repository pattern with file locking, and the 3-tier LLM fallback logic (Groq -> Ollama -> Static).
+- **Integration Tests**: Verification of the Repository pattern with file locking, the 3-tier LLM fallback logic (Groq -> Ollama -> Static), and RAG index pipelines.
 - **Stress Tests**: Concurrency tests for file-based persistence under simulated high load.
 - **End-to-End (E2E) Routes**: Full-stack verification of user flows (registration, login, video watch, quiz submit, and diagnostic review).
 
@@ -328,3 +328,12 @@ The codebase is structured for CI/CD integration with:
 - `pytest` for all test execution.
 - Deterministic JSON-based persistence for test isolation.
 - Mocked LLM endpoints for consistent test results without external API costs.
+
+## 10) Legal Compliance, Licensing, and API Access Ethics
+
+### YouTube Player Integration
+CogniLoop streams public educational videos using the official **YouTube IFrame Player API** in the frontend, complying with Sections 4.C & 4.D of the YouTube API Services ToS. No video media assets are self-hosted or cloned; original creator views, ads, and credits are fully preserved.
+
+### Transcript Processing (Fair Use)
+Captions are retrieved programmatically via `youtube-transcript-api` and semantic vector-chunked using local tools. Under U.S. Copyright Law (17 U.S.C. § 107), this constitutes transformative **Fair Use** for research and active testing purposes. Original author credits and video attribution metadata are preserved across all learning paths.
+
