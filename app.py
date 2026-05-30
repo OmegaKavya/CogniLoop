@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import json
 import os
@@ -139,7 +142,7 @@ def build_topic_submodules(video):
                 "title": defn["title"],
                 "objective": defn["objective"],
                 "exam_angle": defn.get("exam_angle", ""),
-                "video_id": video_id,
+                "video_id": defn.get("video_id") or video_id,
                 "start_sec": defn["start_sec"],
                 "end_sec": defn["end_sec"],
                 "checkpoints": defn["checkpoints"]
@@ -261,11 +264,11 @@ def index():
 
 @app.route('/about')
 def about():
-    return "About Edubox - Personalized Learning Platform"
+    return "About CogniLoop - Personalized Learning Platform"
 
 @app.route('/contact')
 def contact():
-    return "Contact Us at support@edubox.com"
+    return "Contact Us at support@cogniloop.com"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -355,6 +358,17 @@ def dashboard():
     relevant_attempts = user_attempts[-10:]
     mastery_history = [round(a['mastery'] * 100, 2) for a in relevant_attempts]
     mastery_labels = temp_labels[-10:]
+
+    # Per-course mastery data for the course-selector chart
+    mastery_by_course = {}
+    course_counters = {}
+    for a in user_attempts:
+        tid = a.get('topic_id', 'unknown')
+        course_counters[tid] = course_counters.get(tid, 0) + 1
+        mastery_by_course.setdefault(tid, {'labels': [], 'values': []})
+        mastery_by_course[tid]['labels'].append(f"#{course_counters[tid]}")
+        mastery_by_course[tid]['values'].append(round(a['mastery'] * 100, 2))
+
     topic_map = {v['id']: v['title'] for v in videos}
     topic_heatmap_rows = build_topic_heatmap_rows(user_attempts, topic_map)
     review_rows = build_review_rows(user_attempts, topic_map)
@@ -387,6 +401,7 @@ def dashboard():
                          videos=videos,
                          mastery_history=mastery_history,
                          mastery_labels=mastery_labels,
+                         mastery_by_course=mastery_by_course,
                          learning_speed=latest_speed,
                          learning_cluster=latest_cluster,
                          speed_message=speed_message,
@@ -407,8 +422,27 @@ def progress_page():
     topic_map = {v['id']: v['title'] for v in videos}
     for attempt in user_attempts:
         attempt['topic_name'] = topic_map.get(attempt['topic_id'], attempt['topic_id'])
-        
-    return render_template('progress.html', attempts=user_attempts)
+
+    # Summary statistics
+    total_quizzes = len(user_attempts)
+    avg_score = round(sum(a.get('score', 0) for a in user_attempts) / total_quizzes, 1) if total_quizzes else 0
+    total_time = round(sum(a.get('total_time', 0) for a in user_attempts), 1)
+
+    # Per-course live mastery from BKT
+    bkt_states = bkt_engine.get_all_states().get(user_id, {})
+    course_mastery = {tid: round(val * 100, 1) for tid, val in bkt_states.items()}
+
+    # Available courses for filter tabs
+    course_ids = sorted(set(a.get('topic_id') for a in user_attempts if a.get('topic_id')))
+
+    return render_template('progress.html',
+                         attempts=user_attempts,
+                         total_quizzes=total_quizzes,
+                         avg_score=avg_score,
+                         total_time=total_time,
+                         course_mastery=course_mastery,
+                         course_ids=course_ids,
+                         topic_map=topic_map)
 
 @app.route('/video/<topic_id>')
 def video_page(topic_id):
@@ -579,20 +613,13 @@ def quiz_submit():
     videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
     
-    if study_group == 'experimental':
-        ai_insights = insights_engine.generate_insights(
-            video.get('title', topic_id),
-            score,
-            round(new_mastery, 2),
-            eval_result.get('question_results', [])
-        )
-    else:
-        ai_insights = {
-            "summary": "AI insights are disabled for the Control Group.",
-            "focus_concepts": [],
-            "cheat_sheet": [],
-            "resources": []
-        }
+    ai_insights = insights_engine.generate_insights(
+        video.get('title', topic_id),
+        score,
+        round(new_mastery, 2),
+        eval_result.get('question_results', []),
+        topic_id=topic_id
+    )
 
     answer_map = {
         str(r.get('question_id')): {

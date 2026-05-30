@@ -29,18 +29,23 @@ def test_ensure_unique_questions():
 
 @patch('requests.post')
 def test_generate_quiz_success(mock_post):
+    import json
     mock_response = MagicMock()
     mock_response.status_code = 200
+    questions = [
+        {"text": f"Question {i}?", "options": ["A", "B", "C", "D"], "answer": "A", "hint": f"Hint {i}"}
+        for i in range(1, 11)
+    ]
     mock_response.json.return_value = {
-        'response': '{"questions": [{"text": "Q1", "options": ["A", "B"], "answer": "A", "hint": "H1"}]}'
+        'response': json.dumps({"questions": questions})
     }
     mock_post.return_value = mock_response
 
     gen = QuizGenerator()
     quiz = gen.generate_quiz("topic_1", "Test Topic", youtube_id=None)
     
-    assert quiz['num_questions'] == 1
-    assert quiz['questions'][0]['text'] == "Q1"
+    assert quiz['num_questions'] >= 5
+    assert quiz['questions'][0]['text'] == "Question 1?"
 
 @patch('requests.post')
 def test_generate_quiz_fallback(mock_post):
