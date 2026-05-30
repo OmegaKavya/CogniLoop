@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz - Edubox</title>
+    <title>Quiz - CogniLoop</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
@@ -388,6 +388,11 @@
           content: "";
         }
       }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+      }
     </style>
   </head>
 
@@ -404,20 +409,10 @@
           gap: 10px;
         "
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber); flex-shrink: 0;">
+          <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
         </svg>
-        Edubox
+        CogniLoop
       </a>
       <div class="nav-links">
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -432,12 +427,9 @@
       <div class="particle-field" id="particleField"></div>
 
       <!-- Spinning ring icon -->
-      <div style="position:relative;width:80px;height:80px;margin-bottom:20px;">
-        <svg style="position:absolute;inset:0;animation:spin 2.4s linear infinite;color:var(--primary);" viewBox="0 0 80 80" fill="none">
-          <circle cx="40" cy="40" r="36" stroke="currentColor" stroke-width="3" stroke-dasharray="56 170" stroke-linecap="round" opacity=".8"/>
-        </svg>
-        <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;color:var(--primary);animation:pulse 2s ease-in-out infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+      <div style="position:relative;width:100px;height:100px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;">
+        <svg class="infinity-loader-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 80px; height: 80px;">
+          <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
         </svg>
       </div>
 
@@ -471,6 +463,17 @@
         <div class="dyk-label">💡 Did you know?</div>
         <div class="dyk-text" id="dykText">Loading fact...</div>
       </div>
+    </div>
+
+    <!-- Submission evaluation overlay -->
+    <div id="submit-loading-overlay" style="position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);flex-direction:column;gap:24px;">
+      <div style="position:relative;width:80px;height:80px;">
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 2.5s linear infinite;">
+          <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
+        </svg>
+      </div>
+      <h2 style="font-size:1.4rem;font-weight:700;color:#1a1a2e;margin:0;">Evaluating your answers<span class="loading-dots"></span></h2>
+      <p style="color:#666;font-size:0.95rem;margin:0;">Generating AI diagnostics &amp; updating mastery</p>
     </div>
 
 
@@ -628,8 +631,8 @@
           >
             <button
               id="hintBtn"
-              class="btn"
-              style="width: auto; border: 1px solid #f5b041; color: #8a5b00"
+              class="btn btn-amber"
+              style="width: auto"
               onclick="showHint()"
               disabled
             >
@@ -813,8 +816,8 @@
           <a
             id="reviewLink"
             href="{{ url_for('quiz_review_list') }}"
-            class="btn"
-            style="width: auto; border: 1px solid var(--primary-color)"
+            class="btn btn-outline"
+            style="width: auto"
             >Open Quiz Review</a
           >
           <a
@@ -1039,7 +1042,7 @@
 
       async function submitQuiz() {
           clearInterval(timerInterval);
-          showLoadingOverlay();
+          document.getElementById('submit-loading-overlay').style.display='flex';
 
           const response = await fetch('/api/quiz-submit', {
               method: 'POST',
@@ -1052,7 +1055,7 @@
           });
           const result = await response.json();
 
-          document.getElementById('ai-loading-overlay').style.display = 'none';
+          document.getElementById('submit-loading-overlay').style.display = 'none';
           document.getElementById('quiz-content').style.display = 'none';
           document.getElementById('result-area').style.display = 'block';
 
@@ -1129,6 +1132,8 @@
 
       async function loadQuiz() {
           try {
+              showLoadingOverlay();
+
               if (loadingTipCards && loadingTipCards.length > 1) {
                   loadingTipInterval = setInterval(() => {
                   loadingTipIndex = (loadingTipIndex + 1) % loadingTipCards.length;
@@ -1163,6 +1168,7 @@
 
               if (loadingTipInterval) clearInterval(loadingTipInterval);
 
+              document.getElementById('ai-loading-overlay').style.display = 'none';
               document.getElementById('loading-state').style.display = 'none';
               document.getElementById('quiz-shell').style.display = 'block';
               const quizContainer = document.getElementById('quiz-container');
@@ -1173,6 +1179,8 @@
 
               startQuestion();
           } catch (error) {
+              document.getElementById('ai-loading-overlay').style.display = 'none';
+              document.getElementById('loading-state').style.display = 'block';
               document.getElementById('loading-state').innerHTML = `
                   <div style="font-size: 3rem; margin-bottom: 14px;">⚠️</div>
                   <h2 style="margin-bottom: 10px; color: var(--text-dark);">Could not generate quiz</h2>

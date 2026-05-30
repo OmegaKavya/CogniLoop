@@ -14,10 +14,12 @@ class QuizInsightsEngine:
         self.groq_model = "llama-3.1-8b-instant"
 
     def _diagnose_question(self, q):
-        """Return a time-based learning signal for each wrong answer."""
+        """Return a time-based learning signal for each answer."""
         time_taken = q.get("time_taken", 0) or 0
         is_correct = q.get("is_correct", False)
         if is_correct:
+            if time_taken < 2.5:
+                return "lucky_guess"  # correct but suspiciously fast
             return None
         if time_taken < 5:
             return "guessed"       # answered too fast — likely random
@@ -116,12 +118,41 @@ class QuizInsightsEngine:
                 "guessed": guessed,
                 "confused": confused,
                 "misconception": diagnoses.count("misconception"),
+                "lucky_guess": 0,
                 "pace_advice": pace_advice
             }
         }
 
+    def _compute_diagnoses(self, question_results):
+        """Compute time-based diagnoses across ALL questions (correct and incorrect)."""
+        all_diagnoses = [self._diagnose_question(q) for q in question_results]
+        incorrect_diagnoses = [d for d, q in zip(all_diagnoses, question_results) if not q.get("is_correct") and d]
+        lucky_guesses = all_diagnoses.count("lucky_guess")
+        guessed = incorrect_diagnoses.count("guessed")
+        confused = incorrect_diagnoses.count("confused")
+        misconception = incorrect_diagnoses.count("misconception")
+        n = len(incorrect_diagnoses) or 1
+
+        if guessed / n > 0.5:
+            pace_advice = "Many wrong answers were selected very quickly — slow down and read each option carefully."
+        elif confused / n > 0.5:
+            pace_advice = "Several questions took a long time and were still wrong — these are genuine concept gaps."
+        elif lucky_guesses >= 3:
+            pace_advice = f"{lucky_guesses} correct answers came suspiciously fast (< 2.5s) — make sure you're reading fully."
+        else:
+            pace_advice = "Some answers reflect specific misconceptions — targeted re-reading should help."
+
+        return {
+            "guessed": guessed,
+            "confused": confused,
+            "misconception": misconception,
+            "lucky_guess": lucky_guesses,
+            "pace_advice": pace_advice
+        }
+
     def generate_insights(self, topic_name, score, mastery, question_results, topic_id=""):
         incorrect = [q for q in question_results if not q.get("is_correct")]
+        diagnoses = self._compute_diagnoses(question_results)
 
         if not incorrect:
             return {
@@ -137,7 +168,7 @@ class QuizInsightsEngine:
                     {"title": f"{topic_name} interview questions", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}-interview-questions/"}
                 ],
                 "summary": f"Perfect score! You have strong recall. Shift focus to application-level and transfer-based questions to cement mastery.",
-                "diagnoses": {"guessed": 0, "confused": 0, "misconception": 0, "pace_advice": "Excellent pace — keep it consistent."}
+                "diagnoses": diagnoses
             }
 
         # Try Groq first (fast), then fallback
@@ -159,7 +190,7 @@ Return ONLY JSON:
                 if resp.status_code == 200:
                     parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
                     if parsed.get("focus_concepts") and parsed.get("summary"):
-                        parsed["diagnoses"] = {"guessed": 0, "confused": 0, "misconception": 0, "pace_advice": ""}
+                        parsed["diagnoses"] = diagnoses
                         return parsed
             except Exception as e:
                 print(f"[Insights] Groq error: {e}")

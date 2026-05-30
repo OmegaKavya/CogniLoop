@@ -57,6 +57,14 @@ class BKTEngine:
         self._save_state(user_id, concept_id, p_known_new)
         return p_known_new
 
+    def get_all_states(self):
+        """Return the full states dict {user_id: {concept_id: mastery}}."""
+        try:
+            with open(self.storage_path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {}
+
 
     def _save_state(self, user_id, concept_id, mastery_prob):
         try:

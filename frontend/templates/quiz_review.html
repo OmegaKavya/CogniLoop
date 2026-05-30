@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Review — Edubox</title>
+    <title>Quiz Review — CogniLoop</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     <style>
       body { background: var(--bg); }
@@ -212,8 +212,21 @@
       .answer-tag.chosen-wrong { background: var(--rose-light); color: var(--rose); }
       .answer-tag.chosen-right { background: var(--emerald-light); color: var(--emerald); }
       .answer-tag.correct-ans  { background: var(--emerald-light); color: var(--emerald); }
-      .q-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--text-400); }
-      .q-meta span { display: flex; align-items: center; gap: 4px; }
+      .q-meta {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0 8px;
+        flex-wrap: wrap;
+      }
+      .q-meta span {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        color: #64748b;
+        letter-spacing: 0.02em;
+      }
 
       .time-signal {
         display: inline-flex; align-items: center; gap: 6px;
@@ -245,10 +258,10 @@
   <body>
     <nav class="navbar">
       <a href="{{ url_for('index') }}" class="logo" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber); flex-shrink: 0;">
+          <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
         </svg>
-        Edubox
+        CogniLoop
       </a>
       <div class="nav-links">
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -356,6 +369,9 @@
             {% if diag.get('misconception', 0) > 0 %}
             <span class="diag-pill diag-misconception">💭 {{ diag.misconception }} misconception{{ 's' if diag.misconception != 1 else '' }}</span>
             {% endif %}
+            {% if diag.get('lucky_guess', 0) > 0 %}
+            <span class="diag-pill" style="background:#fef3c7;color:#92400e;">🍀 {{ diag.lucky_guess }} lucky guess{{ 'es' if diag.lucky_guess != 1 else '' }}</span>
+            {% endif %}
           </div>
           {% endif %}
 
@@ -420,10 +436,17 @@
             {% endif %}
             {% set card_border = 'border-left:4px solid #be185d' %}
           {% else %}
-            {% set signal = 'correct' %}
-            {% set sig_label = '✓ Correct' %}
-            {% set sig_style = 'background:#d1fae5;color:#047857' %}
-            {% set card_border = 'border-left:4px solid #047857' %}
+            {% if t < 2.5 %}
+              {% set signal = 'lucky_guess' %}
+              {% set sig_label = '🍀 Lucky guess?' %}
+              {% set sig_style = 'background:#fef3c7;color:#92400e' %}
+              {% set card_border = 'border-left:4px solid #d97706' %}
+            {% else %}
+              {% set signal = 'correct' %}
+              {% set sig_label = '✓ Correct' %}
+              {% set sig_style = 'background:#d1fae5;color:#047857' %}
+              {% set card_border = 'border-left:4px solid #047857' %}
+            {% endif %}
           {% endif %}
 
           <div class="q-card" data-result="{{ signal }}" style="{{ card_border }}">

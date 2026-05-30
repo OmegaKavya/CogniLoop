@@ -60,15 +60,18 @@ class QuizGenerator:
         seen = set(avoid)
         unique = []
 
-        for question in questions or []:
-            text = question.get("text")
-            norm = self._normalize_text(text)
-            if not norm or norm in seen:
-                continue
-            seen.add(norm)
-            unique.append(question)
-            if len(unique) >= num_questions:
-                break
+        if isinstance(questions, list):
+            for question in questions:
+                if not isinstance(question, dict):
+                    continue
+                text = question.get("text")
+                norm = self._normalize_text(text)
+                if not norm or norm in seen:
+                    continue
+                seen.add(norm)
+                unique.append(question)
+                if len(unique) >= num_questions:
+                    break
 
         for idx, question in enumerate(unique, start=1):
             question["id"] = idx
@@ -140,6 +143,38 @@ Return ONLY valid JSON:
             return json.loads(response.json().get("response", "{}"))
         return None
 
+    def _is_valid_quiz(self, quiz_data, min_questions=5):
+        if not quiz_data or not isinstance(quiz_data, dict):
+            return False
+        questions = quiz_data.get("questions")
+        if not questions or not isinstance(questions, list):
+            return False
+        if len(questions) < min_questions:
+            print(f"[QuizGen] Validation failed: got only {len(questions)} questions, expected at least {min_questions}")
+            return False
+        for idx, q in enumerate(questions):
+            if not isinstance(q, dict):
+                print(f"[QuizGen] Validation failed at index {idx}: question is not a dictionary")
+                return False
+            text = q.get("text")
+            options = q.get("options")
+            answer = q.get("answer")
+            if not text or not isinstance(text, str) or not text.strip():
+                print(f"[QuizGen] Validation failed at index {idx}: missing or empty 'text'")
+                return False
+            if not options or not isinstance(options, list) or len(options) < 4:
+                print(f"[QuizGen] Validation failed at index {idx}: 'options' must be a list with at least 4 items")
+                return False
+            if not all(isinstance(opt, str) and opt.strip() for opt in options):
+                print(f"[QuizGen] Validation failed at index {idx}: 'options' contains empty or non-string elements")
+                return False
+            normalized_answer = self._normalize_text(answer)
+            normalized_options = [self._normalize_text(opt) for opt in options]
+            if not normalized_answer or normalized_answer not in normalized_options:
+                print(f"[QuizGen] Validation failed at index {idx}: 'answer' ({answer}) must match one of the 'options'")
+                return False
+        return True
+
     def generate_quiz(self, topic_id, topic_name, youtube_id, watch_time=0,
                       difficulty="medium", mastery=0.3, cluster="General Learner",
                       speed_label="Steady", avoid_questions=None):
@@ -198,11 +233,13 @@ Return ONLY valid JSON:
             avoid_questions=avoid_questions
         )
 
-        if not cleaned_questions:
-            return self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
-
         quiz_data["questions"] = cleaned_questions
         quiz_data["num_questions"] = len(cleaned_questions)
+
+        if not self._is_valid_quiz(quiz_data, min_questions=5):
+            print("[QuizGen] Validation failed for LLM generated quiz. Falling back to static questions.")
+            return self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
+
         print(f"[QuizGen] Returning {len(cleaned_questions)} unique questions")
         return quiz_data
 

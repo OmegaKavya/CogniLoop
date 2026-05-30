@@ -37,6 +37,16 @@
     --shadow-lg: 0 16px 32px rgba(100,80,50,.10), 0 4px 8px rgba(100,80,50,.05);
 
     --transition: all .25s cubic-bezier(.4,0,.2,1);
+
+    /* Aliases for template compatibility */
+    --primary-color: var(--primary);
+    --secondary-color: var(--amber);
+    --text-light: var(--text-600);
+    --text-dark: var(--text-900);
+    --bg-color: var(--bg);
+    --card-bg: var(--surface);
+    --border-radius: var(--radius);
+    --border-radius-lg: var(--radius-lg);
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -147,6 +157,16 @@ h1,h2,h3,h4,h5,h6 {
     border: 1px solid var(--border);
 }
 .btn-secondary:hover { background: var(--border); }
+
+.btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+.btn-outline:hover {
+    background: var(--primary-light);
+    transform: translateY(-2px);
+}
 
 /* ── Auth ────────────────────────────────────────────────── */
 .auth-container { display:flex; min-height:100vh; }
@@ -499,4 +519,29 @@ h1,h2,h3,h4,h5,h6 {
     border-radius: 20px;
     margin-top: 10px;
     border: 1px solid rgba(217,119,6,.2);
+}
+
+/* ── Premium Infinity Loop Loader ───────────────────────── */
+@keyframes infinity-dash {
+    to {
+        stroke-dashoffset: -40;
+    }
+}
+@keyframes infinity-glow {
+    0%, 100% {
+        filter: drop-shadow(0 0 2px rgba(217, 119, 6, 0.4));
+        transform: scale(1);
+    }
+    50% {
+        filter: drop-shadow(0 0 16px rgba(217, 119, 6, 0.9));
+        transform: scale(1.05);
+    }
+}
+.infinity-loader-svg {
+    color: var(--amber, #d97706);
+    animation: infinity-glow 2.5s ease-in-out infinite;
+}
+.infinity-loader-svg path {
+    stroke-dasharray: 8 8;
+    animation: infinity-dash 1.8s linear infinite;
 }

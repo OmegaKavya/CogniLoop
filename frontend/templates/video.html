@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ video.title }} - Edubox</title>
+    <title>{{ video.title }} - CogniLoop</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
@@ -115,7 +115,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(255, 255, 245, 0.98);
+        background: rgba(250, 249, 247, 0.98);
         z-index: 9999;
         display: none;
         flex-direction: column;
@@ -185,20 +185,10 @@
         class="logo"
         style="text-decoration: none"
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber); flex-shrink: 0;">
+          <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
         </svg>
-        Edubox
+        CogniLoop
       </a>
       <div class="nav-links">
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -232,21 +222,9 @@
 
       <!-- AI Loading Overlay HTML -->
       <div id="ai-loading-overlay">
-        <div class="ai-brain">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.46-2.54Z"
-            />
-            <path
-              d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.46-2.54Z"
-            />
+        <div style="position:relative;width:100px;height:100px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;margin-left:auto;margin-right:auto;">
+          <svg class="infinity-loader-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 80px; height: 80px;">
+            <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
           </svg>
         </div>
         <div class="loading-text">
@@ -327,11 +305,10 @@
           </button>
           <button
             id="checkpoint-continue"
-            class="btn"
+            class="btn btn-outline"
             style="
               display: none;
               width: auto;
-              border: 1px solid var(--primary-color);
             "
             onclick="continueAfterCheckpoint()"
           >
@@ -360,6 +337,8 @@
       let checkpointTriggered = new Set();
       let activeCheckpoint = null;
       let activeCheckpointAnswer = null;
+      let isSwitchingSubmodule = false;
+      let pauseTimeout = null;
       let trackingData = {
           pause_count: 0,
           rewatch_count: 0,
@@ -389,13 +368,16 @@
       }
 
       function switchSubmodule(index) {
+          isSwitchingSubmodule = true;
           activeSubmoduleIndex = index;
           checkpointTriggered = new Set();
-          trackingData.last_time = 0;
-          trackingData.max_reached = 0;
+          
+          const module = submodules[activeSubmoduleIndex];
+          trackingData.last_time = module.start_sec || 0;
+          trackingData.max_reached = Math.max(trackingData.max_reached, trackingData.last_time);
+          
           renderSubmodules();
 
-          const module = submodules[activeSubmoduleIndex];
           document.getElementById('active-submodule-label').innerText = `Current: ${module.title}`;
 
           if (player && typeof player.loadVideoById === 'function') {
@@ -406,9 +388,15 @@
               if (module.end_sec) payload.endSeconds = module.end_sec;
               player.loadVideoById(payload);
           }
+          
+          setTimeout(() => {
+              isSwitchingSubmodule = false;
+          }, 1500);
       }
 
       function maybeTriggerCheckpoint(currentPercent) {
+          if (activeCheckpoint) return;
+
           const module = submodules[activeSubmoduleIndex];
           if (!module || !module.checkpoints) return;
 
@@ -519,10 +507,29 @@
       }
 
       function onPlayerStateChange(event) {
+          if (event.data == YT.PlayerState.PLAYING) {
+              isSwitchingSubmodule = false;
+              if (pauseTimeout) {
+                  clearTimeout(pauseTimeout);
+                  pauseTimeout = null;
+              }
+          }
           if (event.data == YT.PlayerState.PAUSED) {
-              trackingData.pause_count++;
-              document.getElementById('stat-pauses').innerText = `Pauses: ${trackingData.pause_count}`;
-              saveTrackingData();
+              if (isSwitchingSubmodule) return;
+              
+              if (pauseTimeout) clearTimeout(pauseTimeout);
+              pauseTimeout = setTimeout(() => {
+                  if (!player || typeof player.getCurrentTime !== 'function') return;
+                  const currentTime = player.getCurrentTime();
+                  if (Math.abs(currentTime - trackingData.last_time) > 3) {
+                      // Seek detected
+                  } else {
+                      trackingData.pause_count++;
+                      document.getElementById('stat-pauses').innerText = `Pauses: ${trackingData.pause_count}`;
+                      saveTrackingData();
+                  }
+                  pauseTimeout = null;
+              }, 400);
           }
       }
 
@@ -542,9 +549,9 @@
 
           // Detect Seek
           if (Math.abs(currentTime - trackingData.last_time) > 3) {
-              if (currentTime < trackingData.last_time) {
+              if (!isSwitchingSubmodule) {
                   trackingData.rewatch_count++;
-                  document.getElementById('stat-seeks').innerText = `Seeks (Rewatch): ${trackingData.rewatch_count}`;
+                  document.getElementById('stat-seeks').innerText = `Seeks: ${trackingData.rewatch_count}`;
               }
           }
 
