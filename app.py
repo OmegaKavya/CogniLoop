@@ -4,6 +4,34 @@ import os
 from datetime import datetime
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
+import hashlib
+import secrets
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    pw_hash = hashlib.pbkdf2_hmac(
+        'sha256', 
+        password.encode('utf-8'), 
+        salt.encode('utf-8'), 
+        100000
+    ).hex()
+    return f"{salt}:{pw_hash}"
+
+def verify_password(password: str, stored_value: str) -> bool:
+    if not stored_value or ":" not in stored_value:
+        return password == stored_value
+    try:
+        salt, pw_hash = stored_value.split(":")
+        new_hash = hashlib.pbkdf2_hmac(
+            'sha256', 
+            password.encode('utf-8'), 
+            salt.encode('utf-8'), 
+            100000
+        ).hex()
+        return secrets.compare_digest(pw_hash, new_hash)
+    except Exception:
+        return False
+
 
 app = Flask(__name__, 
             template_folder='frontend/templates',
@@ -247,7 +275,7 @@ def login():
         password = data.get('password')
         
         user = user_repo.find_by_email(email)
-        if user and user.get('password') == password:
+        if user and verify_password(password, user.get('password')):
             session['user_id'] = user['id']
             session['user_name'] = user['name']
             session['study_group'] = user.get('study_group', 'experimental')
@@ -279,7 +307,7 @@ def register():
             'id': new_id,
             'name': name,
             'email': email,
-            'password': password,
+            'password': hash_password(password),
             'study_group': study_group,
             'created_at': datetime.now().isoformat()
         }
@@ -526,7 +554,7 @@ def quiz_submit():
     study_group = session.get('study_group', 'experimental')
     
     is_correct_overall = score >= 70
-    new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall)
+    new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
     
     try:
         import json

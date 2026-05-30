@@ -262,7 +262,7 @@
       <div class="module-layout animate-fade">
         <aside class="submodule-panel">
           <h3 style="margin-bottom: 10px; color: var(--primary-color)">
-            NPTEL-style Submodules
+            CogniLoop Submodules
           </h3>
           <div id="submodule-list"></div>
         </aside>
@@ -579,6 +579,26 @@
               console.error("Tracking save failed", err);
           }
       }
+
+      // Backup telemetry transmit using navigator.sendBeacon during page unload / hide events
+      window.addEventListener('pagehide', function() {
+          const payload = JSON.stringify({
+              topic_id: videoId,
+              ...trackingData
+          });
+          if (navigator.sendBeacon) {
+              const blob = new Blob([payload], { type: 'application/json' });
+              navigator.sendBeacon('/api/video-track', blob);
+          } else {
+              // Sync fallback fetch if beacon not supported
+              fetch('/api/video-track', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: payload,
+                  keepalive: true
+              });
+          }
+      });
     </script>
   </body>
 </html>

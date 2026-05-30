@@ -165,10 +165,10 @@ class TestSubmoduleDefinitions:
         for topic in ("os", "ds", "dbms", "cn"):
             assert topic in SUBMODULE_DEFINITIONS, f"Topic '{topic}' missing"
 
-    def test_each_topic_has_three_modules(self):
+    def test_each_topic_has_four_modules(self):
         from utils.constants import SUBMODULE_DEFINITIONS
         for topic, mods in SUBMODULE_DEFINITIONS.items():
-            assert len(mods) == 3, f"Topic '{topic}' has {len(mods)} modules, expected 3"
+            assert len(mods) == 4, f"Topic '{topic}' has {len(mods)} modules, expected 4"
 
     def test_each_module_has_required_keys(self):
         from utils.constants import SUBMODULE_DEFINITIONS
@@ -223,9 +223,9 @@ class TestBuildTopicSubmodules:
         import app
         return app.build_topic_submodules({"id": topic_id, "video_id": "vid1", "title": title})
 
-    def test_os_returns_three_submodules(self):
+    def test_os_returns_four_submodules(self):
         mods = self._build("os", "Operating Systems")
-        assert len(mods) == 3
+        assert len(mods) == 4
 
     def test_submodule_ids_are_scoped(self):
         mods = self._build("ds", "Data Structures")
