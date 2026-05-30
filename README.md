@@ -1,5 +1,10 @@
 # CogniLoop Learning Platform
 
+[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
+[![Tests Passed](https://img.shields.io/badge/tests-162%20passed-emerald.svg)](#)
+[![License](https://img.shields.io/badge/license-MIT-amber.svg)](LICENSE)
+[![Preprint](https://img.shields.io/badge/manuscript-under%20review-blueviolet.svg)](IEEE_RESEARCH_PAPER.md)
+
 An adaptive learning platform that converts passive video watching into a personalized mastery loop.
 It combines in-video checkpoints, concept-focused quiz generation, Bayesian mastery tracking, and behavior-aware difficulty adaptation.
 The engine is reliability-first: when transcript or LLM services fail, deterministic fallbacks keep the learner journey uninterrupted.
