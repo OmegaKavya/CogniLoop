@@ -139,7 +139,7 @@ The project is built for topic mastery, not generic study-habit questions. Quizz
 
 ```bash
 git clone <your-github-repo-url>
-cd UpdatedEnancedNPTEL-main
+cd CogniLoop
 ```
 
 ### 2. Create and activate a virtual environment
