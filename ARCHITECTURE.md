@@ -49,7 +49,7 @@ flowchart LR
 - Orchestrates real-time educational adaptation by synthesizing historical attempts, watch-pace telemetry, and Bayesian mastery parameters into custom assessment payloads.
 
 ### Domain Intelligence Services (`backend/`)
-- `backend/adaptation/bkt_engine.py`: **IRT-Grounded Bayesian Knowledge Tracing**. Models conceptual mastery as a latent binary state $P(L_n)$, dynamically adjusting Guess $P(G)$ and Slip $P(S)$ parameters based on difficulty tiers (Easy: $0.30/0.05$, Medium: $0.20/0.10$, Hard: $0.10/0.15$).
+- `backend/bkt/bkt_engine.py`: **IRT-Grounded Bayesian Knowledge Tracing**. Models conceptual mastery as a latent binary state $P(L_n)$, dynamically adjusting Guess $P(G)$ and Slip $P(S)$ parameters based on difficulty tiers (Easy: $0.30/0.05$, Medium: $0.20/0.10$, Hard: $0.10/0.15$).
 - `backend/adaptation/bandit_policy.py`: **Thompson Sampling Contextual Bandit**. Solves exploration-exploitation trade-offs across student states $s = \langle C, M_{bin} \rangle$ via Beta-Bernoulli conjugate distributions to route difficulty trajectories.
 - `backend/adaptation/micro_pattern.py`: Models student interaction behaviors using $K$-Means clustering to classify learning pacing into Fast, Steady, and Detail-Oriented archetypes.
 - `backend/quiz/quiz_generator.py`: Executes 3-tier adaptive generation (Groq -> Ollama -> Curated Static). Enforces strict conceptual focus and duplicate question suppression.

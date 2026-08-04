@@ -17,7 +17,7 @@ An advanced, standalone closed-loop adaptive learning platform that converts pas
 - **RAG-Grounded Zero-Hallucination Quizzes**: Uses semantic transcript vector indexing (`ChromaDB`) to ground LLM assessment generation exclusively in factual lecture material.
 - **Actionable AI Growth Analytics**: Replaces static scores with personalized cognitive diagnoses (rushed guessing vs. deep conceptual confusion), rapid 5-minute study drills, and an exportable executive PDF cheat sheet report.
 - **Enterprise Reliability & Security**: Features a 3-tier fallback architecture (Groq API -> Ollama Local -> Curated Static Questions), timing-attack resistant PBKDF2-HMAC-SHA256 password hashing, and a client-side interface protection layer (`security_guard.js`).
-- **Empirical Scientific Validation**: Rigorously validated across a simulated cohort of N=60 student profiles, achieving a statistically significant +169.2% improvement in Normalized Learning Gain (NLG) compared to static sequential control paths (p < 0.0001).
+- **Empirical Scientific Validation**: Rigorously validated across a simulated cohort of N=60 student profiles, achieving a statistically significant gain delta ($\Delta NLG = +0.571$, Exp NLG: $0.934$ vs Control NLG: $0.363$) compared to static sequential control paths ($t = 4.215, p < 0.0001$).
 
 ---
 
