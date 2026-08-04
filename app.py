@@ -7,39 +7,12 @@ import os
 from datetime import datetime
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
-import hashlib
-import secrets
-
-def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    pw_hash = hashlib.pbkdf2_hmac(
-        'sha256', 
-        password.encode('utf-8'), 
-        salt.encode('utf-8'), 
-        100000
-    ).hex()
-    return f"{salt}:{pw_hash}"
-
-def verify_password(password: str, stored_value: str) -> bool:
-    if not stored_value or ":" not in stored_value:
-        return password == stored_value
-    try:
-        salt, pw_hash = stored_value.split(":")
-        new_hash = hashlib.pbkdf2_hmac(
-            'sha256', 
-            password.encode('utf-8'), 
-            salt.encode('utf-8'), 
-            100000
-        ).hex()
-        return secrets.compare_digest(pw_hash, new_hash)
-    except Exception:
-        return False
-
+from backend.auth.auth_service import auth_service, hash_password, verify_password
 
 app = Flask(__name__, 
             template_folder='frontend/templates',
             static_folder='static')
-app.secret_key = os.environ.get('SECRET_KEY', 'default-dev-secret-key')
+app.secret_key = os.environ.get('SECRET_KEY', 'cogniloop-production-secure-fallback-key-2026-v1')
 
 from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
 
@@ -264,16 +237,25 @@ def index():
 
 @app.route('/about')
 def about():
-    return "About CogniLoop - Personalized Learning Platform"
+    return jsonify({
+        "name": "CogniLoop",
+        "author": "Kavya Aggarwal",
+        "description": "Closed-loop adaptive learning platform combining BKT, Thompson Sampling, and RAG.",
+        "status": "Operational"
+    })
 
 @app.route('/contact')
 def contact():
-    return "Contact Us at support@cogniloop.com"
+    return jsonify({
+        "project": "CogniLoop Research",
+        "author": "Kavya Aggarwal",
+        "support_email": "support@cogniloop.com"
+    })
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.json
+        data = request.json or {}
         email = data.get('email')
         password = data.get('password')
         
@@ -290,15 +272,15 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        data = request.json
+        data = request.json or {}
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
         
+        if not name or not email or not password:
+            return jsonify({'success': False, 'message': 'Name, email, and password are required.'}), 400
+
         users_data = user_repo.get_all()
-        # Since users is a dict in repo, but array originally... Wait!
-        # Original users.json is an array. I need to make sure UserRepository handles arrays or convert it.
-        # I'll just adjust registration:
         users_list = list(users_data.values()) if isinstance(users_data, dict) else users_data
         if any(u['email'] == email for u in users_list):
             return jsonify({'success': False, 'message': 'Email already registered'})
@@ -622,7 +604,7 @@ def quiz_submit():
     avg_time = eval_result['avg_time']
     
     # Still keep a speed label for UI purposes, but use bandit for actual difficulty
-    speed_label = "Fast" if avg_time < 10 else "Slow" if avg_time > 20 else "Steady"
+    speed_label = "Fast" if avg_time < 10 else "Slow" if avg_time > 25 else "Steady"
     adaptation = {
         "speed_label": speed_label,
         "new_difficulty": current_difficulty # Recorded for historical purposes

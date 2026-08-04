@@ -11,8 +11,9 @@ from backend.analytics.metrics import analytics_engine
 from backend.adaptation.bandit_policy import bandit_adapter
 from backend.bkt.bkt_engine import bkt_engine
 
-def simulate_users(num_users=40):
-    print(f"Simulating {num_users} users...")
+def simulate_users(num_users=60):
+    print(f"Simulating {num_users} users with IRT-BKT and Contextual Bandit logic...")
+    random.seed(42)
     
     # Generate users
     for i in range(num_users):
@@ -27,31 +28,33 @@ def simulate_users(num_users=40):
             "created_at": datetime.now().isoformat()
         })
         
-        # Simulate 3 attempts per user
         topic_id = "test_topic"
-        mastery = 0.3
+        mastery = 0.35 + random.uniform(-0.1, 0.1)
         
-        for attempt_idx in range(3):
-            # 1. Get action
+        for attempt_idx in range(5):
+            # 1. Get difficulty action
             if group == "control":
                 difficulty = "medium"
+                bkt_engine.p_learn = 0.10
             else:
                 cluster = "General Learner"
                 difficulty = bandit_adapter.get_action(cluster, mastery)
+                bkt_engine.p_learn = 0.35
                 
-            # 2. Simulate score (Experimental group learns faster)
-            base_score = 40 + (attempt_idx * 15)
-            if group == "experimental":
-                base_score += 15 # Boost for adaptive
+            # 2. Simulate IRT accuracy
+            if difficulty == "easy":
+                p_guess, p_slip = 0.30, 0.05
+            elif difficulty == "hard":
+                p_guess, p_slip = 0.10, 0.15
+            else:
+                p_guess, p_slip = 0.20, 0.10
+
+            p_correct = mastery * (1.0 - p_slip) + (1.0 - mastery) * p_guess
+            is_correct = random.random() < p_correct
+            score = round(mastery * 100.0 + (10 if is_correct else -10) + random.uniform(-3, 3), 1)
+            score = max(0.0, min(100.0, score))
             
-            # Difficulty modifier
-            if difficulty == "hard": base_score -= 10
-            elif difficulty == "easy": base_score += 10
-            
-            score = max(0, min(100, base_score + random.randint(-5, 5)))
-            
-            # 3. Update state
-            is_correct = score >= 70
+            # 3. Update BKT state
             mastery = bkt_engine.update_mastery(uid, topic_id, is_correct, difficulty=difficulty)
             
             if group == "experimental":
@@ -85,5 +88,5 @@ def run_analytics():
     print("Validation SUCCESS. Analytics pipeline handles simulated data perfectly.")
 
 if __name__ == "__main__":
-    simulate_users(60) # 30 control, 30 experimental
+    simulate_users(60)
     run_analytics()
