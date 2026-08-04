@@ -74,6 +74,7 @@ diag_yt.py
 fix_quiz.py
 test_ollama.py
 
-# --- Internal Reviews (excluded from git submission) ---
+# --- Internal Reviews & Personal Guides (excluded from git submission) ---
 SUGGESTIONS_FOR_REVIEW.md
 PROJECT_EVALUATION_REPORT.md
+DEFENSE_AND_PRESENTATION_GUIDE.md
