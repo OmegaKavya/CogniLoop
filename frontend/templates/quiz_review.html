@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Review — CogniLoop</title>
+    <title>Quiz Review | CogniLoop</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
     <style>
       body { background: var(--bg); }
 
@@ -252,6 +253,13 @@
         .insights-grid { grid-template-columns: 1fr; }
         .q-answers { grid-template-columns: 1fr; }
       }
+
+      @media print {
+        .navbar, .attempts-sidebar, .print-hide-btn { display: none !important; }
+        .review-layout { display: block; max-width: 100%; margin: 0; padding: 0; }
+        .panel { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+        body { background: white; color: black; }
+      }
     </style>
   </head>
 
@@ -301,7 +309,12 @@
 
         <!-- 1. Score header -->
         <div class="panel">
-          <h2 style="margin-bottom:16px;">{{ selected_attempt.topic_name or selected_attempt.topic_id }}</h2>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="margin:0;">{{ selected_attempt.topic_name or selected_attempt.topic_id }}</h2>
+            <a href="{{ url_for('export_cheat_sheet', attempt_id=selected_attempt.attempt_id) }}" target="_blank" class="btn btn-outline print-hide-btn" style="padding:6px 14px;font-size:0.82rem;display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-decoration:none;">
+              🖨️ Export PDF / Print Cheat Sheet
+            </a>
+          </div>
 
           <div class="score-header">
           {% set pct = selected_attempt.score %}
@@ -346,15 +359,24 @@
           </div>
         </div>
 
-        <!-- 2. Diagnostic AI Insights -->
+        <!-- 2. Diagnostic AI Insights & Active Learning Plan -->
         {% if selected_attempt.ai_insights %}
-        <div class="panel">
-          <div class="panel-title">🧠 AI Diagnostic</div>
+        <div class="panel" style="border-top: 4px solid var(--amber);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="panel-title" style="margin:0;display:flex;align-items:center;gap:8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"/></svg>
+              AI Mastery & Diagnostic Analytics
+            </div>
+            <span style="font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:12px;background:var(--surface-2);color:var(--amber);">Personalized Guidance</span>
+          </div>
 
           <!-- Pace summary -->
           {% set diag = selected_attempt.ai_insights.get('diagnoses', {}) if selected_attempt.ai_insights is mapping else {} %}
           {% if diag and diag.get('pace_advice') %}
-          <div class="diagnosis-banner">{{ diag.pace_advice }}</div>
+          <div class="diagnosis-banner" style="display:flex;align-items:center;gap:10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div>{{ diag.pace_advice }}</div>
+          </div>
           {% endif %}
 
           <!-- Diagnosis pills -->
@@ -375,31 +397,59 @@
           </div>
           {% endif %}
 
-          <p style="color:var(--text-600);font-size:.92rem;margin-bottom:18px;line-height:1.7;">
+          <p style="color:var(--text-600);font-size:.95rem;margin-bottom:20px;line-height:1.7;background:var(--bg);padding:14px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);">
             {{ selected_attempt.ai_insights.summary if selected_attempt.ai_insights else 'No summary available.' }}
           </p>
 
+          <!-- Focus Concepts & Action Plan -->
           <div class="insights-grid">
-            <div class="insight-col">
-              <h4>📌 Focus Concepts</h4>
-              <ul>
+            <div class="insight-col" style="background:var(--bg);padding:16px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <h4 style="color:var(--rose);display:flex;align-items:center;gap:6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Focus Areas to Fix
+              </h4>
+              <ul style="margin:0;padding-left:18px;">
                 {% for item in (selected_attempt.ai_insights.focus_concepts if selected_attempt.ai_insights else []) %}
-                <li>{{ item }}</li>
+                <li style="margin-bottom:8px;font-weight:500;">{{ item }}</li>
                 {% endfor %}
               </ul>
             </div>
-            <div class="insight-col">
-              <h4>✅ Action Plan</h4>
-              <ul>
+            <div class="insight-col" style="background:var(--bg);padding:16px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <h4 style="color:var(--emerald);display:flex;align-items:center;gap:6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Targeted Action Plan
+              </h4>
+              <ul style="margin:0;padding-left:18px;">
                 {% for item in (selected_attempt.ai_insights.cheat_sheet if selected_attempt.ai_insights else []) %}
-                <li>{{ item }}</li>
+                <li style="margin-bottom:8px;font-weight:500;">{{ item }}</li>
                 {% endfor %}
               </ul>
             </div>
           </div>
 
-          <div style="margin-top:20px;">
-            <h4 style="font-size:.8rem;font-weight:700;color:var(--text-600);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">📚 Resources</h4>
+          <!-- Rapid Micro-Drills for Learning from Mistakes -->
+          <div style="margin-top:20px;background:linear-gradient(135deg, rgba(26,107,114,0.06), rgba(217,119,6,0.05));padding:18px 20px;border-radius:var(--radius-sm);border:1px solid rgba(217,119,6,0.2);">
+            <h4 style="font-size:.85rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Instant Concept Reinforcement Drills
+            </h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div style="background:var(--surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:.88rem;color:var(--text-600);">
+                <strong style="color:var(--text-900);display:block;margin-bottom:4px;">💡 Key Takeaway:</strong>
+                Always verify worst-case assumptions vs average-case complexity before locking answer choices in exams.
+              </div>
+              <div style="background:var(--surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:.88rem;color:var(--text-600);">
+                <strong style="color:var(--text-900);display:block;margin-bottom:4px;">🔄 Review Recommendation:</strong>
+                Rewatch the 3-minute segment covering your lowest-scoring submodule and re-attempt 3 targeted questions.
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:24px;">
+            <div style="padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--amber, #d97706);border-radius:10px;font-size:0.86rem;color:var(--text-600);line-height:1.5;margin-bottom:16px;">
+              <strong style="color:var(--text-900);">🚀 Roadmap Enhancement:</strong> We are actively expanding the CogniLoop study suite to provide comprehensive, expert-curated textbook notes and detailed revision add-on modules for every individual submodule!
+            </div>
+            <h4 style="font-size:.8rem;font-weight:700;color:var(--text-600);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">📚 Curated Learning Resources</h4>
             <div class="resource-list">
               {% for res in (selected_attempt.ai_insights.resources if selected_attempt.ai_insights else []) %}
               <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer" class="resource-link">

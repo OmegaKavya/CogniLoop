@@ -396,6 +396,19 @@ def dashboard():
         else:
             speed_message = "You are maintaining a steady and optimal learning pace."
 
+    # Gamification: XP & Streak calculation
+    total_quizzes = len(user_attempts)
+    user_xp = sum(a.get('score', 0) * 10 for a in user_attempts)
+    bkt_states = bkt_engine.get_all_states().get(user_id, {})
+
+    # Compute skill tree nodes and connections
+    skill_tree_nodes = [
+        {"id": "os", "name": "Operating Systems", "prereq": None, "mastery": round(bkt_states.get("os", 0.3) * 100, 1)},
+        {"id": "ds", "name": "Data Structures", "prereq": None, "mastery": round(bkt_states.get("ds", 0.3) * 100, 1)},
+        {"id": "dbms", "name": "DBMS", "prereq": "ds", "mastery": round(bkt_states.get("dbms", 0.3) * 100, 1)},
+        {"id": "cn", "name": "Computer Networks", "prereq": "os", "mastery": round(bkt_states.get("cn", 0.3) * 100, 1)}
+    ]
+
     return render_template('dashboard.html', 
                          user_name=session['user_name'], 
                          videos=videos,
@@ -408,7 +421,10 @@ def dashboard():
                          recent_reviews=recent_reviews,
                          latest_ai_insight=latest_ai_insight,
                          latest_review_by_topic=latest_review_by_topic,
-                         topic_heatmap_rows=topic_heatmap_rows)
+                         topic_heatmap_rows=topic_heatmap_rows,
+                         user_xp=user_xp,
+                         user_streak=max(1, min(total_quizzes, 7)),
+                         skill_tree_nodes=skill_tree_nodes)
 
 @app.route('/progress')
 def progress_page():
@@ -456,6 +472,33 @@ def video_page(topic_id):
 
     submodules = build_topic_submodules(video)
     return render_template('video.html', video=video, submodules=submodules)
+
+@app.route('/export-cheat-sheet/<attempt_id>')
+def export_cheat_sheet(attempt_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    user_attempts = quiz_repo.get_user_attempts(user_id)
+    attempt = next((a for a in user_attempts if a.get('attempt_id') == attempt_id), None)
+
+    if not attempt and user_attempts:
+        attempt = user_attempts[-1]
+
+    if not attempt:
+        return redirect(url_for('dashboard'))
+
+    topic_id = attempt.get('topic_id', 'os')
+    topic_name = attempt.get('topic_name') or topic_id.upper()
+    attempt['topic_name'] = topic_name
+
+    cheat_sheet = get_static_cheat_sheet(topic_id, topic_name)
+    ai_insights = attempt.get('ai_insights', {})
+
+    return render_template('export_cheat_sheet.html',
+                         attempt=attempt,
+                         cheat_sheet=cheat_sheet,
+                         ai_insights=ai_insights)
 
 from backend.adaptation.micro_pattern import mp_manager
 from backend.adaptation.recommendation import recommender

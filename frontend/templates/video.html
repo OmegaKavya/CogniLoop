@@ -8,6 +8,7 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
     <style>
       .module-layout {
         display: grid;
@@ -318,6 +319,17 @@
       </div>
     </div>
 
+    <!-- Submodule Study Notes Modal -->
+    <div id="notes-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);">
+      <div class="checkpoint-card" style="width:min(680px,96vw);max-height:85vh;overflow-y:auto;background:#fff;border-radius:14px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:2px solid var(--primary-light);padding-bottom:10px;">
+          <h3 id="notes-modal-title" style="margin:0;color:var(--primary-color);">CogniLoop Submodule Study Notes</h3>
+          <button onclick="closeNotesModal()" class="btn btn-outline" style="padding:4px 12px;font-size:0.82rem;cursor:pointer;">✕ Close</button>
+        </div>
+        <div id="notes-modal-content"></div>
+      </div>
+    </div>
+
     <script src="https://www.youtube.com/iframe_api"></script>
     <div id="video-js-data"
       data-submodules="{{ submodules | tojson | forceescape }}"
@@ -327,6 +339,57 @@
     <script>
       function showLoading() {
           document.getElementById('ai-loading-overlay').style.display = 'flex';
+      }
+
+      function openNotesModal(idx) {
+          const mod = submodules[idx];
+          if (!mod) return;
+
+          document.getElementById('notes-modal-title').innerText = `📖 ${mod.title} - Study Notes`;
+          const container = document.getElementById('notes-modal-content');
+
+          const notes = mod.study_notes || {};
+          const keyTakeaways = notes.key_takeaways || [mod.objective];
+          const pitfalls = notes.exam_pitfalls || ["Avoid rushing without checking base conditions."];
+          const drills = notes.drills || ["Solve one quick practice prompt mentally."];
+
+          container.innerHTML = `
+              <div style="margin-bottom:16px;background:rgba(26,107,114,0.06);padding:14px 18px;border-radius:10px;border-left:4px solid var(--primary-color);">
+                  <strong style="color:var(--primary-color);font-size:0.92rem;display:block;margin-bottom:4px;">🎯 Submodule Learning Objective:</strong>
+                  <p style="margin:0;font-size:0.9rem;color:var(--text-dark);">${mod.objective}</p>
+              </div>
+
+              ${mod.exam_angle ? `<div style="margin-bottom:16px;background:#fffbeb;padding:12px 16px;border-radius:8px;border:1px solid #fde68a;font-size:0.88rem;color:#b45309;">${mod.exam_angle}</div>` : ''}
+
+              <h4 style="color:var(--primary-color);margin:16px 0 8px;font-size:0.92rem;text-transform:uppercase;letter-spacing:0.04em;">💡 Core Concepts & Principles</h4>
+              <ul style="padding-left:20px;font-size:0.9rem;line-height:1.6;color:var(--text-dark);margin-bottom:18px;">
+                  ${keyTakeaways.map(t => `<li style="margin-bottom:6px;">${t}</li>`).join('')}
+              </ul>
+
+              <h4 style="color:var(--rose);margin:16px 0 8px;font-size:0.92rem;text-transform:uppercase;letter-spacing:0.04em;">⚠️ Common Exam Pitfalls</h4>
+              <ul style="padding-left:20px;font-size:0.9rem;line-height:1.6;color:var(--text-dark);margin-bottom:18px;">
+                  ${pitfalls.map(p => `<li style="margin-bottom:6px;color:#991b1b;">${p}</li>`).join('')}
+              </ul>
+
+              <h4 style="color:var(--amber);margin:16px 0 8px;font-size:0.92rem;text-transform:uppercase;letter-spacing:0.04em;">🔥 5-Minute Rapid Drills</h4>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                  ${drills.map((d, i) => `
+                      <div style="background:var(--bg);padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.88rem;">
+                          <strong style="color:var(--text-dark);">Drill #${i+1}:</strong> ${d}
+                      </div>
+                  `).join('')}
+              </div>
+
+              <div style="margin-top:22px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid var(--primary-color);border-radius:8px;font-size:0.85rem;color:#475569;line-height:1.5;">
+                  <strong style="color:#1e293b;">🚀 Future Roadmap Enhancement:</strong> These reference points represent real-time AI-synthesized revision anchors. As a planned future enhancement for CogniLoop, complete expert-curated, in-depth study textbook chapters and annotated professor slides will be offered as a dedicated add-on module for each individual submodule.
+              </div>
+          `;
+
+          document.getElementById('notes-modal').style.display = 'flex';
+      }
+
+      function closeNotesModal() {
+          document.getElementById('notes-modal').style.display = 'none';
       }
 
       const _vdata = document.getElementById('video-js-data');
@@ -358,7 +421,10 @@
               const item = document.createElement('div');
               item.className = `submodule-item ${idx === activeSubmoduleIndex ? 'active' : ''}`;
               item.innerHTML = `
-                  <strong>${module.title}</strong>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                      <strong>${module.title}</strong>
+                      <button onclick="event.stopPropagation(); openNotesModal(${idx})" class="btn btn-outline" style="padding:2px 8px;font-size:0.72rem;cursor:pointer;flex-shrink:0;">📖 Notes</button>
+                  </div>
                   <p style="margin:6px 0 0; font-size:0.84rem; color:#6b7280;">${module.objective}</p>
                   <div class="checkpoint-chip">Checkpoints: ${(module.checkpoints || []).length}</div>
               `;
@@ -381,12 +447,10 @@
           document.getElementById('active-submodule-label').innerText = `Current: ${module.title}`;
 
           if (player && typeof player.loadVideoById === 'function') {
-              const payload = {
+              player.loadVideoById({
                   videoId: module.video_id,
                   startSeconds: module.start_sec || 0
-              };
-              if (module.end_sec) payload.endSeconds = module.end_sec;
-              player.loadVideoById(payload);
+              });
           }
           
           setTimeout(() => {

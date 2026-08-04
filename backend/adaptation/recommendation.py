@@ -20,7 +20,7 @@ class RecommendationEngine:
             decision["next_difficulty"] = "hard"
         
         if behavior_cluster == "Detail-Oriented":
-            decision["message"] += " We noticed you take your time—that's great for deep understanding!"
+            decision["message"] += " We noticed you take your time - that's great for deep understanding!"
         elif behavior_cluster == "Fast-Paced":
             decision["message"] += " You're moving fast! Don't forget to double-check the tricky details."
 

@@ -22,11 +22,11 @@ class QuizInsightsEngine:
                 return "lucky_guess"  # correct but suspiciously fast
             return None
         if time_taken < 5:
-            return "guessed"       # answered too fast — likely random
+            return "guessed"       # answered too fast - likely random
         elif time_taken > 25:
-            return "confused"      # took long and still wrong — genuine gap
+            return "confused"      # took long and still wrong - genuine gap
         else:
-            return "misconception" # moderate time — likely a specific misconception
+            return "misconception" # moderate time - likely a specific misconception
 
     def _concept_from_cheat_sheet(self, topic_id, question_text):
         """Map a wrong question to the closest concept bullet in the cheat sheet."""
@@ -75,11 +75,11 @@ class QuizInsightsEngine:
         n = len(incorrect_questions) or 1
 
         if guessed / n > 0.5:
-            pace_advice = "Many answers were selected very quickly — slow down and read each option carefully before answering."
+            pace_advice = "Many answers were selected very quickly: slow down and read each option carefully before answering."
         elif confused / n > 0.5:
-            pace_advice = "Several questions took a long time and were still wrong — these are genuine concept gaps that need targeted review."
+            pace_advice = "Several questions took a long time and were still wrong: these are genuine concept gaps that need targeted review."
         else:
-            pace_advice = "Some answers reflect specific misconceptions — targeted re-reading of those concepts should help."
+            pace_advice = "Some answers reflect specific misconceptions: targeted re-reading of those concepts should help."
 
         # Build action plan from pitfalls + drills
         cheat_sheet = []
@@ -97,9 +97,9 @@ class QuizInsightsEngine:
             ]
 
         resources = [
-            {"title": f"{topic_name} — CogniLoop Study Notes", "url": f"https://nptel.ac.in/search?query={topic_name.replace(' ', '+')}"},
-            {"title": f"{topic_name} — GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}/"},
-            {"title": f"{topic_name} — GATE Practice Questions", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"}
+            {"title": f"{topic_name} - CogniLoop Study Notes", "url": f"/video/{topic_id}#study-notes"},
+            {"title": f"{topic_name} - GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}/"},
+            {"title": f"{topic_name} - GATE Practice Questions", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"}
         ]
 
         if score >= 80:
@@ -134,13 +134,13 @@ class QuizInsightsEngine:
         n = len(incorrect_diagnoses) or 1
 
         if guessed / n > 0.5:
-            pace_advice = "Many wrong answers were selected very quickly — slow down and read each option carefully."
+            pace_advice = "Many wrong answers were selected very quickly: slow down and read each option carefully."
         elif confused / n > 0.5:
-            pace_advice = "Several questions took a long time and were still wrong — these are genuine concept gaps."
+            pace_advice = "Several questions took a long time and were still wrong: these are genuine concept gaps."
         elif lucky_guesses >= 3:
-            pace_advice = f"{lucky_guesses} correct answers came suspiciously fast (< 2.5s) — make sure you're reading fully."
+            pace_advice = f"{lucky_guesses} correct answers came suspiciously fast (< 2.5s): make sure you're reading fully."
         else:
-            pace_advice = "Some answers reflect specific misconceptions — targeted re-reading should help."
+            pace_advice = "Some answers reflect specific misconceptions: targeted re-reading should help."
 
         return {
             "guessed": guessed,
@@ -159,12 +159,12 @@ class QuizInsightsEngine:
                 "focus_concepts": ["Advanced Application", "Speed + Accuracy", "Concept Transfer"],
                 "cheat_sheet": [
                     "Attempt mixed-difficulty questions with a strict 10s timer.",
-                    "Teach one concept aloud in 2 minutes from memory — no notes.",
+                    "Teach one concept aloud in 2 minutes from memory - no notes.",
                     "Solve one unseen problem and write your full reasoning.",
                     "Review the exam-angle notes in each submodule."
                 ],
                 "resources": [
-                    {"title": f"Advanced {topic_name} — GATE PYQs", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"},
+                    {"title": f"Advanced {topic_name} - GATE PYQs", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"},
                     {"title": f"{topic_name} interview questions", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}-interview-questions/"}
                 ],
                 "summary": f"Perfect score! You have strong recall. Shift focus to application-level and transfer-based questions to cement mastery.",

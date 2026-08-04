@@ -4,11 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CogniLoop - Personalized Learning</title>
+    <title>CogniLoop | Adaptive Tutoring for Real-Time Mastery</title>
+    <meta name="description" content="CogniLoop is an AI-powered adaptive learning platform that converts passive video watching into active mastery through Bayesian Knowledge Tracing, contextual bandits, and real-time quiz adaptation.">
+    <meta property="og:title" content="CogniLoop | Adaptive Tutoring for Real-Time Mastery">
+    <meta property="og:description" content="An intelligent educational platform that analyzes watch behavior and tracks concept understanding via Bayesian models, adjusting questions and difficulty in real-time.">
+    <meta property="og:image" content="{{ url_for('static', filename='cogniloop_social_preview.png') }}">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a6b72' stroke-width='2.5'><path d='M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z'/></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
 </head>
 
 <body>
+    <!-- ── Navbar ── -->
     <header class="navbar" style="justify-content: space-between; box-shadow: none; background: transparent;">
         <a href="{{ url_for('index') }}" class="logo"
             style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
@@ -24,24 +32,246 @@
         </div>
     </header>
 
+    <!-- ── Hero Section ── -->
     <header class="hero-container" style="min-height: 70vh;">
         <div class="hero-content animate-fade">
             <h1>Adaptive <span>Tutoring.</span> Real-Time Mastery.</h1>
             <p>CogniLoop is an intelligent educational platform that converts passive study sessions into an active mastery loop. By analyzing your in-video watch behaviors and tracking your concept understanding via Bayesian models, the system adjusts questions and difficulty in real-time.</p>
 
-            <div class="hero-btns">
+            <div class="hero-btns" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px;">
                 <a href="{{ url_for('register') }}" class="btn btn-primary"
-                    style="width: auto; padding: 15px 40px; font-size: 1.1rem;">Get Started</a>
+                    style="height: 52px; padding: 0 36px; font-size: 1.05rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; box-sizing: border-box;">Get Started</a>
+                <a href="#how-it-works" class="btn btn-secondary"
+                    style="height: 52px; padding: 0 28px; font-size: 1.05rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; background: #ffffff; border: 1.5px solid #cbd5e1; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-decoration: none; box-sizing: border-box; transition: all 0.2s ease;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a6b72" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <span>How it works</span>
+                </a>
             </div>
         </div>
 
         <div class="hero-image animate-fade">
-            <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80"
-                alt="Student learning">
+            <img src="{{ url_for('static', filename='cogniloop_hero.png') }}"
+                alt="CogniLoop adaptive learning architecture: brain neural network connected to video, quiz, and mastery checkpoint nodes">
         </div>
     </header>
 
-    <section class="category-section">
+    <!-- ── Why CogniLoop (vs raw YouTube) ── -->
+    <section class="landing-section" id="why-cogniloop" style="background: var(--surface);">
+        <div class="landing-container">
+            <p class="section-label">The Problem We Solve</p>
+            <h2>YouTube Has the Content.<br>CogniLoop Adds the Intelligence.</h2>
+            <p class="section-desc">Watching lecture videos on YouTube is passive. Students skip, zone out, and move on without knowing what they missed. CogniLoop wraps existing educational video content in an <strong>active learning layer</strong>: one that watches how <em>you</em> watch, identifies gaps, and intervenes with the right question at the right time.</p>
+
+            <div class="why-grid">
+                <div class="why-card why-youtube">
+                    <div class="why-icon" style="background: var(--rose-light); color: var(--rose);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <h3>Passive YouTube</h3>
+                    <ul>
+                        <li>Watch → forget → re-watch</li>
+                        <li>No concept-level tracking</li>
+                        <li>Same difficulty for everyone</li>
+                        <li>No active recall during videos</li>
+                        <li>No evidence of learning</li>
+                    </ul>
+                </div>
+                <div class="why-arrow">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </div>
+                <div class="why-card why-cogniloop-card">
+                    <div class="why-icon" style="background: var(--emerald-light); color: var(--emerald);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"/></svg>
+                    </div>
+                    <h3>CogniLoop Intelligence</h3>
+                    <ul>
+                        <li>Watch → checkpoint quiz → adaptive review</li>
+                        <li>Per-concept Bayesian mastery tracking</li>
+                        <li>Difficulty adapts via Thompson Sampling</li>
+                        <li>In-video checkpoints at 30%, 65%, 85%</li>
+                        <li>Measurable Normalized Learning Gain</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── How It Works ── -->
+    <section class="landing-section" id="how-it-works">
+        <div class="landing-container">
+            <p class="section-label">How It Works</p>
+            <h2>Three Steps to Mastery</h2>
+            <p class="section-desc">CogniLoop's adaptive loop continuously refines your learning path based on real behavioral signals.</p>
+
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </div>
+                    <h3>Watch & Engage</h3>
+                    <p>Study curated video lectures with embedded concept checkpoints. The system tracks your pauses, rewinds, and speed, building a micro-behavioral profile.</p>
+                </div>
+                <div class="step-connector">
+                    <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="var(--amber)" stroke-width="2" stroke-dasharray="6 4"/></svg>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </div>
+                    <h3>Adaptive Quiz</h3>
+                    <p>After each submodule, take an AI-generated quiz. Question difficulty is selected by a Thompson Sampling bandit conditioned on your BKT mastery state.</p>
+                </div>
+                <div class="step-connector">
+                    <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="var(--amber)" stroke-width="2" stroke-dasharray="6 4"/></svg>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <h3>Master & Grow</h3>
+                    <p>Get AI-powered insights, personalized cheat sheets, focus concepts, and resource recommendations. Track your Normalized Learning Gain over time.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Key Features / Research Algorithms ── -->
+    <section class="landing-section" style="background: var(--surface);">
+        <div class="landing-container">
+            <p class="section-label">Under the Hood</p>
+            <h2>Research-Backed Algorithms</h2>
+            <p class="section-desc">Every feature in CogniLoop is grounded in published educational data mining and intelligent tutoring research.</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    </div>
+                    <h3>Bayesian Knowledge Tracing</h3>
+                    <p>Models each concept's mastery probability using a Hidden Markov Model with four parameters: P(L₀), P(T), P(G), P(S). Updates after every response.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <h3>Thompson Sampling Bandit</h3>
+                    <p>Selects question difficulty via a contextual multi-armed bandit policy. Each arm (easy/medium/hard) maintains Beta distributions updated by learning outcomes.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #047857;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <h3>RAG-Powered Quiz Generation</h3>
+                    <p>Retrieval-Augmented Generation extracts transcript context from watched video segments. Groq LLM generates curriculum-aligned MCQs grounded in lecture content.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #ede9fe, #c4b5fd); color: #6d28d9;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h3>Micro-Pattern Analytics</h3>
+                    <p>Tracks pause, rewind, speed-change, and skip events during video playback. Classifies learner pace (Fast/Standard/Slow) to contextualise quiz difficulty selection.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #be185d;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3>Secure Authentication</h3>
+                    <p>PBKDF2-HMAC-SHA256 password hashing with 100K iterations, 16-byte random salts, and timing-attack resistant comparison via <code>secrets.compare_digest</code>.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #e8f5f6, #b2dfdb); color: #1a6b72;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                    </div>
+                    <h3>Normalized Learning Gain</h3>
+                    <p>Measures actual learning effectiveness using (post − pre) / (1 − pre). Validated under simulated N=60 student profiles with p&lt;0.05 statistical significance.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Research Stats (honest, factual) ── -->
+    <section class="landing-section" id="research-stats">
+        <div class="landing-container">
+            <p class="section-label">Research Evaluation</p>
+            <h2>Validated Under Rigorous Conditions</h2>
+            <p class="section-desc">All metrics are from our published experimental evaluation under controlled simulation.</p>
+
+            <div class="stats-grid">
+                <div class="stat-counter-card">
+                    <span class="stat-big" data-target="60">0</span>
+                    <span class="stat-unit">Simulated Learner Profiles</span>
+                    <span class="stat-detail">Across 3 behavioral archetypes: Fast, Standard, Slow</span>
+                </div>
+                <div class="stat-counter-card">
+                    <span class="stat-big" data-target="4">0</span>
+                    <span class="stat-unit">CS Course Modules</span>
+                    <span class="stat-detail">Data Structures, OS, DBMS, Computer Networks</span>
+                </div>
+                <div class="stat-counter-card">
+                    <span class="stat-big" data-target="48">0</span>
+                    <span class="stat-unit">In-Video Checkpoints</span>
+                    <span class="stat-detail">3 checkpoints per submodule × 4 submodules × 4 courses</span>
+                </div>
+                <div class="stat-counter-card">
+                    <span class="stat-big" data-target="162">0</span>
+                    <span class="stat-unit">Automated Tests Passing</span>
+                    <span class="stat-detail">BKT, Bandit, RAG, E2E routes, stress tests: 100% pass</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Growth & Proof: How Users Improve -->
+    <section class="landing-section" style="background: var(--surface);">
+        <div class="landing-container">
+            <p class="section-label">Evidence of Learning</p>
+            <h2>How CogniLoop Helps You Grow: With Proof</h2>
+            <p class="section-desc">Every interaction generates measurable evidence of learning progression. Here's how the system proves you're improving.</p>
+
+            <div class="proof-grid">
+                <div class="proof-card">
+                    <div class="proof-number">01</div>
+                    <h3>Mastery Tracking, Not Just Scores</h3>
+                    <p>Traditional platforms give you a percentage. CogniLoop tracks <strong>concept-level mastery</strong> using Bayesian Knowledge Tracing. You don't just see "75%": you see that you've mastered <em>linked lists</em> but still need work on <em>AVL rotations</em>.</p>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-number">02</div>
+                    <h3>Adaptive Difficulty = Optimal Challenge</h3>
+                    <p>Questions that are too easy don't teach. Too hard questions frustrate. CogniLoop's Thompson Sampling bandit finds the <strong>Zone of Proximal Development</strong>, giving you questions just hard enough to push growth, backed by learning science.</p>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-number">03</div>
+                    <h3>Normalized Learning Gain</h3>
+                    <p>We measure real learning using <strong>NLG = (post - pre) / (1 - pre)</strong>, the gold standard metric in education research. Our evaluation shows statistically significant improvement (p&lt;0.05) compared to static sequential instruction.</p>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-number">04</div>
+                    <h3>AI Insights & Personalized Cheat Sheets</h3>
+                    <p>After every quiz, get an <strong>AI-generated analysis</strong> of your weak areas, focus concepts, actionable cheat sheets, and curated resource links. No generic "study more": specific, evidence-based guidance.</p>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-number">05</div>
+                    <h3>Behavioral Learning Profile</h3>
+                    <p>The micro-pattern engine tracks how you learn: your pause-rewind patterns, speed preferences, and engagement signals. This builds a <strong>behavioral profile</strong> that adapts the entire experience to your learning style.</p>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-number">06</div>
+                    <h3>Visible Progress Dashboard</h3>
+                    <p>Interactive dashboards show mastery charts, heatmaps, streaks, XP, and attempt history. You can <strong>see yourself improving</strong> over time: concrete proof of growth, not just intuition.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Course Modules ── -->
+    <section class="category-section" id="courses">
         <div class="category-header">
             <p style="color: var(--secondary-color); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
                 Curriculum</p>
@@ -60,6 +290,7 @@
                 </div>
                 <h3>{{ course.title }}</h3>
                 <p>{{ course.description }}</p>
+                <p style="color: var(--text-400); font-size: 0.85rem; margin-top: 8px;">4 submodules · 12 checkpoints · Adaptive quizzes</p>
                 <div style="margin-top: 20px;">
                     <a href="{{ url_for('login') }}" class="btn btn-primary"
                         style="padding: 8px 20px; font-size: 0.9rem; width: auto; background-color: var(--primary-color);">View
@@ -69,6 +300,96 @@
             {% endfor %}
         </div>
     </section>
+
+    <!-- ── Footer ── -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="{{ url_for('index') }}" class="logo" style="text-decoration: none; color: white; display: flex; align-items: center; gap: 10px; font-size: 1.3rem;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber);">
+                        <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
+                    </svg>
+                    CogniLoop
+                </a>
+                <p style="color: rgba(255,255,255,0.6); margin-top: 12px; font-size: 0.9rem; max-width: 360px; line-height: 1.6;">
+                    An adaptive learning platform built as part of IEEE research on intelligent tutoring systems with Bayesian Knowledge Tracing and contextual bandits.
+                </p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <h4>Platform</h4>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="#courses">Courses</a>
+                    <a href="#research-stats">Research</a>
+                    <a href="{{ url_for('register') }}">Get Started</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Research</h4>
+                    <a href="#why-cogniloop">Why CogniLoop</a>
+                    <a href="#">IEEE Paper</a>
+                    <a href="#">GitHub Repository</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 CogniLoop: Built by <strong>Kavya Aggarwal</strong> | IEEE Research Project</p>
+        </div>
+    </footer>
+
+    <!-- ── Scroll Animation & Counter Script ── -->
+    <script>
+        // Intersection Observer for fade-in animations
+        const observerOptions = { threshold: 0.15, rootMargin: '0px 0px -40px 0px' };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.landing-section, .cat-card, .step-card, .feature-card, .proof-card, .stat-counter-card, .why-card').forEach(el => {
+            el.classList.add('animate-on-scroll');
+            observer.observe(el);
+        });
+
+        // Animated counter for stats
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const el = entry.target;
+                    const target = parseInt(el.getAttribute('data-target'));
+                    let current = 0;
+                    const increment = Math.max(1, Math.floor(target / 40));
+                    const timer = setInterval(() => {
+                        current += increment;
+                        if (current >= target) {
+                            current = target;
+                            clearInterval(timer);
+                        }
+                        el.textContent = current;
+                    }, 30);
+                    counterObserver.unobserve(el);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.stat-big[data-target]').forEach(el => {
+            counterObserver.observe(el);
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

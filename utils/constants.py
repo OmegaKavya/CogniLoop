@@ -12,7 +12,7 @@ STATIC_CHEAT_SHEETS = {
         ],
         'pitfalls': [
             'Confusing process context switch with thread switch overhead.',
-            'Mixing starvation and deadlock — they are not the same failure mode.',
+            'Mixing starvation and deadlock - they are not the same failure mode.',
             'Ignoring critical-section boundaries in synchronization questions.'
         ],
         'drills': [
@@ -95,8 +95,9 @@ SUBMODULE_DEFINITIONS = {
     'os': [
         {
             "title": "Process & Thread Lifecycle",
-            "objective": "Understand how processes are created, scheduled, and terminated — and how threads differ from processes.",
+            "objective": "Understand how processes are created, scheduled, and terminated - and how threads differ from processes.",
             "exam_angle": "🎯 GATE Tip: Process state diagrams and context switch overhead appear in almost every OS paper.",
+            "video_id": "26QPDBe-NB8",
             "start_sec": 0,
             "end_sec": 420,
             "checkpoints": [
@@ -127,8 +128,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Virtual Memory & Page Replacement",
             "objective": "Master paging, virtual address translation, page faults, and replacement policies like LRU and FIFO.",
             "exam_angle": "🎯 GATE Tip: Numerical questions on page fault counts with reference strings are extremely common.",
-            "start_sec": 420,
-            "end_sec": 900,
+            "video_id": "p3q5IURwH8k",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "os-cp2-1", "trigger_pct": 30,
@@ -157,8 +159,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Synchronisation, Deadlock & IPC",
             "objective": "Understand race conditions, critical sections, semaphores, monitors, and all four Coffman deadlock conditions.",
             "exam_angle": "🎯 GATE Tip: Deadlock detection questions often ask you to identify the missing Coffman condition.",
-            "start_sec": 900,
-            "end_sec": 1200,
+            "video_id": "r_Mboz1NF9g",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "os-cp3-1", "trigger_pct": 30,
@@ -187,7 +190,8 @@ SUBMODULE_DEFINITIONS = {
             "title": "File Systems & Disk Scheduling",
             "objective": "Master file allocation methods (contiguous, linked, indexed) and disk scheduling algorithms like SCAN, LOOK, and SSTF.",
             "exam_angle": "🎯 GATE Tip: Disk scheduling questions usually require calculating total head movement in cylinder steps.",
-            "start_sec": 1200,
+            "video_id": "WJ9J8PjFp_Q",
+            "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
                 {
@@ -219,6 +223,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Linear Structures & Complexity Analysis",
             "objective": "Master arrays, linked lists, stacks, queues, and how to choose the right structure based on operation costs.",
             "exam_angle": "🎯 GATE Tip: Time complexity questions often compare array vs linked list for insert/delete at arbitrary positions.",
+            "video_id": "RBSGKlAvoiM",
             "start_sec": 0,
             "end_sec": 420,
             "checkpoints": [
@@ -227,14 +232,14 @@ SUBMODULE_DEFINITIONS = {
                     "question": "What is the time complexity of inserting an element at the beginning of a singly linked list?",
                     "options": ["O(1)", "O(n)", "O(log n)", "O(n²)"],
                     "correct_index": 0,
-                    "explanation": "Inserting at the head of a linked list only requires updating the head pointer — O(1)."
+                    "explanation": "Inserting at the head of a linked list only requires updating the head pointer: O(1)."
                 },
                 {
                     "id": "ds-cp1-2", "trigger_pct": 65,
                     "question": "Which data structure is most suitable for implementing function call recursion in programming languages?",
                     "options": ["Stack", "Queue", "Heap", "Graph"],
                     "correct_index": 0,
-                    "explanation": "Recursion uses a call stack (LIFO) — each function call pushes a frame, return pops it."
+                    "explanation": "Recursion uses a call stack (LIFO): each function call pushes a frame, return pops it."
                 },
                 {
                     "id": "ds-cp1-3", "trigger_pct": 85,
@@ -249,15 +254,16 @@ SUBMODULE_DEFINITIONS = {
             "title": "Trees, BSTs & Balanced Structures",
             "objective": "Understand binary trees, BST operations, AVL rotations, heaps, and tree traversal patterns.",
             "exam_angle": "🎯 GATE Tip: BST worst-case height (skewed tree = O(n)) vs AVL guaranteed O(log n) is a classic exam contrast.",
-            "start_sec": 420,
-            "end_sec": 900,
+            "video_id": "qH6yxkw0u78",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "ds-cp2-1", "trigger_pct": 30,
                     "question": "What is the worst-case time complexity of search in an unbalanced Binary Search Tree?",
                     "options": ["O(n)", "O(log n)", "O(1)", "O(n log n)"],
                     "correct_index": 0,
-                    "explanation": "A skewed BST degenerates to a linked list — search becomes O(n) in the worst case."
+                    "explanation": "A skewed BST degenerates to a linked list: search becomes O(n) in the worst case."
                 },
                 {
                     "id": "ds-cp2-2", "trigger_pct": 65,
@@ -279,8 +285,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Graphs, Hashing & Algorithm Design",
             "objective": "Apply BFS/DFS, shortest path algorithms, and hash table design with collision resolution strategies.",
             "exam_angle": "🎯 GATE Tip: Dijkstra vs Bellman-Ford trade-offs (negative edges, complexity) appear frequently.",
-            "start_sec": 900,
-            "end_sec": 1200,
+            "video_id": "tWVWeAqZ0WU",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "ds-cp3-1", "trigger_pct": 30,
@@ -294,7 +301,7 @@ SUBMODULE_DEFINITIONS = {
                     "question": "In open addressing (linear probing), what happens when the hash table becomes very full?",
                     "options": ["Clustering increases, making search degrade toward O(n)", "Performance improves due to cache locality", "Collisions become impossible", "The table automatically resizes"],
                     "correct_index": 0,
-                    "explanation": "Linear probing causes primary clustering — long runs of occupied slots degrade average search time."
+                    "explanation": "Linear probing causes primary clustering: long runs of occupied slots degrade average search time."
                 },
                 {
                     "id": "ds-cp3-3", "trigger_pct": 85,
@@ -309,7 +316,8 @@ SUBMODULE_DEFINITIONS = {
             "title": "Advanced Trees & Heap Operations",
             "objective": "Master AVL tree self-balancing rotations, the optimal cost of building a heap (heapify), and prefix/Trie structures.",
             "exam_angle": "🎯 GATE Tip: The time complexity of building a heap from scratch is O(n), NOT O(n log n). This is a frequent trick question.",
-            "start_sec": 1200,
+            "video_id": "HqPJF2L5h9U",
+            "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
                 {
@@ -341,6 +349,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Relational Model, Keys & SQL Fundamentals",
             "objective": "Understand relational algebra, key types, SQL joins, and aggregate functions with GROUP BY and HAVING.",
             "exam_angle": "🎯 GATE Tip: Relational algebra expressions and SQL query output prediction are near-guaranteed exam questions.",
+            "video_id": "HXV3zeQKqGY",
             "start_sec": 0,
             "end_sec": 420,
             "checkpoints": [
@@ -371,22 +380,23 @@ SUBMODULE_DEFINITIONS = {
             "title": "Normalisation & Database Design",
             "objective": "Apply functional dependencies, identify anomalies, and normalise relations to 1NF, 2NF, 3NF, and BCNF.",
             "exam_angle": "🎯 GATE Tip: Given a relation and FDs, finding the highest normal form it satisfies is a classic 2-mark question.",
-            "start_sec": 420,
-            "end_sec": 900,
+            "video_id": "px7w_kE531o",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "db-cp2-1", "trigger_pct": 30,
                     "question": "A relation is in 2NF if it is in 1NF and:",
                     "options": ["No non-prime attribute is partially dependent on any candidate key", "No transitive dependencies exist", "All attributes are multivalued", "The primary key has only one attribute"],
                     "correct_index": 0,
-                    "explanation": "2NF eliminates partial dependencies — every non-prime attribute must depend on the whole key, not part of it."
+                    "explanation": "2NF eliminates partial dependencies: every non-prime attribute must depend on the whole key, not part of it."
                 },
                 {
                     "id": "db-cp2-2", "trigger_pct": 65,
                     "question": "Which anomaly occurs when updating one tuple's data requires updating multiple tuples to maintain consistency?",
                     "options": ["Update anomaly", "Insertion anomaly", "Deletion anomaly", "Key anomaly"],
                     "correct_index": 0,
-                    "explanation": "Update anomalies arise from redundancy — the same fact stored in multiple rows must be updated everywhere consistently."
+                    "explanation": "Update anomalies arise from redundancy: the same fact stored in multiple rows must be updated everywhere consistently."
                 },
                 {
                     "id": "db-cp2-3", "trigger_pct": 85,
@@ -401,8 +411,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Transactions, Concurrency & Recovery",
             "objective": "Master ACID properties, isolation levels, concurrency control protocols, and crash recovery mechanisms.",
             "exam_angle": "🎯 GATE Tip: Serializability of schedules (conflict vs view) and lock-based protocol questions are very common.",
-            "start_sec": 900,
-            "end_sec": 1200,
+            "video_id": "5ZjhNTM8XU8",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "db-cp3-1", "trigger_pct": 30,
@@ -423,7 +434,7 @@ SUBMODULE_DEFINITIONS = {
                     "question": "The 'dirty read' problem occurs at which isolation level?",
                     "options": ["Read Uncommitted", "Read Committed", "Repeatable Read", "Serializable"],
                     "correct_index": 0,
-                    "explanation": "Read Uncommitted allows reading uncommitted (dirty) data from other transactions — the lowest isolation level."
+                    "explanation": "Read Uncommitted allows reading uncommitted (dirty) data from other transactions - the lowest isolation level."
                 }
             ]
         },
@@ -431,7 +442,8 @@ SUBMODULE_DEFINITIONS = {
             "title": "Indexing & Query Optimization",
             "objective": "Master index structures (B and B+ trees), sparse vs dense indexing, and algebraic query plan optimizations.",
             "exam_angle": "🎯 GATE Tip: Understanding the minimum and maximum node capacity of a B+ Tree of order 'p' is a core GATE calculation.",
-            "start_sec": 1200,
+            "video_id": "7S_tz1z_54A",
+            "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
                 {
@@ -463,6 +475,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Network Architecture & Addressing",
             "objective": "Understand OSI vs TCP/IP layering, IP addressing, subnetting, and ARP/ICMP roles.",
             "exam_angle": "🎯 GATE Tip: Subnetting calculations (hosts per subnet, network address, broadcast) are standard numerical questions.",
+            "video_id": "3QhU9jd03a0",
             "start_sec": 0,
             "end_sec": 420,
             "checkpoints": [
@@ -493,8 +506,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Transport Layer: TCP vs UDP Deep Dive",
             "objective": "Master TCP's 3-way handshake, flow control (sliding window), congestion control, and when to choose UDP.",
             "exam_angle": "🎯 GATE Tip: TCP sequence number and acknowledgement number calculations appear in numerical questions.",
-            "start_sec": 420,
-            "end_sec": 900,
+            "video_id": "PpsEaqJV_A0",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "cn-cp2-1", "trigger_pct": 30,
@@ -506,7 +520,7 @@ SUBMODULE_DEFINITIONS = {
                 {
                     "id": "cn-cp2-2", "trigger_pct": 65,
                     "question": "What is the purpose of TCP's sliding window mechanism?",
-                    "options": ["Flow control — limits sender rate to receiver's buffer capacity", "Congestion control — detects network overload", "Error detection — checksums incoming packets", "Routing — selects the best network path"],
+                    "options": ["Flow control - limits sender rate to receiver's buffer capacity", "Congestion control - detects network overload", "Error detection - checksums incoming packets", "Routing - selects the best network path"],
                     "correct_index": 0,
                     "explanation": "The sliding window controls how many bytes can be sent before requiring an ACK, matching sender rate to receiver capacity."
                 },
@@ -523,8 +537,9 @@ SUBMODULE_DEFINITIONS = {
             "title": "Application Layer & Routing Protocols",
             "objective": "Understand DNS resolution, HTTP/HTTPS, email protocols, and how routing algorithms (RIP, OSPF, BGP) work.",
             "exam_angle": "🎯 GATE Tip: Distance Vector vs Link State routing (Bellman-Ford vs Dijkstra) is a classic protocol design question.",
-            "start_sec": 900,
-            "end_sec": 1200,
+            "video_id": "vcrJ03rWvN8",
+            "start_sec": 0,
+            "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "cn-cp3-1", "trigger_pct": 30,
@@ -545,7 +560,7 @@ SUBMODULE_DEFINITIONS = {
                     "question": "What security feature does HTTPS add over HTTP?",
                     "options": ["TLS/SSL encryption and server certificate authentication", "Faster packet routing", "Compression of HTML content", "Stateful session tracking"],
                     "correct_index": 0,
-                    "explanation": "HTTPS wraps HTTP in TLS — providing encryption (confidentiality), integrity, and server authentication via certificates."
+                    "explanation": "HTTPS wraps HTTP in TLS, providing encryption (confidentiality), integrity, and server authentication via certificates."
                 }
             ]
         },
@@ -553,7 +568,8 @@ SUBMODULE_DEFINITIONS = {
             "title": "Network Security & Cryptography",
             "objective": "Master cryptographic concepts (symmetric vs asymmetric keys), digital signatures, firewalls, and the RSA algorithm.",
             "exam_angle": "🎯 GATE Tip: Number theory questions in cryptography frequently ask you to calculate RSA ciphertexts using modular arithmetic.",
-            "start_sec": 1200,
+            "video_id": "4t2dUpXz5c8",
+            "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
                 {

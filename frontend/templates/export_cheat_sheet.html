@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CogniLoop Executive Revision Report & Cheat Sheet - {{ attempt.topic_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
+    <style>
+      @page {
+        size: A4;
+        margin: 15mm;
+      }
+      body {
+        background: #f8fafc;
+        color: #1e293b;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .report-container {
+        max-width: 900px;
+        margin: 20px auto;
+        background: #ffffff;
+        padding: 36px 40px;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+      }
+
+      .report-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid #1a6b72;
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #1a6b72;
+      }
+
+      .badge-ieee {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background: rgba(217, 119, 6, 0.12);
+        color: #d97706;
+        border: 1px solid rgba(217, 119, 6, 0.3);
+      }
+
+      .score-summary-card {
+        background: linear-gradient(135deg, #1a6b72 0%, #114b50 100%);
+        color: #ffffff;
+        border-radius: 14px;
+        padding: 24px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 28px;
+      }
+
+      .score-circle {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 800;
+        border: 3px solid #f59e0b;
+      }
+
+      .mastery-progress-box {
+        background: #f1f5f9;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        border-left: 4px solid #1a6b72;
+      }
+
+      .section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1a6b72;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 8px;
+      }
+
+      .cheat-sheet-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-bottom: 24px;
+      }
+
+      .card-box {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 18px;
+        border: 1px solid #cbd5e1;
+      }
+
+      .card-box h4 {
+        margin: 0 0 10px 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .card-box ul {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 0.88rem;
+        line-height: 1.6;
+        color: #334155;
+      }
+
+      .drill-prompt {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+        font-size: 0.88rem;
+      }
+
+      .no-print {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1000;
+      }
+
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white; }
+        .report-container { box-shadow: none; border: none; padding: 0; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="no-print">
+      <button onclick="window.print()" class="btn btn-primary" style="padding:12px 24px;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,0.2);cursor:pointer;">
+        🖨️ Save as PDF / Print Cheat Sheet
+      </button>
+    </div>
+
+    <div class="report-container">
+      <!-- Header -->
+      <div class="report-header">
+        <div>
+          <div class="brand">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5">
+              <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z"></path>
+            </svg>
+            CogniLoop
+          </div>
+          <p style="margin:4px 0 0;font-size:0.85rem;color:#64748b;">IEEE Adaptive Tutoring System · Executive Performance Report</p>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge-ieee">Research Benchmark</span>
+          <p style="margin:6px 0 0;font-size:0.82rem;color:#64748b;">Date: {{ attempt.timestamp[:10] if attempt.timestamp else '' }}</p>
+        </div>
+      </div>
+
+      <!-- Course & Score Summary Banner -->
+      <div class="score-summary-card">
+        <div>
+          <span style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;color:#f59e0b;font-weight:700;">Subject Evaluation</span>
+          <h1 style="margin:6px 0;font-size:1.8rem;color:#ffffff;">{{ attempt.topic_name or attempt.topic_id }}</h1>
+          <p style="margin:0;font-size:0.9rem;opacity:0.9;">
+            Pace: <strong>{{ attempt.speed_label or 'Steady' }}</strong> | Avg Time per Question: <strong>{{ attempt.avg_time }}s</strong>
+          </p>
+        </div>
+        <div class="score-circle">
+          {{ attempt.score }}%
+        </div>
+      </div>
+
+      <!-- BKT Knowledge Mastery Progress -->
+      <div class="mastery-progress-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <strong style="font-size:0.9rem;color:#0f172a;">Bayesian Knowledge Tracing (BKT) Latent Mastery</strong>
+          <span style="font-weight:700;color:#1a6b72;font-size:0.95rem;">{{ (attempt.mastery * 100)|round(1) }}% Mastered</span>
+        </div>
+        <div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+          <div style="height:100%;width:{{ (attempt.mastery * 100)|round(0) }}%;background:linear-gradient(90deg, #1a6b72, #f59e0b);border-radius:6px;"></div>
+        </div>
+      </div>
+
+      <!-- Executive Diagnostic Breakdown -->
+      <div class="section-title">
+        🧠 Diagnostic Misconception Analysis
+      </div>
+      <div style="background:#f8fafc;padding:16px 20px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:24px;">
+        <p style="margin:0 0 10px;font-size:0.92rem;color:#334155;line-height:1.6;">
+          {{ ai_insights.summary if ai_insights else 'Diagnostic analysis completed based on answer choices and response times.' }}
+        </p>
+        {% set diag = ai_insights.get('diagnoses', {}) if ai_insights is mapping else {} %}
+        {% if diag and diag.get('pace_advice') %}
+        <div style="font-size:0.88rem;color:#b45309;font-weight:600;background:#fffbeb;padding:8px 12px;border-radius:6px;border:1px solid #fde68a;">
+          🎯 Pace Guidance: {{ diag.pace_advice }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- High-Yield Submodule Revision Cheat Sheet -->
+      <div class="section-title">
+        ⚡ CogniLoop Executive Submodule Cheat Sheet
+      </div>
+      <div style="background:#f1f5f9;padding:12px 16px;border-radius:8px;border-left:4px solid #1a6b72;margin-bottom:18px;font-size:0.87rem;color:#334155;line-height:1.5;">
+        <strong>🚀 Roadmap Enhancement Notice:</strong> The revision points below provide concise AI-synthesized anchors for real-time exam revision. As an upcoming enhancement to CogniLoop, comprehensive expert-curated textbook notes and annotated lecture companion guides will be provided as a dedicated add-on module for every individual submodule.
+      </div>
+      <div class="cheat-sheet-grid">
+        <div class="card-box" style="border-top:3px solid #ef4444;">
+          <h4 style="color:#dc2626;">⚠️ Focus Areas & High-Yield Pitfalls</h4>
+          <ul>
+            {% for item in (ai_insights.focus_concepts if ai_insights else []) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+            {% for pitfall in cheat_sheet.get('pitfalls', []) %}
+            <li><strong>Watch out:</strong> {{ pitfall }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="card-box" style="border-top:3px solid #10b981;">
+          <h4 style="color:#059669;">💡 Core Principles & Action Steps</h4>
+          <ul>
+            {% for core in cheat_sheet.get('core', []) %}
+            <li>{{ core }}</li>
+            {% endfor %}
+            {% for item in (ai_insights.cheat_sheet if ai_insights else []) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Rapid Drills Flashcards -->
+      <div class="section-title">
+        🔥 5-Minute Rapid Revision Drills
+      </div>
+      <div style="margin-bottom:28px;">
+        {% for drill in cheat_sheet.get('drills', []) %}
+        <div class="drill-prompt">
+          <strong style="color:#92400e;">Drill #{{ loop.index }}:</strong> {{ drill }}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Footer Sign-off -->
+      <div style="border-top:1px solid #e2e8f0;padding-top:16px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;color:#94a3b8;">
+        <span>Generated by CogniLoop Tutoring Engine</span>
+        <span>Built by <strong>Kavya Aggarwal</strong> | IEEE Research Project</span>
+      </div>
+    </div>
+  </body>
+</html>
