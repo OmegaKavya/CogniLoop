@@ -1,4 +1,4 @@
-# ─── Python ───────────────────────────────────────────────────────────────────
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.pyo
@@ -9,19 +9,19 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# ─── Virtual Environments ─────────────────────────────────────────────────────
+# --- Virtual Environments ---
 .venv/
 venv/
 env/
 ENV/
 
-# ─── Test Coverage ────────────────────────────────────────────────────────────
+# --- Test Coverage ---
 .coverage
 coverage.xml
 htmlcov/
 
-# ─── Runtime Data (user data, quiz history, model state) ──────────────────────
-# videos.json is SEED DATA — it must stay in the repo
+# --- Runtime Data (user data, quiz history, model state) ---
+# videos.json is SEED DATA and remains in the repository
 data/users.json
 data/user_progress.json
 data/quiz_attempts.json
@@ -30,49 +30,50 @@ data/bkt_states.json
 data/bandit_q_table.json
 data/chroma_db/
 
-# ─── Trained ML Models ────────────────────────────────────────────────────────
+# --- Trained ML Models ---
 *.pkl
 models/
 
-# ─── Flask / App Runtime ──────────────────────────────────────────────────────
+# --- Flask & App Runtime ---
 instance/
 *.log
 logs/
 *.sqlite3
 
-# ─── Jupyter ──────────────────────────────────────────────────────────────────
+# --- Jupyter ---
 .ipynb_checkpoints/
 
-# ─── macOS ────────────────────────────────────────────────────────────────────
+# --- macOS ---
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
-# ─── VS Code ──────────────────────────────────────────────────────────────────
+# --- IDEs & Editors ---
 .vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.bak
 
-# ─── Build / Packaging ────────────────────────────────────────────────────────
+# --- Build & Packaging ---
 dist/
 build/
 *.egg-info/
 
-# ─── Temporary files ──────────────────────────────────────────────────────────
-*.tmp
-*.swp
-*.bak
-
-# ─── Environment Variables ────────────────────────────────────────────────────
+# --- Environment Variables ---
 .env
 
-# ─── Ollama / Local LLM Artifacts ────────────────────────────────────────────
+# --- Local LLM & Temporary Storage ---
 ollama_models/
+.tempmediaStorage/
 
-# ─── Local diagnostic / one-off scripts (not part of core codebase) ──────────
+# --- Internal Diagnostics & Scratch Scripts ---
 diag_yt.py
 fix_quiz.py
 test_ollama.py
 
-# ─── Internal Reviews & Roadmaps (not for public git commit) ─────────────────
+# --- Internal Reviews (excluded from git submission) ---
 SUGGESTIONS_FOR_REVIEW.md
 PROJECT_EVALUATION_REPORT.md
-

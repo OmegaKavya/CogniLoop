@@ -81,9 +81,9 @@ class QuizGenerator:
     def _build_prompt(self, topic_id, topic_name, num_questions, adaptive_difficulty,
                       cluster, speed_label, mastery, context_prompt, avoid_questions):
         if mastery < 0.4:
-            mastery_instruction = "Focus on foundational concepts — the learner has low mastery."
+            mastery_instruction = "Focus on foundational concepts - the learner has low mastery."
         elif mastery > 0.7:
-            mastery_instruction = "Include challenging analytical questions — the learner has high mastery."
+            mastery_instruction = "Include challenging analytical questions - the learner has high mastery."
         else:
             mastery_instruction = "Balance conceptual and applied questions."
 
@@ -95,7 +95,7 @@ Difficulty: {adaptive_difficulty}. Learner profile: {cluster}. Speed: {speed_lab
 {mastery_instruction}
 
 Rules:
-1. Questions MUST test {topic_name} concepts only — no study habits or generic advice.
+1. Questions MUST test {topic_name} concepts only - no study habits or generic advice.
 2. Progression: first ~30% foundational, middle ~40% mechanisms/applications, last ~30% scenario/edge-cases.
 3. Each question: one clearly correct answer + 3 plausible distractors.
 4. Hints: guide reasoning without revealing the answer.
@@ -105,7 +105,7 @@ Return ONLY valid JSON:
 {{"topic_id":"{topic_id}","difficulty":"{adaptive_difficulty}","num_questions":{num_questions},"questions":[{{"id":1,"text":"...","options":["A","B","C","D"],"answer":"exact correct option text","hint":"..."}}]}}"""
 
     def _try_groq(self, prompt, num_questions, topic_id, adaptive_difficulty, avoid_questions):
-        """Use Groq API — ~30 RPM free, ~2s per quiz."""
+        """Use Groq API - ~30 RPM free, ~2s per quiz."""
         headers = {
             "Authorization": f"Bearer {self.groq_api_key}",
             "Content-Type": "application/json"
@@ -131,7 +131,7 @@ Return ONLY valid JSON:
         return None
 
     def _try_ollama(self, prompt):
-        """Use local Ollama — unlimited but slow (~60-90s)."""
+        """Use local Ollama - unlimited but slow (~60-90s)."""
         response = requests.post(self.ollama_url, json={
             "model": self.ollama_model,
             "prompt": prompt,
