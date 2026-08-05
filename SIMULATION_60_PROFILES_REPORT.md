@@ -3,7 +3,9 @@
 ## Executive Summary
 This empirical report details the experimental validation of **CogniLoop** across **$N=60$ simulated student profiles** divided equally between the **Experimental Group** (Adaptive Learning: BKT + Thompson Sampling Bandit + In-video Checkpoints) and the **Control Group** (Static Sequential Video Instruction).
 
-The experimental group demonstrated a **statistically significant improvement** in **Normalized Learning Gain (NLG)** compared to the control group ($p < 0.0001$).
+The evaluation is structured into a two-phase framework: **Phase 1 (Algorithmic Simulation)** for algorithmic convergence and statistical validation, establishing baseline metrics prior to human pilot deployment (**Phase 2 Protocol**).
+
+The experimental group demonstrated a **statistically significant improvement** in **Normalized Learning Gain (NLG)** compared to the control group ($p < 0.0001$, Cohen's $d = 1.088$).
 
 ---
 
@@ -13,11 +15,13 @@ The experimental group demonstrated a **statistically significant improvement** 
 | :--- | :---: | :---: | :---: |
 | **Sample Size ($N$)** | 30 profiles | 30 profiles | $N=60$ Total |
 | **Pre-Test Avg Score** | 37.3% | 38.0% | Baseline Equalized |
-| **Post-Test Avg Score** | 96.0% | 62.5% | $+33.5\%$ Higher in Exp |
+| **Post-Test Avg Score** | 96.0% | 62.5% | $+33.5\\%$ Higher in Exp |
 | **Mean Normalized Gain ($\overline{NLG}$)** | **0.934** | **0.363** | **$+0.571$ Gain Delta** |
-| **Standard Deviation ($\sigma_{NLG}$)** | 0.192 | 0.704 | Controlled Variance |
+| **Standard Deviation ($\sigma_{NLG}$)** | 0.196 | 0.716 | Controlled Variance |
 | **Two-Sample $t$-Statistic** | - | - | **$t = 4.215$** |
-| **$P$-Value** | - | - | **$p = 0.000088 < 0.05$ (Significant)** |
+| **$P$-Value ($t$-test)** | - | - | **$p = 0.000088 < 0.05$ (Significant)** |
+| **Mann-Whitney $U$ Statistic** | - | - | **$U = 682.5$ ($p = 0.000506$)** |
+| **Cohen's $d$ Effect Size** | - | - | **$d = 1.088$ (Large Effect, $d > 0.8$)** |
 
 $$\text{NLG} = \frac{\text{Post-Test} - \text{Pre-Test}}{100 - \text{Pre-Test}}$$
 
@@ -109,5 +113,5 @@ Evaluation profiles were modeled across 3 distinct behavioral archetypes:
 
 ## 4. Key Findings & Discussion
 1. **Adaptive Tutoring Outperforms Static Videos**: The adaptive loop (BKT state tracking + Thompson Sampling bandit routing) drove a **93.4% mean learning gain** vs **36.3% in static video viewing**.
-2. **Maximum Impact on Slow Learners**: Slow learners experienced the highest relative boost ($\Delta NLG = +0.215$) due to personalized question difficulty and targeted in-video checkpoints preventing cognitive overload.
-3. **Statistical Validity**: The $t$-statistic of $4.215$ with $p < 0.0001$ confirms that CogniLoop's learning gains are statistically significant and reproducible under randomized trial conditions.
+2. **Maximum Impact on Slow Learners**: Slow learners experienced the highest relative boost ($\Delta NLG = +0.215$) due to personalized question difficulty and targeted in-video checkpoints.
+3. **Statistical & Effect Size Rigor**: The $t$-statistic of $4.215$ ($p < 0.0001$), Mann-Whitney $U = 682.5$ ($p = 0.000506$), and Cohen's $d = 1.088$ confirm that CogniLoop's learning gains are statistically significant with a large magnitude of effect.
