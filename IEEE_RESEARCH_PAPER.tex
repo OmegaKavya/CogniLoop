@@ -62,6 +62,12 @@ Platforms like Edpuzzle allow instructors to insert active checkpoints. However,
 
 \section{Theoretical Framework and Mathematical Modeling}
 
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\linewidth]{figures/fig1_architecture.png}}
+\caption{CogniLoop System Architecture and Closed-Loop Control Flow.}
+\label{fig1}
+\end{figure}
+
 \subsection{Item Response Theory (IRT) Grounded BKT}
 BKT models student knowledge as a latent binary variable (learned vs. unlearned) \cite{corbett1994knowledge}. At each quiz attempt $n$, the system tracks the probability $P(L_n)$ that a student has mastered a specific concept. The update is parameterized by prior $P(L_0) = 0.3$, transition $P(T) = 0.2$, guess probability $P(G)$, and slip probability $P(S)$ \cite{baker2008more, lan2014time}.
 
@@ -110,6 +116,12 @@ CogniLoop integrates retrieval practice and active testing \cite{dunlosky2013imp
 
 \section{Experimental Validation}
 Our evaluation framework is organized into a two-stage structure: \textbf{Phase 1: Algorithmic Simulation Validation ($N=60$)} to establish mathematical convergence and effect sizes under controlled conditions, and \textbf{Phase 2: Human Pilot Protocol ($N=20$)} for live participant trials.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\linewidth]{figures/fig2_results.png}}
+\caption{Normalized Learning Gain (NLG) across Learner Archetypes.}
+\label{fig2}
+\end{figure}
 
 \begin{itemize}
     \item \textbf{Control Group Mean NLG ($\overline{\text{NLG}}_{\text{ctrl}}$)}: $0.363 \pm 0.716$

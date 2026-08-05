@@ -79,6 +79,10 @@ SUGGESTIONS_FOR_REVIEW.md
 PROJECT_EVALUATION_REPORT.md
 DEFENSE_AND_PRESENTATION_GUIDE.md
 
-# --- Submission Artifacts ---
+# --- Submission Artifacts & Build Generators ---
 Submission/
+tectonic
+scripts/
+figures/
+
 
