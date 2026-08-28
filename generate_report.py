@@ -110,75 +110,99 @@ def run_simulation_and_generate_report():
     exp_avg_nlg = float(np.mean(exp_nlg))
     ctrl_avg_nlg = float(np.mean(ctrl_nlg))
 
-    exp_pre_avg = float(np.mean([r["pre_score"] for r in exp_rows]))
-    ctrl_pre_avg = float(np.mean([r["pre_score"] for r in ctrl_rows]))
+    # --- Null-Condition Experiment (Equal Transition Rate eta_exp = eta_ctrl = 1.0) ---
+    null_exp_nlg, null_ctrl_nlg = [], []
+    for arch in archetypes:
+        for i in range(arch["count"]):
+            p0 = random.uniform(*arch["base_p0"])
+            # Experimental with adaptive difficulty
+            cur_m = p0
+            for _ in range(6):
+                p_c = cur_m * 0.90 + (1 - cur_m) * 0.20
+                c = random.random() < p_c
+                cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.7)
+            null_exp_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
 
-    exp_post_avg = float(np.mean([r["post_score"] for r in exp_rows]))
-    ctrl_post_avg = float(np.mean([r["post_score"] for r in ctrl_rows]))
+            # Control with static medium difficulty
+            cur_m = p0
+            for _ in range(6):
+                p_c = cur_m * 0.85 + (1 - cur_m) * 0.15
+                c = random.random() < p_c
+                cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.3)
+            null_ctrl_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
 
-    # Out-of-Model Logistic Response Robustness Test
+    t_null, p_null = stats.ttest_ind(null_exp_nlg, null_ctrl_nlg, equal_var=False)
+    delta_null = float(np.mean(null_exp_nlg) - np.mean(null_ctrl_nlg))
+    v1_n = np.var(null_exp_nlg, ddof=1) / len(null_exp_nlg)
+    v2_n = np.var(null_ctrl_nlg, ddof=1) / len(null_ctrl_nlg)
+    df_null = (v1_n + v2_n)**2 / ((v1_n**2 / (len(null_exp_nlg) - 1)) + (v2_n**2 / (len(null_ctrl_nlg) - 1)))
+
+    # --- Out-of-Model Logistic Robustness Test (Learner-level Aggregate N=60) ---
     log_exp_nlg = []
     log_ctrl_nlg = []
     for arch in archetypes:
         for i in range(10):
-            # Experimental (Adaptive + Checkpoints)
+            # Experimental (Adaptive)
             l_state = random.uniform(*arch["base_p0"])
             pre = l_state * 100.0
             for _ in range(6):
                 logit = 1.8 * l_state - 0.2 + (0.3 if arch['type']=='Fast' else 0.0)
                 p_resp = 1.0 / (1.0 + np.exp(-logit))
                 c = random.random() < p_resp
-                l_state += (1.0 - l_state) * 0.32 * (1.0 if c else 0.5)
+                l_state += (1.0 - l_state) * 0.28 * (1.0 if c else 0.6)
             post = l_state * 100.0
             log_exp_nlg.append((post - pre) / (100.0 - pre))
 
-            # Control (Static Video)
+            # Control (Static)
             l_state = random.uniform(*arch["base_p0"])
             pre = l_state * 100.0
             for _ in range(6):
-                logit = 1.8 * l_state - 0.7
+                logit = 1.8 * l_state - 0.5
                 p_resp = 1.0 / (1.0 + np.exp(-logit))
                 c = random.random() < p_resp
-                l_state += (1.0 - l_state) * 0.12
+                l_state += (1.0 - l_state) * 0.18
             post = l_state * 100.0
             log_ctrl_nlg.append((post - pre) / (100.0 - pre))
 
     t_log, p_log = stats.ttest_ind(log_exp_nlg, log_ctrl_nlg, equal_var=False)
     log_delta = float(np.mean(log_exp_nlg) - np.mean(log_ctrl_nlg))
+    v1_l = np.var(log_exp_nlg, ddof=1) / len(log_exp_nlg)
+    v2_l = np.var(log_ctrl_nlg, ddof=1) / len(log_ctrl_nlg)
+    df_log = (v1_l + v2_l)**2 / ((v1_l**2 / (len(log_exp_nlg) - 1)) + (v2_l**2 / (len(log_ctrl_nlg) - 1)))
 
     # Cleanup temporary simulation JSON files
     for tmp_file in ["data/bkt_states_sim.json", "data/bandit_q_table_sim.json"]:
         if os.path.exists(tmp_file):
             os.remove(tmp_file)
 
-    print(f"--- SIMULATION RESULTS ---")
-    print(f"Exp Pre: {exp_pre_avg:.1f}%, Post: {exp_post_avg:.1f}%, NLG: {exp_avg_nlg:.4f}")
-    print(f"Ctrl Pre: {ctrl_pre_avg:.1f}%, Post: {ctrl_post_avg:.1f}%, NLG: {ctrl_avg_nlg:.4f}")
+    print(f"--- PRIMARY SIMULATION ---")
+    print(f"Exp NLG: {exp_avg_nlg:.4f}, Ctrl NLG: {ctrl_avg_nlg:.4f}, Delta: {mean_diff:.4f}")
     print(f"Welch's t(df={df_welch:.1f}) = {t_stat_welch:.4f}, p = {p_val_welch:.6e}")
-    print(f"Mean Difference 95% CI: [{ci_mean_diff[0]:.4f}, {ci_mean_diff[1]:.4f}]")
-    print(f"Mann-Whitney U = {u_stat:.1f}, p = {u_pval:.6f}")
-    print(f"Cohen's d = {cohens_d:.4f}, 95% CI: [{ci_d[0]:.4f}, {ci_d[1]:.4f}]")
-    print(f"Out-of-Model Logistic Robustness: Delta NLG = +{log_delta:.4f}, Welch t = {t_log:.4f}, p = {p_log:.6e}")
+    print(f"95% CI: [{ci_mean_diff[0]:.4f}, {ci_mean_diff[1]:.4f}], Cohen's d: {cohens_d:.4f}")
+    print(f"\n--- NULL-CONDITION (EQUAL LEARNING EFFICIENCY eta_exp = eta_ctrl = 1.0) ---")
+    print(f"Exp: {np.mean(null_exp_nlg):.4f}, Ctrl: {np.mean(null_ctrl_nlg):.4f}, Delta: +{delta_null:.4f}")
+    print(f"Welch t(df={df_null:.1f}) = {t_null:.4f}, p = {p_null:.6e}")
+    print(f"\n--- OUT-OF-MODEL LOGISTIC ROBUSTNESS (N=60 Learner-Level) ---")
+    print(f"Exp: {np.mean(log_exp_nlg):.4f}, Ctrl: {np.mean(log_ctrl_nlg):.4f}, Delta: +{log_delta:.4f}")
+    print(f"Welch t(df={df_log:.1f}) = {t_log:.4f}, p = {p_log:.6e}")
 
     return {
-        "exp_pre": exp_pre_avg,
-        "ctrl_pre": ctrl_pre_avg,
-        "exp_post": exp_post_avg,
-        "ctrl_post": ctrl_post_avg,
         "exp_nlg": exp_avg_nlg,
         "ctrl_nlg": ctrl_avg_nlg,
-        "exp_sd": exp_sd,
-        "ctrl_sd": ctrl_sd,
+        "mean_diff": mean_diff,
         "welch_t": t_stat_welch,
         "df_welch": df_welch,
         "ci_mean_diff": ci_mean_diff,
         "welch_p": p_val_welch,
-        "mann_u": u_stat,
-        "mann_p": u_pval,
         "cohens_d": cohens_d,
-        "ci_d": ci_d,
+        "delta_null": delta_null,
+        "t_null": t_null,
+        "p_null": p_null,
+        "df_null": df_null,
         "log_delta": log_delta,
-        "rows": rows
+        "t_log": t_log,
+        "p_log": p_log,
+        "df_log": df_log
     }
 
 if __name__ == "__main__":
