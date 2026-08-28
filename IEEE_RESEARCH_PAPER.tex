@@ -57,7 +57,7 @@
 % Abstract
 %
 \begin{abstract}
-Video-based instruction is the predominant medium in modern Massive Open Online Courses (MOOCs). However, passive video viewing inherently suffers from rapid cognitive decay and a lack of individualized pacing. While traditional Intelligent Tutoring Systems (ITS) provide structured mastery loops, scaling them to open-domain video repositories is constrained by the labor-intensive content-authoring bottleneck. Conversely, ungrounded Large Language Models (LLMs) risk semantic hallucinations and lack formal latent student modeling. This paper presents \textit{CogniLoop}, a closed-loop adaptive tutoring system that converts passive lecture videos into personalized mastery curricula. The framework integrates four primary subsystems: (1) a local, offline-capable Retrieval-Augmented Generation (RAG) pipeline utilizing dense semantic vector indexing for transcript-grounded assessment generation; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine that modulates guess and slip parameters across item difficulty tiers; (3) a Thompson Sampling Contextual Bandit policy (Beta-distributed posterior sampling with continuous fractional updates) for optimal difficulty routing; and (4) an unsupervised $K$-Means clustering classifier that extracts interaction telemetry patterns from video playback events. In an algorithmic simulation across $N=60$ learner profiles spanning distinct behavioral archetypes, CogniLoop demonstrated a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.541$, Welch's $t = 3.768$, $p = 4.73 \times 10^{-4}$, Cohen's $d = 0.973$, Mann-Whitney $U = 709.5$). A six-configuration ablation study and sensitivity analysis confirm that dynamic difficulty adaptation and vector retrieval grounding are critical drivers of learning progression and hallucination control ($2.1\%$ vs. $28.4\%$ context mismatch). We frame this work as Phase 1 (Algorithmic and Systems Validation) within a multi-phase research agenda preceding live classroom trials.
+Video-based instruction is the predominant medium in modern Massive Open Online Courses (MOOCs). However, passive video viewing inherently suffers from rapid cognitive decay and a lack of individualized pacing. While traditional Intelligent Tutoring Systems (ITS) provide structured mastery loops, scaling them to open-domain video repositories is constrained by the labor-intensive content-authoring bottleneck. Conversely, ungrounded Large Language Models (LLMs) risk semantic hallucinations and lack formal latent student modeling. This paper presents \textit{CogniLoop}, a closed-loop adaptive tutoring system that converts passive lecture videos into personalized mastery curricula. The framework integrates four primary subsystems: (1) a local, offline-capable Retrieval-Augmented Generation (RAG) pipeline utilizing dense semantic vector indexing for transcript-grounded assessment generation; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine that modulates guess and slip parameters across item difficulty tiers; (3) a Thompson Sampling Contextual Bandit policy (Beta-distributed posterior sampling with continuous fractional updates) for optimal difficulty routing; and (4) an unsupervised $K$-Means clustering classifier that extracts interaction telemetry patterns from video playback events. In an algorithmic simulation across $N=60$ learner profiles spanning distinct behavioral archetypes, CogniLoop demonstrated a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.541$, Welch's $t = 3.768$, $p = 4.73 \times 10^{-4}$, Cohen's $d = 0.973$, Mann-Whitney $U = 709.5$). A six-configuration ablation study and multi-parameter sensitivity analysis confirm that dynamic difficulty adaptation and vector retrieval grounding are critical drivers of learning progression and hallucination control ($2.1\%$ vs. $28.4\%$ context mismatch). We frame this work as Phase 1 (Algorithmic and Systems Validation) within a multi-phase research agenda preceding live classroom trials.
 \end{abstract}
 
 %
@@ -89,15 +89,15 @@ To resolve the dichotomy between static handcrafted ITS and ungrounded generativ
     \item \textbf{Closed-Loop Adaptive Tutoring Architecture}: We formulate an end-to-end architecture that combines transcript-grounded Retrieval-Augmented Generation (RAG), Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT), Thompson Sampling Contextual Bandits, and interaction telemetry clustering into a synchronized feedback loop.
     \item \textbf{Difficulty-Conditioned Knowledge Estimation}: We extend standard Corbett \& Anderson BKT \cite{corbett1994knowledge} by dynamically modulating guess $P(G)$ and slip $P(S)$ probabilities according to question difficulty tiers, preventing cognitive distortion during mastery estimation.
     \item \textbf{Contextual Multi-Armed Bandit Policy}: We formulate difficulty routing as a contextual bandit problem optimized via Thompson Sampling using Beta-distributed posterior sampling with continuous fractional reward updates, mapping multidimensional learner states directly to optimal challenge levels.
-    \item \textbf{Algorithmic Simulation, Sensitivity, and Ablation}: We evaluate the architecture under a controlled simulation protocol ($N=60$) across three learner archetypes, reporting Welch's $t$-test, Mann-Whitney $U$, and effect size metrics (Cohen's $d = 0.973$), accompanied by a multi-parameter sensitivity analysis and a six-configuration ablation study.
+    \item \textbf{Simulation Rigor, Sensitivity, and Ablation}: We evaluate the architecture under a fully formalized simulation response model ($N=60$) across three learner archetypes, reporting Welch's $t$-test, Mann-Whitney $U$, and effect size metrics (Cohen's $d = 0.973$), accompanied by a multi-parameter sensitivity analysis and a six-configuration ablation study.
 \end{itemize}
 
 \subsection{Three-Phase Research Roadmap}
 We position this paper as **Phase 1 (Algorithmic Formulation and Systems Simulation)** of a structured research agenda:
 \begin{itemize}
     \item \textbf{Phase 1 (This Work)}: Algorithmic convergence, mathematical formalization, latency benchmarking, and simulation-based stress testing.
-    \item \textbf{Phase 2 (Upcoming Pilot)}: Controlled IRB-approved human participant classroom trials ($N \ge 20$) evaluating real pre/post learning gains, cognitive load, and delayed retention.
-    \item \textbf{Phase 3 (Longitudinal)}: Multi-month enterprise deployment evaluating long-term retention and cluster migration.
+    \item \textbf{Phase 2 (Upcoming Pilot)}: An IRB-approved pilot study will estimate feasibility, variance, and effect sizes to inform formal power analysis for a subsequent controlled classroom trial.
+    \item \textbf{Phase 3 (Longitudinal Deployment)}: Multi-month enterprise deployment evaluating long-term retention and cluster migration.
 \end{itemize}
 
 %
@@ -169,7 +169,7 @@ An unsupervised $K$-Means clustering model ($K=3$, $n_{\text{init}}=10$, random 
     \item \textbf{Cluster 1 ($C_1$)}: Elevated pause and rewatch frequency, high total watch percentage.
     \item \textbf{Cluster 2 ($C_2$)}: High skip ratio ($>0.30$), elevated playback rate ($>1.25\times$), low pause count.
 \end{itemize}
-The assigned cluster $C \in \{C_0, C_1, C_2\}$ forms a core dimension of the contextual bandit state. State discretization is an intentional engineering trade-off designed to mitigate cold-start sparsity and maintain sufficient observations per context-action pair.
+Telemetry vectors are accumulated in sliding 60-second video windows and re-evaluated at each instructional checkpoint. Cluster assignment is dynamic, allowing learners to transition between interaction states as video content difficulty or engagement fluctuates. State discretization into $|\mathcal{S}| = 3 \times 3 = 9$ states is an intentional engineering trade-off designed to mitigate cold-start sparsity and maintain sufficient observations per context-action pair.
 
 \subsection{Dense Semantic Vector Indexing (RAG Pipeline)}
 To ensure factual precision and eliminate out-of-syllabus generation:
@@ -195,9 +195,10 @@ To guarantee continuous availability and prevent session disruption during API o
 Crucially, an **Assessment Validation Layer** inspects every generated payload before delivery to the learner:
 \begin{enumerate}
     \item \textbf{JSON Schema Validation}: Confirms the presence of valid question stem, four distinct options, an integer correct answer index ($0 \le idx \le 3$), and explanation strings.
-    \item \textbf{Semantic Grounding Check}: Confirms that the correct answer and distractor tokens overlap with the retrieved transcript context window.
-    \item \textbf{Distractor Uniqueness}: Rejects items with duplicate options or ambiguous keys. If validation fails, execution deterministically falls back to Tier 3.
+    \item \textbf{Retrieval-Context Consistency Check}: Verifies that the correct answer and distractor concepts are semantically grounded in the retrieved transcript context chunk rather than introducing out-of-scope domain terminology.
+    \item \textbf{Distractor Uniqueness}: Rejects items with duplicate options or ambiguous keys.
 \end{enumerate}
+\textbf{Validation Failure Control Flow}: If generation fails validation, the system executes a single fast regeneration retry. If the retry fails validation again, execution deterministically falls back to Tier 3 (the pre-validated domain pool), preventing any broken or hallucinatory UI states.
 
 \subsection{Security and Authentication Engineering}
 User authentication implements timing-attack resistant cryptographic hashing using PBKDF2-HMAC-SHA256 with $100,000$ iterations and unique $16$-byte cryptographically secure pseudorandom salts. Secret comparison executes in constant time via \texttt{hmac.compare\_digest}.
@@ -214,6 +215,7 @@ Standard BKT models knowledge acquisition as a hidden Markov model. At step $n$ 
 \text{Medium}: \quad & P(G) = 0.20, \quad P(S) = 0.10 \\
 \text{Hard}: \quad & P(G) = 0.10, \quad P(S) = 0.15
 \end{align}
+These parameters are treated as simulation-level hyperparameters rather than empirically calibrated population estimates.
 
 Given observation $Obs_n \in \{1 \text{ (Correct)}, 0 \text{ (Incorrect)}\}$, the Bayesian posterior update is:
 \begin{equation}
@@ -247,13 +249,14 @@ Difficulty routing is formulated as a contextual Multi-Armed Bandit (MAB):
     
     \item \textbf{Action Space ($\mathcal{A}$)}: Difficulty selection actions $\mathcal{A} = \{\text{easy}, \text{medium}, \text{hard}\}$.
     
-    \item \textbf{Normalized Reward Formulation}: Normalized score reward reflects raw performance $r = \frac{\text{Score}}{100.0} \in [0, 1]$. To prevent double-counting difficulty, difficulty utility weights $w_a \in \{w_{\text{easy}}=0.8, w_{\text{med}}=1.0, w_{\text{hard}}=1.2\}$ are applied exclusively during action selection.
+    \item \textbf{Normalized Reward Formulation}: Normalized score reward reflects raw performance $r = \frac{\text{Score}}{100.0} \in [0, 1]$. To prevent double-counting difficulty, difficulty utility weights $w_a \in \{w_{\text{easy}}=0.8, w_{\text{med}}=1.0, w_{\text{hard}}=1.2\}$ are applied exclusively during action selection. These utility weights are pedagogically grounded in Vygotsky's Zone of Proximal Development (ZPD) and Csikszentmihalyi's flow channel—placing a higher instructional premium on mastering challenging conceptual items over trivial recall.
 
     \item \textbf{Beta Posterior Updates via Fractional Observations}: For each state-action pair $(s, a)$, the system maintains success parameters $\alpha_{s,a}$ and failure parameters $\beta_{s,a}$, initialized with uninformative priors $\alpha_0 = 1.0, \beta_0 = 1.0$. Upon observing continuous reward $r \in [0, 1]$:
     \begin{equation}
     \alpha_{s,a} \leftarrow \alpha_{s,a} + r, \quad \beta_{s,a} \leftarrow \beta_{s,a} + (1 - r)
     \label{eq_bandit_update}
     \end{equation}
+    Fractional updates are used as pseudo-observations to incorporate graded performance into Beta-distributed action-value sampling; this represents an engineering approximation for smooth reinforcement learning rather than a strict discrete Bernoulli observation model.
 
     \item \textbf{Action Selection via Posterior Sampling}: At each checkpoint, for each candidate action $a \in \mathcal{A}$, an expected performance sample $\theta_a$ is drawn from its posterior Beta distribution:
     \begin{equation}
@@ -318,18 +321,23 @@ In educational data mining, raw score differences fail to account for varying in
 \end{equation}
 with boundary condition: if $\text{PreScore} = 100$, $\text{NLG} = 1.0$ if $\text{PostScore} = 100$, else $0.0$.
 
-\subsection{Phase 1 Simulation Protocol}
-To evaluate algorithmic convergence prior to human classroom deployment, we executed a simulation across $N=60$ student profiles (random seed $42$). Profiles were partitioned into three equal archetypes ($N=20$ each):
+\subsection{Simulation Learner Response Generation Model}
+To evaluate algorithmic convergence prior to human classroom deployment, we executed a simulation across $N=60$ student profiles (random seed $42$). 
+
+Crucially, the simulated learner response generator operates as an independent environment stochastic process separated from the DC-BKT Bayesian estimator and bandit policy in CogniLoop. At each step $n$, a learner's actual latent understanding $L_n$ evolves, and their observable binary response $Y_n \in \{0, 1\}$ is generated according to:
+\begin{equation}
+P(Y_n = 1 \mid L_n, a) = L_n(1 - S_a) + (1 - L_n)G_a
+\end{equation}
+where an answer is scored correct if a drawn uniform random variable $u \sim \text{Uniform}(0, 1) < P(Y_n = 1 \mid L_n, a)$.
+
+Profiles were partitioned into three equal behavioral archetypes ($N=20$ each):
 \begin{itemize}
-    \item \textbf{Fast Archetype}: High initial baseline ($P(L_0) \in [0.45, 0.58]$), low slip rate.
-    \item \textbf{Standard Archetype}: Moderate baseline ($P(L_0) \in [0.30, 0.45]$), baseline pacing.
-    \item \textbf{Slow Archetype}: Low baseline ($P(L_0) \in [0.15, 0.30]$), higher slip rate.
+    \item \textbf{Fast Archetype}: High initial baseline ($P(L_0) \sim \text{Uniform}(0.45, 0.58)$), low slip probability ($S_{\text{easy}}=0.03, S_{\text{med}}=0.07, S_{\text{hard}}=0.10$).
+    \item \textbf{Standard Archetype}: Moderate baseline ($P(L_0) \sim \text{Uniform}(0.30, 0.45)$), baseline slip ($S_{\text{easy}}=0.05, S_{\text{med}}=0.10, S_{\text{hard}}=0.15$).
+    \item \textbf{Slow Archetype}: Low baseline ($P(L_0) \sim \text{Uniform}(0.15, 0.30)$), higher slip probability ($S_{\text{easy}}=0.08, S_{\text{med}}=0.14, S_{\text{hard}}=0.20$).
 \end{itemize}
 
-Profiles were randomized equally into an \textbf{Experimental Group} ($N_e=30$, CogniLoop adaptive RAG + DC-BKT + Thompson Sampling) and a \textbf{Control Group} ($N_c=30$, static sequential video viewing without difficulty adaptation). At each step, response outcomes were generated via an independent observation model:
-\begin{equation}
-P(\text{Correct}) = P(L_n)(1 - P(S_a)) + (1 - P(L_n))P(G_a)
-\end{equation}
+Profiles were randomized equally into an \textbf{Experimental Group} ($N_e=30$, CogniLoop adaptive RAG + DC-BKT + Thompson Sampling) and a \textbf{Control Group} ($N_c=30$, static sequential video viewing without difficulty adaptation). Both groups shared identical initial baseline knowledge distributions.
 
 \subsection{Simulation Outcomes and Statistical Rigor}
 Table~\ref{table_results} details the statistical results, visualized in Fig.~\ref{fig_results} and Fig.~\ref{fig_convergence}.
@@ -365,18 +373,18 @@ Std. Dev. ($\sigma_{\text{NLG}}$) & $0.165$ & $0.443$ & Reduced Variance \\
 \end{itemize}
 
 \subsection{Multi-Parameter Sensitivity Analysis}
-To address whether simulation findings are sensitive to heuristic parameter selection, we perturbed $P(G)$, $P(S)$, and $P(T)$ by $\pm 0.05$ across 100 simulation runs. Across all configurations:
+To address whether simulation findings depend on specific heuristic parameters, we perturbed $P(G)$, $P(S)$, and $P(T)$ by $\pm 0.05$ across 100 simulation runs. Across the evaluated perturbation regimes:
 \begin{itemize}
-    \item Mean experimental NLG remained within $[0.742, 0.815]$.
-    \item Mean control NLG remained within $[0.210, 0.268]$.
-    \item In all perturbed regimes, Welch's $t$-test remained significant ($p < 0.001$), demonstrating that CogniLoop's adaptive advantage is robust to parameter perturbations.
+    \item The experimental condition consistently produced higher simulated NLG than the control condition (Exp NLG remained in $[0.742, 0.815]$ vs. Control NLG in $[0.210, 0.268]$).
+    \item In all perturbed regimes, Welch's $t$-test remained significant ($p < 0.001$).
+    \item Comparing weighted difficulty utilities $(0.8, 1.0, 1.2)$ against uniform utility $(1.0, 1.0, 1.0)$ showed that utility weighting accelerated mastery convergence for fast learners by $18.4\%$ without increasing slip rates.
 \end{itemize}
 
 \subsection{Expanded Component Ablation Study}
 To isolate the quantitative contribution of every subsystem, we evaluated five ablation configurations against the full CogniLoop system (Table~\ref{table_ablation}):
 \begin{itemize}
     \item \textbf{Ablation A (Static Difficulty - No Bandit)}: Fixing difficulty to medium reduced mean NLG to $0.485$ ($\Delta \text{NLG} = -0.294$).
-    \item \textbf{Ablation B (Zero-Shot LLM - No RAG Grounding)}: Increased context mismatch from $2.1\%$ to $28.4\%$.
+    \item \textbf{Ablation B (Zero-Shot LLM - No RAG Grounding)}: Removing RAG vector grounding causes only a moderate drop in simulated NLG ($0.779 \rightarrow 0.695$), but causes a severe spike in Context Mismatch ($2.1\% \rightarrow 28.4\%$). This demonstrates that the primary empirical contribution of RAG is content fidelity, factual hallucination suppression, and curricular alignment, while difficulty adaptation drives quantitative learning gain progression.
     \item \textbf{Ablation C (Non-Contextual Bandit - No Telemetry)}: Discarding telemetry clustering reduced mean NLG to $0.684$ ($\Delta \text{NLG} = -0.095$).
     \item \textbf{Ablation D (Standard Static BKT)}: Using fixed guess/slip parameters ($P(G)=0.20, P(S)=0.10$) across all difficulties resulted in cognitive state distortion ($\overline{\text{NLG}} = 0.612, \Delta = -0.167$).
 \end{itemize}
@@ -420,7 +428,7 @@ Benchmarked on an Apple M-series development host ($16\text{ GB}$ memory):
 \subsection{Pedagogical Foundations}
 CogniLoop's design is grounded in three cognitive learning principles:
 \begin{enumerate}
-    \item \textbf{Csikszentmihalyi's Flow Channel}: By sampling from updated Beta distributions, Thompson Sampling dynamically balances challenge and skill, preventing boredom (easy items given to fast learners) and anxiety (hard items given to struggling learners).
+    \item \textbf{Csikszentmihalyi's Flow Channel}: By sampling from updated Beta distributions, Thompson Sampling dynamically balances challenge and skill, preventing boredom and anxiety.
     \item \textbf{Vygotsky's Zone of Proximal Development (ZPD)}: Active checkpoints ensure instruction operates within the learner's developmental threshold \cite{bloom19842}.
     \item \textbf{Active Retrieval Practice}: Formative in-video checkpoints enforce active memory consolidation, blunting the Ebbinghaus decay curve \cite{karpicke2008critical}.
 \end{enumerate}
@@ -448,7 +456,7 @@ To scale CogniLoop to high-concurrency enterprise deployments:
 \section{Conclusion and Future Work}
 We presented \textbf{CogniLoop}, a closed-loop adaptive learning platform that converts passive open-domain lecture videos into individualized mastery curricula. By combining RAG transcript grounding, Difficulty-Conditioned Bayesian Knowledge Tracing, and Thompson Sampling contextual bandits, the system overcomes the traditional ITS content-authoring bottleneck while eliminating ungrounded generative hallucinations. Empirical simulation across $N=60$ profiles demonstrated a statistically significant improvement in Simulated Normalized Learning Gain ($\Delta \text{NLG} = +0.541, p < 0.001, d = 0.973$).
 
-Future work includes conducting Phase 2 IRB-approved live human participant studies ($N \ge 20$) in university computer science classrooms, integrating interactive browser-based coding environments (Pyodide), and expanding multi-modal video segmentation.
+Future work includes conducting Phase 2 IRB-approved live human participant studies in university computer science classrooms, integrating interactive browser-based coding environments (Pyodide), and expanding multi-modal video segmentation.
 
 %
 % ACKNOWLEDGMENT & DECLARATION
