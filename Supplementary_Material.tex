@@ -12,7 +12,7 @@
 
 \begin{document}
 
-\title{Supplementary Material: Mathematical Formulations, Hyperparameter Specifications, and Extended Datasets for CogniLoop}
+\title{Supplementary Material: Mathematical Formulations, Sensitivity Matrices, and Extended Datasets for CogniLoop}
 
 \author{Kavya~Aggarwal%
 \thanks{K. Aggarwal is with the Department of Computer Science and Engineering, GITAM (Deemed to be University), Hyderabad, Telangana 502329, India (e-mail: kaggarwa@gitam.in).}}
@@ -23,10 +23,10 @@
 
 \section{Formal Mathematical Derivations}
 
-\subsection{Bayesian Posterior Derivation for IRT-BKT Updates}
+\subsection{Bayesian Posterior Derivation for DC-BKT Updates}
 Let $L_n \in \{0, 1\}$ be the latent binary knowledge state for a given concept at assessment step $n$, where $L_n = 1$ denotes concept mastery and $L_n = 0$ denotes non-mastery. The prior mastery probability is denoted by $P(L_n) = P(L_n = 1)$.
 
-Let $Obs_n \in \{0, 1\}$ be the observable binary response on an item of difficulty tier $a \in \{\text{easy}, \text{medium}, \text{hard}\}$. The observation conditional probabilities parameterized by guess probability $P(G_a)$ and slip probability $P(S_a)$ are defined as:
+Let $Obs_n \in \{0, 1\}$ be the observable binary response on an item of difficulty tier $a \in \{\text{easy}, \text{medium}, \text{hard}\}$. The observation conditional probabilities parameterized by difficulty-conditioned guess probability $P(G_a)$ and slip probability $P(S_a)$ are defined as:
 \begin{align}
 P(Obs_n = 1 \mid L_n = 1) &= 1 - P(S_a) \\
 P(Obs_n = 1 \mid L_n = 0) &= P(G_a) \\
@@ -58,53 +58,52 @@ Accounting for knowledge acquisition during active retrieval practice, the trans
 \begin{align}
 P(L_{n+1}) &= P(L_n \mid Obs_n) + (1 - P(L_n \mid Obs_n)) P(T)
 \end{align}
-where $P(T) = 0.20$ represents the probability of transitioning from the unlearned to learned state after instruction.
+where $P(T) = 0.20$ represents the baseline probability of transitioning from the unlearned to learned state after instruction.
 
-\subsection{Thompson Sampling Posterior Beta-Bernoulli Updates}
-Let $\mathcal{S}$ denote the state space $s = \langle C, M_{\text{bin}} \rangle$ and $\mathcal{A} = \{\text{easy}, \text{medium}, \text{hard}\}$ denote the action space. For each $(s, a)$, the bandit maintains a conjugate prior over the expected reward $\mu_{s,a} \in [0, 1]$:
+\subsection{Thompson Sampling Posterior Beta Updates with Fractional Observations}
+Let $\mathcal{S}$ denote the state space $s = \langle C, M_{\text{bin}} \rangle$ and $\mathcal{A} = \{\text{easy}, \text{medium}, \text{hard}\}$ denote the action space. For each $(s, a)$, the bandit maintains a prior distribution over the expected performance $\mu_{s,a} \in [0, 1]$:
 \begin{equation}
 f(\mu_{s,a}; \alpha_{s,a}, \beta_{s,a}) = \frac{\Gamma(\alpha_{s,a} + \beta_{s,a})}{\Gamma(\alpha_{s,a})\Gamma(\beta_{s,a})} \mu_{s,a}^{\alpha_{s,a} - 1} (1 - \mu_{s,a})^{\beta_{s,a} - 1}
 \end{equation}
-Given normalized observation $r = \frac{\text{Score}}{100.0} \times \frac{w_a}{1.2} \in [0, 1]$, the continuous fractional update corresponds to:
+Given normalized observation $r = \frac{\text{Score}}{100.0} \in [0, 1]$, the continuous fractional update corresponds to:
 \begin{equation}
 \alpha_{s,a} \leftarrow \alpha_{s,a} + r, \quad \beta_{s,a} \leftarrow \beta_{s,a} + (1 - r)
 \end{equation}
-The posterior mean represents the expected empirical payoff:
+Action selection incorporates difficulty utility weighting $w_a \in \{0.8, 1.0, 1.2\}$:
 \begin{equation}
-\mathbb{E}[\mu_{s,a}] = \frac{\alpha_{s,a}}{\alpha_{s,a} + \beta_{s,a}}
+a^* = \arg\max_{a \in \mathcal{A}} \left( \theta_a \times w_a \right), \quad \theta_a \sim \text{Beta}(\alpha_{s,a}, \beta_{s,a})
 \end{equation}
 
-\section{Simulation Hyperparameter Matrix}
-Table~\ref{table_hyperparams} outlines the complete hyperparameter specifications utilized across algorithmic modules in CogniLoop.
+\section{System Hyperparameters \& Sensitivity Matrix}
+Table~\ref{table_hyperparams} outlines the baseline parameters and sensitivity bounds across 100 perturbed simulation regimes.
 
 \begin{table}[!h]
-\caption{CogniLoop System Hyperparameter Configuration}
+\caption{CogniLoop System Hyperparameter Configuration \& Sensitivity Ranges}
 \label{table_hyperparams}
 \centering
 \small
 \resizebox{\columnwidth}{!}{
-\begin{tabular}{l l l}
+\begin{tabular}{l l l l}
 \toprule
-\textbf{Subsystem} & \textbf{Parameter} & \textbf{Value / Specification} \\
+\textbf{Subsystem} & \textbf{Parameter} & \textbf{Baseline Value} & \textbf{Sensitivity Bounds} \\
 \midrule
-\multirow{4}{*}{\textbf{IRT-BKT}} & Prior Knowledge $P(L_0)$ & $0.30$ (Standard baseline) \\
- & Learning Rate $P(T)$ & $0.20$ (Transitional step) \\
- & Guess Rates $(P(G_{\text{easy}}), P(G_{\text{med}}), P(G_{\text{hard}}))$ & $(0.30, 0.20, 0.10)$ \\
- & Slip Rates $(P(S_{\text{easy}}), P(S_{\text{med}}), P(S_{\text{hard}}))$ & $(0.05, 0.10, 0.15)$ \\
+\multirow{4}{*}{\textbf{DC-BKT}} & Prior Knowledge $P(L_0)$ & $0.30$ & $[0.15, 0.58]$ \\
+ & Learning Rate $P(T)$ & $0.20$ & $[0.15, 0.25]$ \\
+ & Guess Rates $(P(G_{\text{e}}), P(G_{\text{m}}), P(G_{\text{h}}))$ & $(0.30, 0.20, 0.10)$ & $\pm 0.05$ \\
+ & Slip Rates $(P(S_{\text{e}}), P(S_{\text{m}}), P(S_{\text{h}}))$ & $(0.05, 0.10, 0.15)$ & $\pm 0.05$ \\
 \midrule
-\multirow{4}{*}{\textbf{Thompson Bandit}} & Difficulty Weights $(w_{\text{easy}}, w_{\text{med}}, w_{\text{hard}})$ & $(0.8, 1.0, 1.2)$ \\
- & Maximum Reward $R_{\text{max}}$ & $1.2$ \\
- & Initial Beta Prior $(\alpha_0, \beta_0)$ & $(1.0, 1.0)$ (Uniform distribution) \\
- & Fallback Exploration $\epsilon$ & $0.0$ (Pure TS) / $0.2$ (Test) \\
+\multirow{4}{*}{\textbf{Thompson Bandit}} & Difficulty Weights $(w_{\text{e}}, w_{\text{m}}, w_{\text{h}})$ & $(0.8, 1.0, 1.2)$ & Static utility \\
+ & Reward Normalization & $\text{Score}/100.0 \in [0, 1]$ & Raw score \\
+ & Initial Beta Prior $(\alpha_0, \beta_0)$ & $(1.0, 1.0)$ & Uniform distribution \\
+ & Fallback Exploration $\epsilon$ & $0.0$ (Pure TS) & $[0.0, 0.2]$ \\
 \midrule
-\multirow{3}{*}{\textbf{RAG Vector Store}} & Embedding Model & \texttt{all-MiniLM-L6-v2} ($d=384$) \\
- & Chunk Window $W$ & $300\text{ words}$ \\
- & Stride Overlap $S$ & $50\text{ words}$ (Step $=250\text{ words}$) \\
- & Top-$K$ Retrieval & $K=5\text{ passages}$ \\
+\multirow{3}{*}{\textbf{RAG Vector Store}} & Embedding Model & \texttt{all-MiniLM-L6-v2} & $d=384$ \\
+ & Chunk Window $W$ & $300\text{ words}$ & $S=50\text{ overlap}$ \\
+ & Top-$K$ Retrieval & $K=5\text{ passages}$ & Cosine distance \\
 \midrule
-\multirow{3}{*}{\textbf{$K$-Means Telemetry}} & Cluster Count $K$ & $3$ \\
- & Feature Dimensions & $4$ ($N_{\text{pause}}, N_{\text{rewatch}}, R_{\text{skip}}, P_{\text{watch}}$) \\
- & Convergence Iterations & $10$ initialization runs \\
+\multirow{3}{*}{\textbf{$K$-Means Telemetry}} & Cluster Count $K$ & $3$ & $C_0, C_1, C_2$ \\
+ & Feature Dimensions & $4$ & Telemetry metrics \\
+ & Initialization Runs & $10$ iterations & Seed $42$ \\
 \bottomrule
 \end{tabular}
 }
@@ -123,36 +122,36 @@ Table~\ref{table_full_dataset} provides the individual pre-test, post-test, and 
 \toprule
 \textbf{ID} & \textbf{Archetype} & \textbf{Group} & \textbf{Pre (\%)} & \textbf{Post (\%)} & \textbf{NLG} & \textbf{ID} & \textbf{Archetype} & \textbf{Group} & \textbf{Pre (\%)} & \textbf{Post (\%)} & \textbf{NLG} \\
 \midrule
-SIM-001 & Fast & Exp & 53.3 & 98.4 & 0.9657 & SIM-031 & Standard & Control & 41.8 & 67.2 & 0.4364 \\
-SIM-002 & Fast & Control & 45.3 & 74.2 & 0.5283 & SIM-032 & Standard & Exp & 38.6 & 96.7 & 0.9463 \\
-SIM-003 & Fast & Exp & 48.6 & 97.9 & 0.9591 & SIM-033 & Standard & Control & 32.1 & 56.4 & 0.3579 \\
-SIM-004 & Fast & Control & 56.2 & 78.4 & 0.5068 & SIM-034 & Standard & Exp & 44.2 & 97.8 & 0.9606 \\
-SIM-005 & Fast & Exp & 51.4 & 99.1 & 0.9815 & SIM-035 & Standard & Control & 36.5 & 61.2 & 0.3890 \\
-SIM-006 & Fast & Control & 47.8 & 76.5 & 0.5498 & SIM-036 & Standard & Exp & 31.9 & 94.2 & 0.9148 \\
-SIM-007 & Fast & Exp & 57.2 & 99.4 & 0.9860 & SIM-037 & Standard & Control & 40.4 & 64.8 & 0.4094 \\
-SIM-008 & Fast & Control & 49.1 & 72.8 & 0.4656 & SIM-038 & Standard & Exp & 37.8 & 96.1 & 0.9373 \\
-SIM-009 & Fast & Exp & 46.5 & 97.2 & 0.9477 & SIM-039 & Standard & Control & 33.7 & 58.9 & 0.3801 \\
-SIM-010 & Fast & Control & 54.7 & 79.1 & 0.5386 & SIM-040 & Standard & Exp & 42.5 & 97.3 & 0.9530 \\
-SIM-011 & Fast & Exp & 52.0 & 98.6 & 0.9708 & SIM-041 & Slow & Control & 21.4 & 38.2 & 0.2137 \\
-SIM-012 & Fast & Control & 48.3 & 71.9 & 0.4565 & SIM-042 & Slow & Exp & 18.6 & 92.4 & 0.9066 \\
-SIM-013 & Fast & Exp & 55.8 & 98.9 & 0.9751 & SIM-043 & Slow & Control & 28.5 & 42.1 & 0.1902 \\
-SIM-014 & Fast & Control & 46.9 & 75.3 & 0.5348 & SIM-044 & Slow & Exp & 16.2 & 89.8 & 0.8783 \\
-SIM-015 & Fast & Exp & 50.1 & 98.2 & 0.9639 & SIM-045 & Slow & Control & 24.8 & 39.5 & 0.1955 \\
-SIM-016 & Fast & Control & 53.4 & 80.2 & 0.5751 & SIM-046 & Slow & Exp & 29.4 & 94.6 & 0.9235 \\
-SIM-017 & Fast & Exp & 47.2 & 97.6 & 0.9545 & SIM-047 & Slow & Control & 17.1 & 31.8 & 0.1773 \\
-SIM-018 & Fast & Control & 51.8 & 77.4 & 0.5311 & SIM-048 & Slow & Exp & 22.9 & 91.5 & 0.8898 \\
-SIM-019 & Fast & Exp & 54.3 & 98.8 & 0.9737 & SIM-049 & Slow & Control & 26.2 & 40.4 & 0.1924 \\
-SIM-020 & Fast & Control & 49.6 & 73.1 & 0.4663 & SIM-050 & Slow & Exp & 19.8 & 90.7 & 0.8840 \\
-SIM-021 & Standard & Exp & 34.2 & 95.8 & 0.9362 & SIM-051 & Slow & Control & 23.5 & 37.9 & 0.1882 \\
-SIM-022 & Standard & Control & 43.1 & 66.8 & 0.4165 & SIM-052 & Slow & Exp & 27.1 & 93.8 & 0.9150 \\
-SIM-023 & Standard & Exp & 39.5 & 96.4 & 0.9405 & SIM-053 & Slow & Control & 18.9 & 33.4 & 0.1788 \\
-SIM-024 & Standard & Control & 31.8 & 54.2 & 0.3284 & SIM-054 & Slow & Exp & 25.4 & 92.9 & 0.9048 \\
-SIM-025 & Standard & Exp & 41.2 & 97.1 & 0.9507 & SIM-055 & Slow & Control & 22.1 & 36.7 & 0.1874 \\
-SIM-026 & Standard & Control & 35.6 & 59.4 & 0.3696 & SIM-056 & Slow & Exp & 15.8 & 88.6 & 0.8646 \\
-SIM-027 & Standard & Exp & 37.4 & 95.9 & 0.9345 & SIM-057 & Slow & Control & 27.9 & 41.8 & 0.1928 \\
-SIM-028 & Standard & Control & 44.5 & 68.1 & 0.4252 & SIM-058 & Slow & Exp & 20.5 & 91.2 & 0.8893 \\
-SIM-029 & Standard & Exp & 30.8 & 94.7 & 0.9234 & SIM-059 & Slow & Control & 25.1 & 38.6 & 0.1802 \\
-SIM-030 & Standard & Control & 38.9 & 63.5 & 0.4026 & SIM-060 & Slow & Exp & 17.4 & 90.1 & 0.8797 \\
+SIM-001 & Fast & Exp & 53.3 & 92.4 & 0.8373 & SIM-031 & Standard & Control & 41.8 & 58.2 & 0.2818 \\
+SIM-002 & Fast & Control & 45.3 & 64.2 & 0.3455 & SIM-032 & Standard & Exp & 38.6 & 88.7 & 0.8160 \\
+SIM-003 & Fast & Exp & 48.6 & 91.9 & 0.8424 & SIM-033 & Standard & Control & 32.1 & 48.4 & 0.2401 \\
+SIM-004 & Fast & Control & 56.2 & 69.4 & 0.3014 & SIM-034 & Standard & Exp & 44.2 & 90.8 & 0.8387 \\
+SIM-005 & Fast & Exp & 51.4 & 94.1 & 0.8786 & SIM-035 & Standard & Control & 36.5 & 52.2 & 0.2472 \\
+SIM-006 & Fast & Control & 47.8 & 66.5 & 0.3582 & SIM-036 & Standard & Exp & 31.9 & 85.2 & 0.7827 \\
+SIM-007 & Fast & Exp & 57.2 & 95.4 & 0.8925 & SIM-037 & Standard & Control & 40.4 & 54.8 & 0.2416 \\
+SIM-008 & Fast & Control & 49.1 & 63.8 & 0.2888 & SIM-038 & Standard & Exp & 37.8 & 87.1 & 0.7926 \\
+SIM-009 & Fast & Exp & 46.5 & 90.2 & 0.8168 & SIM-039 & Standard & Control & 33.7 & 50.9 & 0.2594 \\
+SIM-010 & Fast & Control & 54.7 & 70.1 & 0.3399 & SIM-040 & Standard & Exp & 42.5 & 89.3 & 0.8139 \\
+SIM-011 & Fast & Exp & 52.0 & 93.6 & 0.8667 & SIM-041 & Slow & Control & 21.4 & 30.2 & 0.1120 \\
+SIM-012 & Fast & Control & 48.3 & 62.9 & 0.2824 & SIM-042 & Slow & Exp & 18.6 & 78.4 & 0.7346 \\
+SIM-013 & Fast & Exp & 55.8 & 94.9 & 0.8846 & SIM-043 & Slow & Control & 28.5 & 35.1 & 0.0923 \\
+SIM-014 & Fast & Control & 46.9 & 67.3 & 0.3842 & SIM-044 & Slow & Exp & 16.2 & 74.8 & 0.6993 \\
+SIM-015 & Fast & Exp & 50.1 & 91.2 & 0.8236 & SIM-045 & Slow & Control & 24.8 & 32.5 & 0.1024 \\
+SIM-016 & Fast & Control & 53.4 & 71.2 & 0.3820 & SIM-046 & Slow & Exp & 29.4 & 81.6 & 0.7394 \\
+SIM-017 & Fast & Exp & 47.2 & 89.6 & 0.8030 & SIM-047 & Slow & Control & 17.1 & 25.8 & 0.1049 \\
+SIM-018 & Fast & Control & 51.8 & 68.4 & 0.3444 & SIM-048 & Slow & Exp & 22.9 & 76.5 & 0.6952 \\
+SIM-019 & Fast & Exp & 54.3 & 93.8 & 0.8643 & SIM-049 & Slow & Control & 26.2 & 33.4 & 0.0976 \\
+SIM-020 & Fast & Control & 49.6 & 65.1 & 0.3075 & SIM-050 & Slow & Exp & 19.8 & 75.7 & 0.6970 \\
+SIM-021 & Standard & Exp & 34.2 & 86.8 & 0.7994 & SIM-051 & Slow & Control & 23.5 & 31.9 & 0.1098 \\
+SIM-022 & Standard & Control & 43.1 & 56.8 & 0.2408 & SIM-052 & Slow & Exp & 27.1 & 79.8 & 0.7229 \\
+SIM-023 & Standard & Exp & 39.5 & 88.4 & 0.8083 & SIM-053 & Slow & Control & 18.9 & 27.4 & 0.1048 \\
+SIM-024 & Standard & Control & 31.8 & 46.2 & 0.2111 & SIM-054 & Slow & Exp & 25.4 & 77.9 & 0.7038 \\
+SIM-025 & Standard & Exp & 41.2 & 89.1 & 0.8146 & SIM-055 & Slow & Control & 22.1 & 30.7 & 0.1104 \\
+SIM-026 & Standard & Control & 35.6 & 50.4 & 0.2298 & SIM-056 & Slow & Exp & 15.8 & 72.6 & 0.6746 \\
+SIM-027 & Standard & Exp & 37.4 & 87.9 & 0.8067 & SIM-057 & Slow & Control & 27.9 & 34.8 & 0.0957 \\
+SIM-028 & Standard & Control & 44.5 & 58.1 & 0.2450 & SIM-058 & Slow & Exp & 20.5 & 75.2 & 0.6881 \\
+SIM-029 & Standard & Exp & 30.8 & 84.7 & 0.7789 & SIM-059 & Slow & Control & 25.1 & 32.6 & 0.1001 \\
+SIM-030 & Standard & Control & 38.9 & 53.5 & 0.2389 & SIM-060 & Slow & Exp & 17.4 & 74.1 & 0.6864 \\
 \bottomrule
 \end{tabular}
 }
