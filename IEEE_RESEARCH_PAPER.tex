@@ -57,7 +57,7 @@
 % Abstract
 %
 \begin{abstract}
-Video-based instruction is the predominant delivery medium in modern Massive Open Online Courses (MOOCs). However, passive video viewing inherently suffers from rapid cognitive decay and a lack of individualized pacing. While traditional Intelligent Tutoring Systems (ITS) provide structured mastery loops, scaling them to open-domain video repositories is constrained by the labor-intensive content-authoring bottleneck. Conversely, ungrounded Large Language Models (LLMs) risk semantic hallucinations and lack formal latent student modeling. This paper presents \textit{CogniLoop}, a closed-loop adaptive tutoring system that converts passive lecture videos into personalized mastery curricula. The framework integrates four primary subsystems: (1) a local, offline-capable Retrieval-Augmented Generation (RAG) pipeline utilizing dense semantic vector indexing for transcript-grounded assessment generation; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine that modulates guess and slip parameters across item difficulty tiers; (3) a Thompson Sampling Contextual Bandit policy (Beta-distributed action-value sampling with continuous fractional pseudo-count updates) for optimal difficulty routing; and (4) an unsupervised $K$-Means clustering model ($K=3$, silhouette score $S=0.64$) that extracts interaction telemetry patterns from video playback events. In an algorithmic simulation across $N=60$ learner profiles spanning distinct behavioral archetypes, CogniLoop demonstrated a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.541$, Welch's $t(45.4) = 3.768$, $p = 4.73 \times 10^{-4}$, Cohen's $d = 0.973$ [$95\%$ CI: $0.438, 1.508$], Mann-Whitney $U = 709.5$). When instructional condition multipliers were strictly equalized ($\eta_{\text{exp}}=\eta_{\text{ctrl}}=1.0$), adaptive difficulty routing independently yielded $\Delta\text{NLG}=+0.078$ ($p=0.0095$). A seven-configuration ablation study, multi-parameter sensitivity analysis, and an out-of-model logistic response simulation confirm that dynamic difficulty adaptation and vector retrieval grounding are critical drivers of simulated learning progression and context mismatch reduction ($2.1\%$ vs. $28.4\%$). We frame this work as Phase 1 (Algorithmic and Systems Validation) within a multi-phase research agenda preceding live classroom trials.
+Video-based instruction is the predominant delivery medium in modern Massive Open Online Courses (MOOCs). However, passive video viewing inherently suffers from rapid cognitive decay and a lack of individualized pacing. While traditional Intelligent Tutoring Systems (ITS) provide structured mastery loops, scaling them to open-domain video repositories is constrained by the labor-intensive content-authoring bottleneck. Conversely, ungrounded Large Language Models (LLMs) risk semantic hallucinations and lack formal latent student modeling. This paper presents \textit{CogniLoop}, a closed-loop adaptive tutoring system that converts passive lecture videos into personalized mastery curricula. The framework integrates four primary subsystems: (1) a local, offline-capable Retrieval-Augmented Generation (RAG) pipeline utilizing dense semantic vector indexing for transcript-grounded assessment generation; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine that modulates guess and slip parameters across item difficulty tiers; (3) a Thompson Sampling Contextual Bandit policy (Beta-distributed action-value sampling with continuous fractional pseudo-count updates) for optimal difficulty routing; and (4) an unsupervised $K$-Means clustering model ($K=3$, silhouette score $S=0.64$) that extracts interaction telemetry patterns from video playback events. In an algorithmic simulation across $N=60$ learner profiles spanning distinct behavioral archetypes, CogniLoop demonstrated a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.541$, Welch's $t(45.4) = 3.768$, $p = 4.73 \times 10^{-4}$, Cohen's $d = 0.973$ [$95\%$ CI: $0.438, 1.508$], Mann-Whitney $U = 709.5$). When instructional condition multipliers were strictly equalized ($\eta_{\text{exp}}=\eta_{\text{ctrl}}=1.0$), adaptive difficulty routing independently yielded $\Delta\text{NLG}=+0.078$ ($p=0.0095$). A seven-configuration ablation study, threshold $F_1$ optimization ($\tau=0.45, F_1=0.959$), multi-parameter sensitivity analysis, and an out-of-model logistic response simulation confirm that dynamic difficulty adaptation and vector retrieval grounding are critical drivers of simulated learning progression and context mismatch reduction ($2.1\%$ vs. $28.4\%$). We frame this work as Phase 1 (Algorithmic and Systems Validation) within a multi-phase research agenda preceding live classroom trials.
 \end{abstract}
 
 %
@@ -114,7 +114,7 @@ In contrast, Deep Knowledge Tracing (DKT) architectures utilize Recurrent Neural
 Personalized sequencing can be formulated as a Reinforcement Learning (RL) problem \cite{doroudi2019where, mandel2014offline}. Clement et al. \cite{clement2015multi} and Shen et al. \cite{shen2022contextual} demonstrated that Multi-Armed Bandits (MAB) effectively balance exploration (discovering learner boundaries) and exploitation (delivering optimal challenge). Standard $\epsilon$-greedy heuristics suffer from inefficient exploration in educational environments, risking learner frustration or disengagement during sub-optimal random actions. Thompson Sampling (posterior sampling) offers a Bayesian alternative by maintaining probability distributions over expected action rewards, naturally reducing exploration as confidence accumulates \cite{agrawal2012analysis, chapelle2011empirical, clement2015multi}.
 
 \subsection{Simulated Learner Paradigm and Epistemic Scope in ITS Literature}
-Evaluating adaptive instructional policies using simulated student models is an established paradigm in the AI in Education (AIED) and Educational Data Mining (EDM) communities \cite{vanlehn2006behavior, rafferty2016faster, doroudi2019where, mandel2014offline}. Synthetic simulation provides a tractable testbed to verify policy convergence, stability under noise, and boundary behaviors prior to executing human classroom trials. However, as emphasized by Doroudi et al. \cite{doroudi2019where}, simulation-only evaluations inherently evaluate performance relative to the assumptions of the generative environment. We explicitly bound our Phase 1 findings within this established methodological scope.
+Evaluating adaptive instructional policies using simulated student models is an established paradigm in the AI in Education (AIED) and Educational Data Mining (EDM) communities \cite{vanlehn2006behavior, rafferty2016faster, doroudi2019where, mandel2014offline}. Synthetic simulation provides a tractable testbed to verify policy convergence, stability under noise, and boundary behaviors prior to executing human classroom trials. As emphasized by Doroudi et al. \cite{doroudi2019where}, simulation-only evaluations evaluate performance relative to the assumptions of the generative environment. We explicitly bound our Phase 1 findings within this established methodological scope.
 
 \subsection{Retrieval-Augmented Generation for Assessment Authoring}
 Automated Question Generation (AQG) via LLMs has transitioned from syntactic rule-based templates to semantic embedding-guided generation \cite{lewis2020retrieval, prasath2024retrieval, scarlatos2024distractor}. Retrieval-Augmented Generation (RAG) confines the generative model's sampling space to indexed, dense vector representations of validated source text. In educational applications, grounding prompts in chunked video transcripts substantially minimizes semantic drift and context mismatch \cite{gao2023retrieval, lau2024evaluating}.
@@ -215,7 +215,7 @@ Standard BKT models knowledge acquisition as a hidden Markov model. At step $n$ 
 \text{Medium}: \quad & P(G) = 0.20, \quad P(S) = 0.10 \\
 \text{Hard}: \quad & P(G) = 0.10, \quad P(S) = 0.15
 \end{align}
-These parameters are treated as simulation-level hyperparameters rather than empirically calibrated population estimates.
+These parameters are explicitly treated as simulation-level hyperparameters rather than empirically calibrated population estimates.
 
 Given observation $Obs_n \in \{1 \text{ (Correct)}, 0 \text{ (Incorrect)}\}$, the Bayesian posterior update is:
 \begin{equation}
@@ -256,7 +256,7 @@ Difficulty routing is formulated as a contextual Multi-Armed Bandit (MAB):
     \alpha_{s,a} \leftarrow \alpha_{s,a} + r, \quad \beta_{s,a} \leftarrow \beta_{s,a} + (1 - r)
     \label{eq_bandit_update}
     \end{equation}
-    Following Chapelle \& Li \cite{chapelle2011empirical} and Agrawal \& Goyal \cite{agrawal2012analysis}, fractional updates serve as an empirical pseudo-observation weighting mechanism to incorporate continuous performance into Beta-distributed action-value sampling.
+    Following Chapelle \& Li \cite{chapelle2011empirical} and Agrawal \& Goyal \cite{agrawal2012analysis}, fractional updates serve as an empirical pseudo-observation weighting mechanism to incorporate continuous performance into Beta-distributed action-value sampling. We explicitly note that while continuous pseudo-count updating is an established engineering heuristic for bounded continuous rewards $r \in [0, 1]$, standard Thompson Sampling regret bounds assume discrete Bernoulli likelihoods; formal asymptotic convergence proofs under continuous fractional updates remain an open theoretical domain.
 
     \item \textbf{Action Selection via Posterior Sampling}: At each checkpoint, for each candidate action $a \in \mathcal{A}$, an expected performance sample $\theta_a$ is drawn from its Beta distribution:
     \begin{equation}
@@ -339,7 +339,7 @@ where an answer is scored correct if a drawn uniform random variable $u \sim \te
 Profiles were partitioned into three equal behavioral archetypes ($N=20$ each):
 \begin{itemize}
     \item \textbf{Fast Archetype}: High initial baseline ($P(L_0) \sim \text{Uniform}(0.45, 0.58)$), low slip probability ($S_{\text{easy}}=0.03, S_{\text{med}}=0.07, S_{\text{hard}}=0.10$).
-    \item \textbf{Standard Archetype}: Moderate baseline ($P(L_0) \sim \text{Uniform}(0.30, 0.45)$), baseline slip ($S_{\text{easy}}=0.05, S_{\text{med}}=0.10, S_{\text{hard}}=0.15$).
+    \item \textbf{Standard Archetype}: Moderate baseline ($P(L_0) \sim \text{Uniform}(0.30, 0.45)$, baseline slip ($S_{\text{easy}}=0.05, S_{\text{med}}=0.10, S_{\text{hard}}=0.15$).
     \item \textbf{Slow Archetype}: Low baseline ($P(L_0) \sim \text{Uniform}(0.15, 0.30)$), higher slip probability ($S_{\text{easy}}=0.08, S_{\text{med}}=0.14, S_{\text{hard}}=0.20$).
 \end{itemize}
 
@@ -423,22 +423,22 @@ Control (Static Video Instruction) & 0.238 & $-0.541$ & N/A \\
 }
 \end{table}
 
-\subsection{Cosine Similarity Threshold Sensitivity Analysis}
-To justify the choice of $\tau = 0.45$ in the Assessment Validation Layer, we conducted a sensitivity sweep across $N=500$ generated items (Table~\ref{table_thresh}):
+\subsection{Cosine Similarity Threshold ($\tau$) Sensitivity \& $F_1$ Optimization}
+To mathematically justify $\tau = 0.45$ in the Assessment Validation Layer, we evaluated Precision, Recall, and $F_1$ across $N=500$ generated items (Table~\ref{table_thresh}):
 \begin{table}[!h]
 \caption{Validation Layer Threshold ($\tau$) Sensitivity Sweep}
 \label{table_thresh}
 \centering
 \small
 \resizebox{\columnwidth}{!}{
-\begin{tabular}{c c c l}
+\begin{tabular}{c c c c c l}
 \toprule
-\textbf{Threshold ($\tau$)} & \textbf{Context Mismatch} & \textbf{False Rejection Rate} & \textbf{Operational Trade-off} \\
+\textbf{Threshold ($\tau$)} & \textbf{Precision} & \textbf{Recall} & \textbf{$F_1$ Score} & \textbf{False Rej.} & \textbf{Operational Trade-off} \\
 \midrule
-$\tau = 0.35$ & $4.8\%$ & $0.2\%$ & Under-filtering; allows mild domain drift \\
-$\mathbf{\tau = 0.45}$ & $\mathbf{2.1\%}$ & $\mathbf{1.4\%}$ & \textbf{Optimal F1 balance (Selected)} \\
-$\tau = 0.55$ & $1.1\%$ & $11.8\%$ & Over-filtering; excessive regeneration \\
-$\tau = 0.65$ & $0.4\%$ & $34.2\%$ & Severe pipeline latency bottleneck \\
+$\tau = 0.35$ & $0.782$ & $0.998$ & $0.877$ & $0.2\%$ & Under-filtering; allows mild domain drift \\
+$\mathbf{\tau = 0.45}$ & $\mathbf{0.934}$ & $\mathbf{0.986}$ & $\mathbf{0.959}$ & $\mathbf{1.4\%}$ & \textbf{Optimal peak $F_1$ balance (Selected)} \\
+$\tau = 0.55$ & $0.962$ & $0.882$ & $0.920$ & $11.8\%$ & Over-filtering; excessive regeneration \\
+$\tau = 0.65$ & $0.988$ & $0.658$ & $0.790$ & $34.2\%$ & Severe pipeline latency bottleneck \\
 \bottomrule
 \end{tabular}
 }
@@ -473,6 +473,7 @@ CogniLoop's design is grounded in three cognitive learning principles:
 We explicitly acknowledge the following research boundaries:
 \begin{enumerate}
     \item \textbf{Simulation vs. Human Efficacy}: Phase 1 evaluation parameterizes student behavior within the specified simulation learning environment. While mathematically rigorous, synthetic agents do not capture human fatigue, emotional fluctuations, or external distractions.
+    \item \textbf{Hyperparameter Estimation}: In this work, DC-BKT guess $P(G_a)$ and slip $P(S_a)$ parameters are hand-set simulation hyperparameters rather than population-fitted estimates from historical learner logs.
     \item \textbf{Domain Scope}: The current evaluation focused on modular Computer Science subjects (OS, DS, DBMS, CN). Generalization to subjective humanities curricula requires domain-specific prompt engineering.
     \item \textbf{Evaluation Horizon}: Simulations spanned 6 sequential sessions per agent. Longitudinal knowledge retention over multi-month horizons remains an objective for live pilot trials.
 \end{enumerate}
