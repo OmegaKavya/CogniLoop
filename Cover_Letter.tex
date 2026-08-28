@@ -1,0 +1,72 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{times}
+
+\begin{document}
+\thispagestyle{empty}
+
+\noindent
+\textbf{Kavya Aggarwal} \\
+Department of Computer Science and Engineering \\
+GITAM (Deemed to be University) \\
+Hyderabad, Telangana 502329, India \\
+Email: \texttt{kaggarwa@gitam.in} \\[1.5em]
+
+\noindent
+August 28, 2026 \\[1.5em]
+
+\noindent
+\textbf{To:} \\
+The Editor-in-Chief \\
+\textit{IEEE Transactions on Learning Technologies} \\[1.5em]
+
+\noindent
+\textbf{Subject: Submission of Original Research Manuscript -- ``Personalizing Open-Domain Video Curricula: A Hybrid Framework Combining Thompson Sampling, IRT-Grounded BKT, and Behavioral Micro-Patterns''} \\[1.2em]
+
+\noindent
+Dear Editor-in-Chief and Editorial Board Members,
+
+\vspace{0.8em}
+\noindent
+I am pleased to submit our original research manuscript titled \textbf{``Personalizing Open-Domain Video Curricula: A Hybrid Framework Combining Thompson Sampling, IRT-Grounded BKT, and Behavioral Micro-Patterns''} for consideration for publication in \textit{IEEE Transactions on Learning Technologies}.
+
+\vspace{0.8em}
+\noindent
+\textbf{Background and Contribution:} \\
+Video-based learning in Massive Open Online Courses (MOOCs) remains predominantly passive, leading to rapid cognitive decay and an absence of individualized learning paths. While traditional Intelligent Tutoring Systems (ITS) provide structured adaptation, they suffer from severe content-authoring bottlenecks that prevent scaling across open-domain video libraries. In this manuscript, we present \textbf{CogniLoop}, an integrated, closed-loop adaptive learning system that combines:
+\begin{enumerate}
+    \item A transcript-grounded Retrieval-Augmented Generation (RAG) vector pipeline to eliminate hallucination during assessment generation;
+    \item An Item Response Theory (IRT)-grounded Bayesian Knowledge Tracing (BKT) engine that dynamically adjusts guess and slip parameters based on question difficulty strata;
+    \item A Thompson Sampling Contextual Bandit policy (Beta-Bernoulli conjugate distributions) that balances cognitive challenge with learner self-efficacy;
+    \item An unsupervised $K$-Means telemetry classifier ($K=3$) that extracts video interaction micro-patterns.
+\end{enumerate}
+
+\vspace{0.8em}
+\noindent
+\textbf{Validation and Statistical Rigor:} \\
+Under a controlled algorithmic simulation protocol across $N=60$ student profiles spanning Fast, Standard, and Slow learner archetypes, our framework achieves a statistically significant improvement in Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.571, p < 0.0001$, Cohen's $d = 1.088$, Mann-Whitney $U = 682.5$). Component ablation quantitatively confirms the necessity of contextual difficulty routing ($\Delta \text{NLG} = -0.422$ when fixed) and semantic retrieval grounding ($28.4\%$ context mismatch without RAG).
+
+\vspace{0.8em}
+\noindent
+\textbf{Originality and Conflict of Interest Declarations:}
+\begin{itemize}
+    \item This manuscript represents original research and has not been published previously, nor is it currently under consideration for publication elsewhere.
+    \item The author has no competing financial or non-financial conflicts of interest regarding this work.
+    \item The complete open-source codebase, reproducible simulation scripts, and Docker containerization files are maintained at: \url{https://github.com/OmegaKavya/CogniLoop}.
+\end{itemize}
+
+\vspace{1.0em}
+\noindent
+Thank you very much for your time and consideration of our work. I look forward to receiving the reviewers' constructive feedback.
+
+\vspace{1.8em}
+\noindent
+Sincerely, \\[1.5em]
+\textbf{Kavya Aggarwal} \\
+Department of Computer Science and Engineering \\
+GITAM (Deemed to be University), Hyderabad, India \\
+Email: \texttt{kaggarwa@gitam.in}
+
+\end{document}
