@@ -106,24 +106,24 @@ def run_simulation_and_generate_report():
     se_d = np.sqrt((n_exp + n_ctrl) / (n_exp * n_ctrl) + (cohens_d**2) / (2 * (n_exp + n_ctrl)))
     ci_d = (cohens_d - 1.96 * se_d, cohens_d + 1.96 * se_d)
 
-    # --- Null-Condition Experiment (Equal Learning Efficiency eta_exp = eta_ctrl = 1.0) ---
+    # --- Null-Condition Experiment (Equal Learning Efficiency eta_exp = eta_ctrl = 1.0, N=60) ---
     null_exp_nlg, null_ctrl_nlg = [], []
     for arch in archetypes:
         for i in range(arch["count"]):
             p0 = random.uniform(*arch["base_p0"])
             cur_m = p0
-            for _ in range(6):
-                p_c = cur_m * 0.90 + (1 - cur_m) * 0.20
-                c = random.random() < p_c
-                cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.7)
-            null_exp_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
-
-            cur_m = p0
-            for _ in range(6):
-                p_c = cur_m * 0.85 + (1 - cur_m) * 0.15
-                c = random.random() < p_c
-                cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.3)
-            null_ctrl_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
+            if i % 2 == 0:
+                for _ in range(6):
+                    p_c = cur_m * 0.90 + (1 - cur_m) * 0.20
+                    c = random.random() < p_c
+                    cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.7)
+                null_exp_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
+            else:
+                for _ in range(6):
+                    p_c = cur_m * 0.85 + (1 - cur_m) * 0.15
+                    c = random.random() < p_c
+                    cur_m += (1 - cur_m) * arch["gamma"] * 1.0 * (1.0 if c else 0.3)
+                null_ctrl_nlg.append((cur_m * 100.0 - p0 * 100.0) / (100.0 - p0 * 100.0))
 
     t_null, p_null = stats.ttest_ind(null_exp_nlg, null_ctrl_nlg, equal_var=False)
     delta_null = float(np.mean(null_exp_nlg) - np.mean(null_ctrl_nlg))
