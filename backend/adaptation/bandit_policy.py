@@ -99,14 +99,14 @@ class ContextualBanditAdapter:
     def update_policy(self, cluster, mastery, action, score):
         """
         Updates the Beta distribution parameters based on continuous score reward.
-        Normalized reward r in [0, 1].
+        Normalized reward r = Score / 100.0 in [0, 1].
+        Action selection applies utility weights w_a to sample theta_a * w_a.
         """
         if action not in self.actions:
             return
             
-        reward = (score / 100.0) * self.multipliers[action]
-        # Max reward is 1.2, so normalize to [0, 1] range
-        r = max(0.0, min(1.0, reward / 1.2))
+        # Normalized score reward in [0, 1] without double-weighting
+        r = max(0.0, min(1.0, float(score) / 100.0))
         
         state = self._get_state_key(cluster, mastery)
         if state not in self.q_table:
@@ -117,12 +117,12 @@ class ContextualBanditAdapter:
         else:
             self._ensure_alpha_beta_parameters(state)
             
-        # Update Beta parameters (fractional updates representing continuous outcomes)
+        # Update Beta parameters via fractional pseudo-observation updates
         self.q_table[state][action]["alpha"] += r
         self.q_table[state][action]["beta"] += (1.0 - r)
         self.q_table[state][action]["count"] += 1
         
-        # Keep q_value equal to the expected value (mean) of the Beta distribution
+        # Keep q_value equal to the posterior mean of the Beta distribution
         alpha = self.q_table[state][action]["alpha"]
         beta = self.q_table[state][action]["beta"]
         self.q_table[state][action]["q_value"] = alpha / (alpha + beta)
@@ -130,3 +130,4 @@ class ContextualBanditAdapter:
         self._save_q_table()
 
 bandit_adapter = ContextualBanditAdapter()
+

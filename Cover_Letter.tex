@@ -23,30 +23,30 @@ The Editor-in-Chief \\
 \textit{IEEE Transactions on Learning Technologies} \\[1.5em]
 
 \noindent
-\textbf{Subject: Submission of Original Research Manuscript -- ``Personalizing Open-Domain Video Curricula: A Hybrid Framework Combining Thompson Sampling, IRT-Grounded BKT, and Behavioral Micro-Patterns''} \\[1.2em]
+\textbf{Subject: Submission of Original Research Manuscript -- ``Personalizing Open-Domain Video Curricula: A Hybrid Closed-Loop Framework Combining Contextual Bandits, Difficulty-Conditioned BKT, and Interaction Telemetry''} \\[1.2em]
 
 \noindent
 Dear Editor-in-Chief and Editorial Board Members,
 
 \vspace{0.8em}
 \noindent
-I am pleased to submit our original research manuscript titled \textbf{``Personalizing Open-Domain Video Curricula: A Hybrid Framework Combining Thompson Sampling, IRT-Grounded BKT, and Behavioral Micro-Patterns''} for consideration for publication in \textit{IEEE Transactions on Learning Technologies}.
+I am pleased to submit our original research manuscript titled \textbf{``Personalizing Open-Domain Video Curricula: A Hybrid Closed-Loop Framework Combining Contextual Bandits, Difficulty-Conditioned BKT, and Interaction Telemetry''} for consideration for publication in \textit{IEEE Transactions on Learning Technologies}.
 
 \vspace{0.8em}
 \noindent
 \textbf{Background and Contribution:} \\
 Video-based learning in Massive Open Online Courses (MOOCs) remains predominantly passive, leading to rapid cognitive decay and an absence of individualized learning paths. While traditional Intelligent Tutoring Systems (ITS) provide structured adaptation, they suffer from severe content-authoring bottlenecks that prevent scaling across open-domain video libraries. In this manuscript, we present \textbf{CogniLoop}, an integrated, closed-loop adaptive learning system that combines:
 \begin{enumerate}
-    \item A transcript-grounded Retrieval-Augmented Generation (RAG) vector pipeline to eliminate hallucination during assessment generation;
-    \item An Item Response Theory (IRT)-grounded Bayesian Knowledge Tracing (BKT) engine that dynamically adjusts guess and slip parameters based on question difficulty strata;
-    \item A Thompson Sampling Contextual Bandit policy (Beta-Bernoulli conjugate distributions) that balances cognitive challenge with learner self-efficacy;
+    \item A transcript-grounded Retrieval-Augmented Generation (RAG) vector pipeline coupled with an Assessment Validation Layer to eliminate hallucination during assessment generation;
+    \item A Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine that modulates guess and slip parameters across item difficulty tiers;
+    \item A Thompson Sampling Contextual Bandit policy (Beta-distributed posterior sampling with continuous fractional updates) for optimal difficulty routing;
     \item An unsupervised $K$-Means telemetry classifier ($K=3$) that extracts video interaction micro-patterns.
 \end{enumerate}
 
 \vspace{0.8em}
 \noindent
 \textbf{Validation and Statistical Rigor:} \\
-Under a controlled algorithmic simulation protocol across $N=60$ student profiles spanning Fast, Standard, and Slow learner archetypes, our framework achieves a statistically significant improvement in Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.571, p < 0.0001$, Cohen's $d = 1.088$, Mann-Whitney $U = 682.5$). Component ablation quantitatively confirms the necessity of contextual difficulty routing ($\Delta \text{NLG} = -0.422$ when fixed) and semantic retrieval grounding ($28.4\%$ context mismatch without RAG).
+Under a controlled algorithmic simulation protocol across $N=60$ student profiles spanning Fast, Standard, and Slow learner archetypes, our framework achieves a statistically significant improvement in Simulated Normalized Learning Gain (NLG) over static sequential video viewing ($\Delta \text{NLG} = +0.541$, Welch's $t = 3.768, p = 4.73 \times 10^{-4} < 0.001$, Cohen's $d = 0.973$, Mann-Whitney $U = 709.5$). A multi-parameter sensitivity analysis ($\pm 0.05$ parameter perturbations across 100 runs) and a six-configuration component ablation study quantitatively confirm that contextual difficulty routing ($\Delta \text{NLG} = -0.294$ when fixed) and semantic retrieval grounding ($28.4\%$ context mismatch without RAG) are critical drivers of system efficacy.
 
 \vspace{0.8em}
 \noindent
