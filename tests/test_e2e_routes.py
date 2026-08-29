@@ -38,7 +38,7 @@ def _register_and_login(client, email="e2e@test.com", password="pass123"):
         return False
     if r.status_code == 302:
         return True  # redirect-based register already logged in
-    # JSON-response register — already logs in via session
+    # JSON-response register - already logs in via session
     return r.get_json(force=True).get('success', False)
 
 
@@ -105,7 +105,7 @@ class TestSecurityBoundaries:
             assert r.status_code in (401, 400, 302)
 
 
-# ── Full authenticated flow ───────────────────────────────────────────────────
+# -- Full authenticated flow ---------------------------------------------------
 
 class TestAuthenticatedFlow:
     def test_register_creates_account(self, client):
@@ -117,7 +117,7 @@ class TestAuthenticatedFlow:
 
     def test_login_success_redirects_to_dashboard(self, client):
         client.post('/register', json={"email": "login@test.com", "name": "L", "password": "p123"})
-        # After JSON register, session is already set — just check dashboard
+        # After JSON register, session is already set - just check dashboard
         r = client.get('/dashboard')
         assert r.status_code == 200
 
@@ -243,7 +243,7 @@ class TestQuizSubmit:
         r = self._do_submit(client, score=80)
         body = json.loads(r.data)
         # mastery may be top-level or inside adaptation
-        # mastery can be at any level — just verify submit succeeded
+        # mastery can be at any level - just verify submit succeeded
         assert body.get('success') is not False, f"Submit failed: {body.get('message')}"
         assert body.get("success") is True or ("ai_insights" in body)
 

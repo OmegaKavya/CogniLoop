@@ -163,7 +163,7 @@ x_i = \left[ N_{\text{pause}}, \, N_{\text{rewatch}}, \, R_{\text{skip}}, \, P_{
 \end{equation}
 where $N_{\text{pause}}$ is the pause count, $N_{\text{rewatch}}$ denotes the backward seek count, $R_{\text{skip}}$ is the ratio of skipped duration to total video length, and $P_{\text{watch}}$ is the percentage of unique frames viewed.
 
-An unsupervised $K$-Means clustering model ($K=3$, $n_{\text{init}}=10$, random seed $42$) partitions telemetry vectors into three interaction profiles. Cluster separation was validated using Rousseeuw silhouette analysis \cite{rousseeuw1987silhouettes}: $K=2$ ($S=0.48$), $K=3$ ($S=\mathbf{0.64}$ — optimal elbow peak), $K=4$ ($S=0.51$), $K=5$ ($S=0.43$).
+An unsupervised $K$-Means clustering model ($K=3$, $n_{\text{init}}=10$, random seed $42$) partitions telemetry vectors into three interaction profiles. Cluster separation was validated using Rousseeuw silhouette analysis \cite{rousseeuw1987silhouettes}: $K=2$ ($S=0.48$), $K=3$ ($S=\mathbf{0.64}$, optimal elbow peak), $K=4$ ($S=0.51$), $K=5$ ($S=0.43$).
 \begin{itemize}
     \item \textbf{Cluster 0 ($C_0$)}: Moderate playback speed ($1.0\times$), low skip ratio, baseline pause frequency.
     \item \textbf{Cluster 1 ($C_1$)}: Elevated pause and rewatch frequency, high total watch percentage.

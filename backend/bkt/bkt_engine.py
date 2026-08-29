@@ -32,7 +32,7 @@ class BKTEngine:
         p_guess = self.p_guess
         p_slip = self.p_slip
 
-        # Dynamic mapping grounded in Item Response Theory (IRT)
+        # Adjust guess and slip parameters based on question difficulty tier
         if difficulty:
             diff = str(difficulty).lower().strip()
             if diff == "easy":

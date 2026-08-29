@@ -1,7 +1,7 @@
 """
 Stress / Load Tests: Concurrent simulation of many users.
 Covers: repository thread-safety, bandit convergence under load, BKT monotonicity.
-These are NOT meant to be fast — they simulate real multi-user load.
+These are NOT meant to be fast - they simulate real multi-user load.
 """
 import threading
 import tempfile
