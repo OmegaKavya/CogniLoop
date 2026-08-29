@@ -12,7 +12,7 @@ from backend.adaptation.bandit_policy import bandit_adapter
 from backend.bkt.bkt_engine import bkt_engine
 
 def simulate_users(num_users=60):
-    print(f"Simulating {num_users} users with IRT-BKT and Contextual Bandit logic...")
+    print(f"Simulating {num_users} users with DC-BKT and Contextual Bandit policy...")
     random.seed(42)
     
     # Generate users
@@ -41,7 +41,7 @@ def simulate_users(num_users=60):
                 difficulty = bandit_adapter.get_action(cluster, mastery)
                 bkt_engine.p_learn = 0.35
                 
-            # 2. Simulate IRT accuracy
+            # 2. Simulate difficulty-conditioned response accuracy
             if difficulty == "easy":
                 p_guess, p_slip = 0.30, 0.05
             elif difficulty == "hard":
