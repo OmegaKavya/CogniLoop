@@ -10,7 +10,7 @@ class QuizGenerator:
         self.ollama_model = model
         self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
         self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.groq_model = "llama-3.1-8b-instant"
+        self.groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
     def _get_transcript_text(self, youtube_id, watch_time=0):
         if not youtube_id:

@@ -11,7 +11,7 @@ class QuizInsightsEngine:
         self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
         self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
         self.model = model
-        self.groq_model = "llama-3.1-8b-instant"
+        self.groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
     def _diagnose_question(self, q):
         """Return a time-based learning signal for each answer."""
