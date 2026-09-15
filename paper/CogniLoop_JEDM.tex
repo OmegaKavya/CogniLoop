@@ -27,7 +27,7 @@
 \maketitle
 
 \begin{abstract}
-Video-based instruction dominates modern Massive Open Online Courses (MOOCs), but passive viewing suffers from rapid cognitive decay and a lack of individualized pacing. Retrieval practice (formative in-video checkpoints) is a well-established remedy, but deploying it at scale requires automated, factually-grounded question generation, since manually authoring assessments for arbitrary lecture content does not scale and ungrounded large language models (LLMs) risk hallucination. We present CogniLoop, a closed-loop system combining (1) a Retrieval-Augmented Generation (RAG) pipeline for transcript-grounded assessment generation, addressing the content-authoring bottleneck directly; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine for per-learner mastery tracking; (3) a Thompson Sampling contextual bandit for difficulty routing; and (4) $K$-Means interaction-telemetry clustering ($K=3$, silhouette score $0.64$). We report this as a systems contribution and evaluate each component individually rather than assuming architectural completeness implies empirical benefit. In an algorithmic simulation across $N=60$ learner profiles, CogniLoop showed a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static video viewing ($\Delta\text{NLG}=+0.541$, Welch's $t(45.4)=3.768$, $p=4.73\times10^{-4}$, Cohen's $d=0.973$, Mann-Whitney $U=709.5$). A component-isolation ablation attributes this gain to checkpoint frequency, not to Thompson Sampling difficulty routing: holding checkpoint rate constant, bandit-routed selection underperformed a fixed-medium baseline ($-0.069$ NLG), corroborated by an independent logistic regression on step-level data. A multi-parameter sensitivity sweep further shows the effect is not robust to small perturbations of the checkpoint-rate parameter (only 1 of 8 configurations remained significant). Every statistic reported, including negative and fragility findings, is independently reproducible from committed, seeded source code. We frame this as Phase 1 of a multi-phase research agenda: the RAG-grounded content-generation architecture and the checkpoint-frequency effect are validated contributions, while difficulty-routing tuning is scoped as concrete future work preceding live classroom trials. The code and all reproducibility scripts are available at https://github.com/OmegaKavya/CogniLoop.\\
+Video-based instruction dominates modern Massive Open Online Courses (MOOCs), but passive viewing suffers from rapid cognitive decay and a lack of individualized pacing. Retrieval practice (formative in-video checkpoints) is a well-established remedy, but deploying it at scale requires automated, factually-grounded question generation, since manually authoring assessments for arbitrary lecture content does not scale and ungrounded large language models (LLMs) risk hallucination. We present CogniLoop, a closed-loop system combining (1) a Retrieval-Augmented Generation (RAG) pipeline for transcript-grounded assessment generation, addressing the content-authoring bottleneck directly; (2) a Difficulty-Conditioned Bayesian Knowledge Tracing (DC-BKT) engine for per-learner mastery tracking; (3) a Thompson Sampling contextual bandit for difficulty routing; and (4) $K$-Means interaction-telemetry clustering ($K=3$, silhouette score $0.64$). We evaluate each component individually rather than assuming architectural completeness implies empirical benefit. In an algorithmic simulation across $N=60$ learner profiles, CogniLoop showed a statistically significant increase in Simulated Normalized Learning Gain (NLG) over static video viewing ($\Delta\text{NLG}=+0.541$, Welch's $t(45.4)=3.768$, $p=4.73\times10^{-4}$, Cohen's $d=0.973$, Mann-Whitney $U=709.5$). A component-isolation ablation attributes this gain to checkpoint frequency, not routing: holding checkpoint rate constant, bandit-routed selection underperformed a fixed-medium baseline ($-0.069$ NLG), corroborated by an independent logistic regression on step-level data. A multi-parameter sensitivity sweep further shows the effect is not robust to small perturbations of the checkpoint-rate parameter (only 1 of 8 configurations remained significant). Every statistic reported, including negative and fragility findings, is independently reproducible from committed, seeded source code. We frame this as Phase 1 of a multi-phase research agenda: the RAG-grounded content-generation architecture and the checkpoint-frequency effect are validated contributions, while difficulty-routing tuning is scoped as concrete future work preceding live classroom trials. The code and all reproducibility scripts are available at https://github.com/OmegaKavya/CogniLoop.\\
 
 {\parindent0pt
 \textbf{Keywords:} adaptive learning, Bayesian knowledge tracing, contextual bandits, retrieval-augmented generation, reproducibility
@@ -77,19 +77,28 @@ Automated Question Generation (AQG) via LLMs has transitioned from syntactic rul
 \label{table_comp}
 \centering
 \small
-\begin{tabular}{p{2.6cm} p{2.2cm} p{2.2cm} p{2.2cm} p{2.2cm} p{2.6cm}}
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{|p{2.4cm}|p{2.0cm}|p{2.1cm}|p{2.0cm}|p{2.1cm}|p{2.7cm}|}
 \hline
 \textbf{Dimension} & \textbf{Traditional ITS} \cite{koedinger1997intelligent} & \textbf{Commercial MOOCs} \cite{lan2016reinforcement} & \textbf{Static Video Injections} & \textbf{Standalone LLM Chat} & \textbf{CogniLoop (proposed)} \\
 \hline
-Adaptation Granularity & Concept/Step & Course/Catalog & Static Timestamp & Dialog Turn & Concept, Step \& Telemetry \\
+Adaptation Granularity & Concept / Step & Course / Catalog & Static Timestamp & Dialog Turn & Concept, Step, \& Telemetry \\
+\hline
 Content Authoring Cost & Prohibitive (Manual) & High (Instructor Manual) & Moderate (Manual) & Low (On-demand) & Automated (Transcript RAG) \\
+\hline
 Context Mismatch Risk & None (Static) & None (Static) & None (Static) & High (Ungrounded) & Minimized (RAG) \\
-Cognitive State Tracking & Explicit (BKT/IRT) & None & None & Latent/Heuristic & Explicit DC-BKT \\
-Pedagogical Optimization & Hardcoded Trees & Collaborative Filtering & Linear Progression & Conversational & Checkpoints + Bandit (architecture) \\
+\hline
+Cognitive State Tracking & Explicit (BKT / IRT) & None & None & Latent / Heuristic & Explicit DC-BKT \\
+\hline
+Pedagogical Optimization & Hardcoded Trees & Collaborative Filtering & Linear Progression & Chat Heuristics & Checkpoints + Bandit \\
+\hline
 Cold-Start Feasibility & Low & High & High & High & High (Vector Indexing) \\
-Fault Tolerance & Monolithic Local & Multi-Region SaaS & SaaS Cloud & Cloud Dependent & 3-Tier (Cloud/Edge/Static) \\
+\hline
+Fault Tolerance & Monolithic Local & Multi-Region SaaS & SaaS Cloud & Cloud Dependent & 3-Tier (Cloud / Edge / Static) \\
 \hline
 \end{tabular}
+\renewcommand{\arraystretch}{1.0}
 \end{table}
 
 \subsection{Quantitative Positioning Against Reported Benchmarks}
@@ -100,19 +109,26 @@ Table~\ref{table_comp} above is qualitative because the cited systems evaluate f
 \label{table_lit}
 \centering
 \small
-\begin{tabular}{p{2.6cm} p{4.0cm} p{4.0cm}}
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|p{3.0cm}|p{4.5cm}|p{4.2cm}|}
 \hline
 \textbf{Source} & \textbf{Reported Metric} & \textbf{Comparability Caveat} \\
 \hline
 \cite{kulik2016effectiveness} & $d \approx 0.66$ (median, 50 ITS field studies) & Real classroom, test-score $d$ \\
+\hline
 \cite{vanlehn2011relative} & $d = 0.76$ (step-based ITS vs. none) & Real classroom, test-score $d$ \\
+\hline
 \cite{piech2015deep} (DKT) & AUC $0.86$ vs. BKT AUC $0.69$ & Prediction AUC, not a gain score \\
+\hline
 \cite{clement2015multi} & Bandit sequencing $\geq$ expert curriculum & Qualitative field-study finding \\
+\hline
 \cite{niu2024reducing} & Hallucination $21\% \rightarrow <7.5\%$ w/ retrieval & General-domain, non-education RAG \\
 \hline
 \textbf{CogniLoop (this work)} & $d = 0.973$ ($\Delta\text{NLG}=+0.541$) & $N=60$ algorithmic simulation, Phase 1 \\
 \hline
 \end{tabular}
+\renewcommand{\arraystretch}{1.0}
 \end{table}
 
 CogniLoop's simulated effect size ($d=0.973$) exceeds the meta-analytic field-study median for ITS interventions ($d \approx 0.66$--$0.76$ \cite{kulik2016effectiveness,vanlehn2011relative}), which is expected and methodologically bounded: simulated agents follow the deterministic guess-slip generative model described in Section~5.2, so this comparison indicates the upper bound of algorithmic convergence under the modeled environment rather than a claim of superiority over field-deployed ITS. We report it specifically to make this scope explicit ahead of the Phase 2 human pilot, where the same NLG metric will be measured under empirical conditions comparable to \cite{kulik2016effectiveness,vanlehn2011relative}.
@@ -249,22 +265,32 @@ Table~\ref{table_results} details the statistical results, visualized in Figures
 \label{table_results}
 \centering
 \small
-\begin{tabular}{l c c c}
+\renewcommand{\arraystretch}{1.25}
+\setlength{\tabcolsep}{7pt}
+\begin{tabular}{|l|c|c|c|}
 \hline
 \textbf{Metric} & \textbf{Experimental} & \textbf{Control} & \textbf{Delta} \\
 \hline
 Sample Size & 30 profiles & 30 profiles & $N=60$ \\
+\hline
 Pre-Test Mean & $38.2\% \pm 13.7\%$ & $36.0\% \pm 12.3\%$ & Baseline equalized \\
+\hline
 Post-Test Mean & $87.2\% \pm 21.5\%$ & $52.9\% \pm 39.9\%$ & $+34.3\%$ \\
+\hline
 Mean NLG & $0.779$ & $0.238$ & $+0.541$ \\
+\hline
 Std. Dev. (NLG) & $0.382$ & $0.688$ & Higher var.\ in control \\
 \hline
-\multicolumn{4}{l}{Welch's $t$-test: $t(45.4)=3.768$, $p=4.73\times10^{-4}$} \\
-\multicolumn{4}{l}{Mean diff.\ 95\% CI: $[0.252, 0.830]$} \\
-\multicolumn{4}{l}{Mann-Whitney $U=709.5$, $p=9.50\times10^{-5}$} \\
-\multicolumn{4}{l}{Cohen's $d=0.973$, 95\% CI: $[0.438, 1.508]$} \\
+\multicolumn{4}{|l|}{Welch's $t$-test: $t(45.4)=3.768$, $p=4.73\times10^{-4}$} \\
+\hline
+\multicolumn{4}{|l|}{Mean diff.\ 95\% CI: $[0.252, 0.830]$} \\
+\hline
+\multicolumn{4}{|l|}{Mann-Whitney $U=709.5$, $p=9.50\times10^{-5}$} \\
+\hline
+\multicolumn{4}{|l|}{Cohen's $d=0.973$, 95\% CI: $[0.438, 1.508]$} \\
 \hline
 \end{tabular}
+\renewcommand{\arraystretch}{1.0}
 \end{table}
 
 \subsection{Equal-Rate Structural Comparison}
