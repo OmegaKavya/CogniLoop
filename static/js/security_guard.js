@@ -1,6 +1,6 @@
 /**
  * CogniLoop Client Security & Anti-Inspection Module
- * Built by Kavya Aggarwal | IEEE Research Project
+ * Built by Kavya Aggarwal | Research Project
  * 
  * Protects frontend interface demonstrations by restricting context menus,
  * inspection developer tool shortcuts, and source code enumeration.
