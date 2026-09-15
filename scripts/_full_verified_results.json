@@ -1,0 +1,83 @@
+{
+  "ablation_a_bandit": 0.8778616337867987,
+  "ablation_a_fixed": 0.9465431521076365,
+  "ablation_c_collapsed": 0.9262607515675871,
+  "ablation_d_ignore_difficulty": 0.8546989845707845,
+  "logit_group_coef": -0.16516710456648875,
+  "logit_mastery_coef": 2.966018965270043,
+  "sensitivity_n_significant_of_8": 1,
+  "sensitivity_results": [
+    {
+      "dG": -0.05,
+      "dS": -0.05,
+      "dT": -0.05,
+      "exp_mean": 0.998699293334376,
+      "ctrl_mean": 0.9611276299950086,
+      "t": 2.7375573980207095,
+      "p": 0.007328726888932531
+    },
+    {
+      "dG": -0.05,
+      "dS": -0.05,
+      "dT": 0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": -0.05,
+      "dS": 0.05,
+      "dT": -0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": -0.05,
+      "dS": 0.05,
+      "dT": 0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": 0.05,
+      "dS": -0.05,
+      "dT": -0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": 0.05,
+      "dS": -0.05,
+      "dT": 0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": 0.05,
+      "dS": 0.05,
+      "dT": -0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    },
+    {
+      "dG": 0.05,
+      "dS": 0.05,
+      "dT": 0.05,
+      "exp_mean": 1.0,
+      "ctrl_mean": 1.0,
+      "t": NaN,
+      "p": NaN
+    }
+  ]
+}
