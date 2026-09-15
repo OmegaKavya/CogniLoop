@@ -241,6 +241,28 @@ def index():
     videos = video_repo.get_all_videos()
     return render_template('landing.html', courses=videos)
 
+@app.route('/health')
+def health():
+    """Lightweight liveness/readiness check for uptime monitors and PaaS health checks.
+    Deliberately avoids LLM calls or heavy DB work so it stays fast under frequent polling.
+    """
+    checks = {}
+    status_code = 200
+
+    try:
+        checks['data_dir'] = os.path.isdir('data')
+        checks['videos_seed'] = os.path.isfile('data/videos.json')
+        if not (checks['data_dir'] and checks['videos_seed']):
+            status_code = 503
+    except Exception as e:
+        checks['error'] = str(e)
+        status_code = 503
+
+    return jsonify({
+        'status': 'ok' if status_code == 200 else 'degraded',
+        'checks': checks
+    }), status_code
+
 @app.route('/about')
 def about():
     return jsonify({
