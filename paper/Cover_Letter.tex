@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{times}
+
+\begin{document}
+\thispagestyle{empty}
+
+\noindent
+Kavya Aggarwal \\
+Department of Computer Science and Engineering \\
+GITAM (Deemed to be University) \\
+Hyderabad, Telangana 502329, India \\
+Email: \texttt{aggarwalkaavya23@gmail.com} \\[1.5em]
+
+\noindent
+September 2026 \\[1.5em]
+
+\noindent
+The Editor \\
+\textit{Journal of Educational Data Mining} \\[1.5em]
+
+\noindent
+Dear Editor,
+
+\vspace{0.6em}
+\noindent
+I am submitting my manuscript, \textbf{``Personalizing Open-Domain Video Curricula: A Hybrid Closed-Loop Framework Combining Contextual Bandits, Difficulty-Conditioned BKT, and Interaction Telemetry,''} for consideration as a Phase~1 algorithmic and systems paper in the Journal of Educational Data Mining.
+
+\vspace{0.6em}
+\noindent
+The manuscript presents CogniLoop, a closed-loop system that converts open-domain lecture videos into personalized mastery curricula. It combines a Retrieval-Augmented Generation pipeline for transcript-grounded, automatically generated assessment content; a Difficulty-Conditioned Bayesian Knowledge Tracing engine; a Thompson Sampling contextual bandit for difficulty routing; and interaction telemetry clustering. The paper's central contribution is twofold: (1) a deployable architecture that directly addresses the content-authoring bottleneck constraining traditional Intelligent Tutoring Systems to hand-curated domains, and (2) a rigorously verified algorithmic simulation ($N=60$ synthetic learner profiles) demonstrating a statistically significant learning-gain advantage for active-retrieval checkpointing over passive video viewing.
+
+\vspace{0.6em}
+\noindent
+I want to highlight one aspect of this submission's methodology directly, since it shapes how the results should be read: rather than presenting only the results that support the system's design intent, the paper reports a full component-isolation ablation, an independent logistic-regression robustness check, and a multi-parameter sensitivity sweep, all executed against the same committed, seeded simulation source code as the primary result. These analyses show that the paper's Thompson Sampling difficulty-routing mechanism does not, under the tested configuration, contribute measurably to the observed learning gain, and that the primary effect is sensitive to the checkpoint-rate parameter. I report these as honest negative and fragility findings rather than omitting them, and the manuscript's Discussion section explains why the architecture's other components (RAG grounding, DC-BKT) remain a meaningful engineering contribution independent of this specific finding. Every statistic in the manuscript, including these negative findings, is independently reproducible from source code in the accompanying public repository.
+
+\vspace{0.6em}
+\noindent
+This work has not been published previously and is not under consideration at another journal. It does not extend a previously published conference paper. I have no competing interests to declare, and the manuscript includes the required Declaration of Generative AI Software Tools, funding, competing interests, author contributions, data availability, and ethics statements.
+
+\vspace{0.6em}
+\noindent
+Thank you for considering this manuscript. I look forward to the reviewers' feedback.
+
+\vspace{0.6em}
+\noindent
+Sincerely, \\
+Kavya Aggarwal
+
+\end{document}
