@@ -4,15 +4,21 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import json
 import os
+import secrets
 from datetime import datetime
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
-from backend.auth.auth_service import auth_service, hash_password, verify_password
+from backend.auth.auth_service import hash_password, verify_password
 
-app = Flask(__name__, 
+app = Flask(__name__,
             template_folder='frontend/templates',
             static_folder='static')
-app.secret_key = os.environ.get('SECRET_KEY', 'cogniloop-production-secure-fallback-key-2026-v1')
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError('SECRET_KEY environment variable must be set in production.')
+    _secret_key = secrets.token_hex(32)
+app.secret_key = _secret_key
 
 from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
 
@@ -616,7 +622,6 @@ def quiz_submit():
     new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
     
     try:
-        import json
         with open('data/micro_patterns.json', 'r') as f:
             all_patterns = json.load(f)
         if not isinstance(all_patterns, list):
@@ -760,4 +765,4 @@ def research_analytics():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=os.environ.get('FLASK_DEBUG', '1') == '1', port=5001)

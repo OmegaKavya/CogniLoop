@@ -2,7 +2,6 @@ import json
 import os
 from datetime import datetime
 import warnings
-import numpy as np
 import pandas as pd
 try:
     from sklearn.cluster import KMeans
