@@ -45,7 +45,6 @@ class QuizInsightsEngine:
         sheet = STATIC_CHEAT_SHEETS.get(topic_id, {})
         pitfalls = sheet.get("pitfalls", [])
         drills = sheet.get("drills", [])
-        core = sheet.get("core", [])
 
         # Map wrong questions to cheat-sheet concepts
         focus_concepts = []

@@ -1,4 +1,3 @@
-import json
 from backend.repositories.core_repositories import user_repo, quiz_repo
 
 class AnalyticsEngine:
