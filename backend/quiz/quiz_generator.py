@@ -11,6 +11,7 @@ class QuizGenerator:
         self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
         self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
         self.groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+        self.ollama_enabled = os.environ.get("OLLAMA_ENABLED", "true").lower() != "false"
 
     def _get_transcript_text(self, youtube_id, watch_time=0):
         if not youtube_id:
@@ -208,8 +209,9 @@ Return ONLY valid JSON:
             except Exception as e:
                 print(f"[QuizGen] Groq error: {e}")
 
-        # Priority 2: Local Ollama (slow but offline)
-        if not quiz_data:
+        # Priority 2: Local Ollama (slow but offline) -- skippable via OLLAMA_ENABLED=false
+        # on hosts where no local Ollama server exists, to avoid a long timeout per request.
+        if not quiz_data and self.ollama_enabled:
             try:
                 print("[QuizGen] Trying Ollama...")
                 quiz_data = self._try_ollama(prompt)
@@ -221,6 +223,8 @@ Return ONLY valid JSON:
                 print("[QuizGen] Ollama timeout (>120s)")
             except Exception as e:
                 print(f"[QuizGen] Ollama error: {e}")
+        elif not quiz_data:
+            print("[QuizGen] Ollama disabled (OLLAMA_ENABLED=false), skipping to static pool")
 
         # Priority 3: Static fallback
         if not quiz_data or "questions" not in quiz_data:

@@ -16,3 +16,7 @@ services:
         sync: false
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
+      - key: OLLAMA_ENABLED
+        value: "false"
+      - key: RAG_ENABLED
+        value: "false"

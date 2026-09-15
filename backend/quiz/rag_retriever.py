@@ -1,5 +1,10 @@
 import os
+
+RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").lower() != "false"
+
 try:
+    if not RAG_ENABLED:
+        raise ImportError("RAG disabled via RAG_ENABLED=false")
     import chromadb
     from sentence_transformers import SentenceTransformer
     from youtube_transcript_api import YouTubeTranscriptApi
