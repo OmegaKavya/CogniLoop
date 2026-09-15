@@ -16,5 +16,6 @@ EXPOSE 5001
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application with a production WSGI server.
+# Render (and most PaaS hosts) inject $PORT; default to 5001 for local `docker run`.
+CMD gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 2 --timeout 120 app:app
