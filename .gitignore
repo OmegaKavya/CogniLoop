@@ -89,3 +89,9 @@ tectonic
 
 
 local_notes/
+
+# LaTeX build logs
+*.blg
+*.aux
+*.bbl
+*.out
