@@ -1,4 +1,11 @@
 """
+SUPERSEDED. Retained for provenance; do not cite its output.
+
+It re-executes generate_report.py's simulation, and therefore inherits the
+confound documented there: the outcome is the BKT posterior, so routing
+policies are compared on the estimator rather than on learning. See
+scripts/latent_learning_simulation.py for the corrected harness.
+
 Canonical, single-source-of-truth verification script for every statistic
 reported in the paper. Re-executes generate_report.py's primary simulation
 and null experiment (unchanged), and adds honestly-computed component

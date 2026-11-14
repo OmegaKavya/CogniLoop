@@ -1,3 +1,19 @@
+"""
+SUPERSEDED. Retained for provenance; do not cite its output.
+
+This simulation reports the BKT posterior itself as the learning outcome
+(`post_score = current_mastery * 100`), while assigning the experimental and
+control arms different learn rates (0.35 and 0.10). Because that parameter
+enters the posterior update directly, the reported gain restates the
+assumption rather than measuring anything, and difficulty routing cannot
+affect the outcome at all.
+
+Analysis of this failure mode, and a corrected harness that keeps latent
+mastery separate from the estimator's belief and scores on a difficulty-neutral
+probe, are in scripts/latent_learning_simulation.py and the accompanying paper
+in paper/Estimator_Confound_JEDM.tex.
+"""
+
 import os
 import random
 import numpy as np

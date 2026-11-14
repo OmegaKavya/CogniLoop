@@ -1,6 +1,6 @@
 # Architecture: CogniLoop Learning Platform
 
-**Author**: Kavya Aggarwal | **IEEE Research Project**
+**Author**: Kavya Aggarwal
 
 This document details the software engineering architecture of CogniLoop, covering presentation layers, algorithmic engines, data persistence, and scientific validation frameworks.
 
@@ -94,5 +94,5 @@ CogniLoop features an automated verification suite of **162 unit and integration
 
 ## 5. Compliance & Ethics
 
-- Built in adherence to IEEE publishing guidelines and educational API usage standards.
+- Built in adherence to educational API usage standards.
 - Utilizes official embedded YouTube IFrames without downloading or distributing proprietary audiovisual streams, fully honoring content authorship and Fair Use doctrine.

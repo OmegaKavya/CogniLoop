@@ -1,4 +1,10 @@
 """
+SUPERSEDED. Retained for provenance; do not cite its output.
+
+It reproduces generate_report.py's simulation and inherits the same confound:
+the reported outcome is the BKT posterior rather than latent mastery. See
+scripts/latent_learning_simulation.py for the corrected harness.
+
 Re-runs the EXACT primary simulation from generate_report.py (same seed,
 same archetype definitions, same step loop) but additionally records:
   - per-archetype NLG means/stds for Fig 2

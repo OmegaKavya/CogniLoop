@@ -1,3 +1,14 @@
+"""
+OBSOLETE. This script cannot run.
+
+It packages an IEEE submission from IEEE_RESEARCH_PAPER.tex/.md/.pdf, none of
+which exist in this repository any more. Nothing references it. It is kept only
+so the earlier submission workflow is not lost silently, and is safe to delete.
+
+The current paper is paper/Estimator_Confound_JEDM.tex and is built directly
+with tectonic.
+"""
+
 import os
 import sys
 import re
