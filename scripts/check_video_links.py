@@ -67,7 +67,7 @@ def resolve(video_id):
     try:
         with urllib.request.urlopen(f"{OEMBED}?{query}", timeout=TIMEOUT) as response:
             payload = json.load(response)
-        return True, f"{payload.get('title', '')} — {payload.get('author_name', '')}"
+        return True, f"{payload.get('title', '')} - {payload.get('author_name', '')}"
     except urllib.error.HTTPError as exc:
         # 404 and 401 both mean the video is not publicly playable.
         return False, f"HTTP {exc.code}"
