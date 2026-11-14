@@ -1,17 +1,25 @@
 import json
 import re
-import requests
+
+from backend.llm import LLMClient, llm_client
 from utils.constants import STATIC_CHEAT_SHEETS
 
 
 class QuizInsightsEngine:
-    def __init__(self, ollama_url=None, model="llama3.2"):
-        import os
-        self.ollama_url = ollama_url or os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-        self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
-        self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.model = model
-        self.groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    """Produces post-quiz diagnostics, with a cheat-sheet fallback.
+
+    Uses the shared LLM client so that insights, generation and grading agree on
+    which providers exist; this module previously supported only Groq while
+    grading supported only Ollama.
+    """
+
+    def __init__(self, ollama_url=None, model=None, client=None):
+        if client is not None:
+            self.client = client
+        elif ollama_url is not None or model is not None:
+            self.client = LLMClient(ollama_url=ollama_url, ollama_model=model)
+        else:
+            self.client = llm_client
 
     def _diagnose_question(self, q):
         """Return a time-based learning signal for each answer."""
@@ -170,8 +178,7 @@ class QuizInsightsEngine:
                 "diagnoses": diagnoses
             }
 
-        # Try Groq first (fast), then fallback
-        if self.groq_api_key:
+        if self.client.available:
             try:
                 prompt = f"""You are an expert CS learning coach. A student scored {score}% on a {topic_name} quiz (mastery: {mastery:.0%}).
 Wrong answers: {json.dumps([{"question": q.get("text",""), "chosen": q.get("selected_answer",""), "correct": q.get("correct_answer",""), "time_s": q.get("time_taken",0)} for q in incorrect])[:1800]}
@@ -179,20 +186,18 @@ Wrong answers: {json.dumps([{"question": q.get("text",""), "chosen": q.get("sele
 Return ONLY JSON:
 {{"focus_concepts":["concept 1","concept 2","concept 3"],"cheat_sheet":["action 1","action 2","action 3"],"resources":[{{"title":"...","url":"https://..."}}],"summary":"one diagnostic paragraph"}}"""
 
-                headers = {"Authorization": f"Bearer {self.groq_api_key}", "Content-Type": "application/json"}
-                resp = requests.post(self.groq_url, headers=headers, json={
-                    "model": self.groq_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 600,
-                    "response_format": {"type": "json_object"}
-                }, timeout=12)
-                if resp.status_code == 200:
-                    parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
-                    if parsed.get("focus_concepts") and parsed.get("summary"):
-                        parsed["diagnoses"] = diagnoses
-                        return parsed
+                parsed = self.client.complete_json(
+                    prompt,
+                    system="You are an expert CS learning coach. Return valid "
+                           "JSON only, with no markdown and no explanation.",
+                    max_tokens=600,
+                    temperature=0.4,
+                )
+                if parsed and parsed.get("focus_concepts") and parsed.get("summary"):
+                    parsed["diagnoses"] = diagnoses
+                    return parsed
             except Exception as e:
-                print(f"[Insights] Groq error: {e}")
+                print(f"[Insights] model error: {e}")
 
         return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
 

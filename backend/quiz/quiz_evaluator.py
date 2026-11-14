@@ -1,46 +1,27 @@
-import json
-import requests
+from backend import config
+from backend.llm import LLMClient, llm_client
+
 
 class QuizEvaluator:
-    def __init__(self, ollama_url="http://localhost:11434/api/generate"):
-        self.ollama_url = ollama_url
-        self.model = "llama3.2"
+    """Grades submitted answers, using a language model where one is available.
 
-    def _ai_verify_and_explain(self, question, selected, correct_answer):
-        if not selected or str(selected).strip() == "" or str(selected).strip().lower() == "none":
-            return {
-                "is_correct": False,
-                "feedback": f"No answer was selected. The correct concept focuses on: {correct_answer}"
-            }
+    Grading must never depend on the model: an unreachable or misbehaving
+    provider falls back to exact answer matching, which is deterministic and
+    always correct for multiple-choice items. The model only adds semantic
+    tolerance and per-question feedback.
+    """
 
-        prompt = f"""
-        Question: {question}
-        Student's Answer: {selected}
-        Correct Answer: {correct_answer}
-        
-        Act as an expert tutor. 
-        1. Determine if the Student's Answer is semantically identical or correct regarding the Question.
-        2. Provide a 1-sentence supportive explanation of WHY it is correct or incorrect.
-        
-        Return the result ONLY as a JSON object with this structure:
-        {{
-            "is_correct": true/false,
-            "feedback": "Your explanation here"
-        }}
-        """
-        try:
-            response = requests.post(self.ollama_url, json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json"
-            }, timeout=15)
-            
-            if response.status_code == 200:
-                return json.loads(response.json().get('response', '{}'))
-        except Exception as e:
-            print(f"AI Evaluation error: {e}")
-        
+    def __init__(self, ollama_url=None, client=None):
+        if client is not None:
+            self.client = client
+        elif ollama_url is not None:
+            # Preserved for callers that point the evaluator at a specific host.
+            self.client = LLMClient(ollama_url=ollama_url)
+        else:
+            self.client = llm_client
+
+    @staticmethod
+    def _match_fallback(selected, correct_answer):
         is_correct = str(selected).strip().lower() == str(correct_answer).strip().lower()
         return {
             "is_correct": is_correct,
@@ -111,42 +92,44 @@ class QuizEvaluator:
                 ]
                 """
                 
-                try:
-                    response = requests.post(self.ollama_url, json={
-                        "model": self.model,
-                        "prompt": prompt,
-                        "stream": False,
-                        "format": "json"
-                    }, timeout=30)
-                    
-                    if response.status_code == 200:
-                        batch_results = json.loads(response.json().get('response', '[]'))
-                        if isinstance(batch_results, dict):
-                            # Sometimes LLMs return {"results": [...]}
-                            batch_results = batch_results.get('results', [])
-                        for res in batch_results:
-                            res_id = str(res.get('id'))
-                            # Match it back to original request
-                            req = next((r for r in eval_requests if r['id'] == res_id), None)
-                            if req:
-                                results_map[res_id] = {
-                                    "question_id": res_id,
-                                    "is_correct": res.get('is_correct', False),
-                                    "time_taken": req['time_taken'],
-                                    "feedback": res.get('feedback', '')
-                                }
-                except Exception as e:
-                    print(f"AI Batch Evaluation error: {e}")
-                    
-            # 3. Fallback for any failed AI evaluations
+                batch_results = self.client.complete_json(
+                    prompt,
+                    system="You are an expert tutor grading answers. Return valid "
+                           "JSON only, with no markdown and no explanation.",
+                    max_tokens=1500,
+                    temperature=0.2,
+                    ollama_timeout=config.OLLAMA_EVAL_TIMEOUT,
+                ) or []
+
+                if isinstance(batch_results, dict):
+                    # Models sometimes wrap the array, e.g. {"results": [...]}
+                    batch_results = (batch_results.get('results')
+                                     or batch_results.get('evaluations') or [])
+
+                if isinstance(batch_results, list):
+                    by_id = {r['id']: r for r in eval_requests}
+                    for res in batch_results:
+                        if not isinstance(res, dict):
+                            continue
+                        res_id = str(res.get('id'))
+                        req = by_id.get(res_id)
+                        if req:
+                            results_map[res_id] = {
+                                "question_id": res_id,
+                                "is_correct": bool(res.get('is_correct', False)),
+                                "time_taken": req['time_taken'],
+                                "feedback": res.get('feedback', '')
+                            }
+
+            # 3. Deterministic fallback for anything the model did not grade
             for req in eval_requests:
                 if req['id'] not in results_map:
-                    is_correct = str(req['selected']).strip().lower() == str(req['correct_answer']).strip().lower()
+                    graded = self._match_fallback(req['selected'], req['correct_answer'])
                     results_map[req['id']] = {
                         "question_id": req['id'],
-                        "is_correct": is_correct,
+                        "is_correct": graded["is_correct"],
                         "time_taken": req['time_taken'],
-                        "feedback": "Great focus on the core concept!" if is_correct else "Review the key principles of this topic."
+                        "feedback": graded["feedback"],
                     }
 
             # 4. Construct final results in order

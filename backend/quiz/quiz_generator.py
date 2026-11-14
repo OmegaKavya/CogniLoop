@@ -1,17 +1,23 @@
 import json
-import os
-import requests
 import random
+
+from backend.llm import LLMClient, llm_client
 
 
 class QuizGenerator:
-    def __init__(self, ollama_url=None, model="llama3.2"):
-        self.ollama_url = ollama_url or os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-        self.ollama_model = model
-        self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
-        self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
-        self.ollama_enabled = os.environ.get("OLLAMA_ENABLED", "true").lower() != "false"
+    """Builds adaptive quizzes, falling back to a static pool without a model.
+
+    Provider selection, gating and timeouts live in LLMClient so that generation
+    and evaluation cannot drift apart in which providers they support.
+    """
+
+    def __init__(self, ollama_url=None, model=None, client=None):
+        if client is not None:
+            self.client = client
+        elif ollama_url is not None or model is not None:
+            self.client = LLMClient(ollama_url=ollama_url, ollama_model=model)
+        else:
+            self.client = llm_client
 
     def _get_transcript_text(self, youtube_id, watch_time=0):
         if not youtube_id:
@@ -105,45 +111,6 @@ Rules:
 Return ONLY valid JSON:
 {{"topic_id":"{topic_id}","difficulty":"{adaptive_difficulty}","num_questions":{num_questions},"questions":[{{"id":1,"text":"...","options":["A","B","C","D"],"answer":"exact correct option text","hint":"..."}}]}}"""
 
-    def _try_groq(self, prompt, num_questions, topic_id, adaptive_difficulty, avoid_questions):
-        """Use Groq API - ~30 RPM free, ~2s per quiz."""
-        headers = {
-            "Authorization": f"Bearer {self.groq_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": self.groq_model,
-            "messages": [
-                {"role": "system", "content": "You are an expert educational quiz generator. Always return valid JSON only, no markdown, no explanation."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 2500,
-            "response_format": {"type": "json_object"}
-        }
-        response = requests.post(self.groq_url, headers=headers, json=payload, timeout=20)
-        if response.status_code == 200:
-            content = response.json()["choices"][0]["message"]["content"]
-            return json.loads(content)
-        elif response.status_code == 429:
-            print("[QuizGen] Groq rate limit hit, falling back to Ollama")
-        else:
-            print(f"[QuizGen] Groq error {response.status_code}: {response.text[:200]}")
-        return None
-
-    def _try_ollama(self, prompt):
-        """Use local Ollama - unlimited but slow (~60-90s)."""
-        response = requests.post(self.ollama_url, json={
-            "model": self.ollama_model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "options": {"num_predict": 2500, "temperature": 0.7}
-        }, timeout=120)
-        if response.status_code == 200:
-            return json.loads(response.json().get("response", "{}"))
-        return None
-
     def _is_valid_quiz(self, quiz_data, min_questions=5):
         if not quiz_data or not isinstance(quiz_data, dict):
             return False
@@ -195,38 +162,17 @@ Return ONLY valid JSON:
             cluster, speed_label, mastery, context_prompt, avoid_questions
         )
 
-        quiz_data = None
+        quiz_data = self.client.complete_json(
+            prompt,
+            system="You are an expert educational quiz generator. Always return "
+                   "valid JSON only, no markdown, no explanation.",
+            max_tokens=2500,
+            temperature=0.7,
+        )
+        if not quiz_data:
+            print(f"[QuizGen] No model output from {self.client.providers() or 'any provider'}")
 
-        # Priority 1: Groq (fast, free cloud)
-        if self.groq_api_key:
-            try:
-                print("[QuizGen] Trying Groq API...")
-                quiz_data = self._try_groq(prompt, num_questions, topic_id, adaptive_difficulty, avoid_questions)
-                if quiz_data:
-                    print("[QuizGen] Groq succeeded")
-            except requests.exceptions.Timeout:
-                print("[QuizGen] Groq timeout, falling back to Ollama")
-            except Exception as e:
-                print(f"[QuizGen] Groq error: {e}")
-
-        # Priority 2: Local Ollama (slow but offline) -- skippable via OLLAMA_ENABLED=false
-        # on hosts where no local Ollama server exists, to avoid a long timeout per request.
-        if not quiz_data and self.ollama_enabled:
-            try:
-                print("[QuizGen] Trying Ollama...")
-                quiz_data = self._try_ollama(prompt)
-                if quiz_data:
-                    print("[QuizGen] Ollama succeeded")
-            except requests.exceptions.ConnectionError:
-                print("[QuizGen] Ollama not running")
-            except requests.exceptions.Timeout:
-                print("[QuizGen] Ollama timeout (>120s)")
-            except Exception as e:
-                print(f"[QuizGen] Ollama error: {e}")
-        elif not quiz_data:
-            print("[QuizGen] Ollama disabled (OLLAMA_ENABLED=false), skipping to static pool")
-
-        # Priority 3: Static fallback
+        # Static fallback
         if not quiz_data or "questions" not in quiz_data:
             print("[QuizGen] Using static fallback questions")
             return self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)

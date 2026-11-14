@@ -12,9 +12,9 @@ from backend.quiz.quiz_insights import QuizInsightsEngine
 
 
 def _engine(groq_key=""):
-    e = QuizInsightsEngine()
-    e.groq_api_key = groq_key
-    return e
+    from backend.llm import LLMClient
+    return QuizInsightsEngine(
+        client=LLMClient(groq_api_key=groq_key, ollama_enabled=False))
 
 
 def _qr(is_correct, time_taken, text="What is a process?", selected="B", correct="A"):

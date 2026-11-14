@@ -73,7 +73,7 @@ class TestQuestionCountCaps:
 class TestGroqIntegration:
     def test_groq_used_when_key_set(self):
         gen = QuizGenerator()
-        gen.groq_api_key = "test-key"
+        gen.client.groq_api_key = "test-key"
         questions = _sample_questions(8)
 
         with patch("requests.post") as mock_post:
@@ -89,7 +89,7 @@ class TestGroqIntegration:
 
     def test_groq_skipped_when_no_key(self):
         gen = QuizGenerator()
-        gen.groq_api_key = ""  # no key
+        gen.client.groq_api_key = ""  # no key
         questions = _sample_questions(7)
 
         with patch("requests.post") as mock_post:
@@ -102,7 +102,7 @@ class TestGroqIntegration:
 
     def test_groq_rate_limit_falls_back_to_ollama(self):
         gen = QuizGenerator()
-        gen.groq_api_key = "test-key"
+        gen.client.groq_api_key = "test-key"
         questions = _sample_questions(7)
 
         groq_resp = MagicMock()
@@ -118,7 +118,7 @@ class TestGroqIntegration:
 
     def test_groq_exception_falls_back_to_ollama(self):
         gen = QuizGenerator()
-        gen.groq_api_key = "test-key"
+        gen.client.groq_api_key = "test-key"
         questions = _sample_questions(7)
 
         import requests as req_module
@@ -134,7 +134,7 @@ class TestGroqIntegration:
 
     def test_both_fail_returns_static_fallback(self):
         gen = QuizGenerator()
-        gen.groq_api_key = "test-key"
+        gen.client.groq_api_key = "test-key"
 
         import requests as req_module
         with patch("requests.post") as mock_post:
@@ -147,7 +147,7 @@ class TestGroqIntegration:
 
     def test_groq_bad_json_falls_back(self):
         gen = QuizGenerator()
-        gen.groq_api_key = "test-key"
+        gen.client.groq_api_key = "test-key"
         questions = _sample_questions(7)
 
         bad_groq = MagicMock()
