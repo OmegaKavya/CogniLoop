@@ -66,6 +66,40 @@
     --border-radius: var(--radius);
     --border-radius-lg: var(--radius-lg);
 
+
+    /* Semantic surface, ink and badge tokens.
+       Light values are exactly the literals they replaced in the templates, so
+       light rendering is unchanged; the point of the migration is that each now
+       has a dark counterpart. Badge colours come in pairs: a --tint-* fill with
+       its matching --on-* foreground, which invert together. */
+    --border-soft: #eeeeee;
+    --border-strong: #cccccc;
+    --ink-strong: #1e293b;
+    --ink-body: #475569;
+    --ink-muted: #64748b;
+    --ink-faint: #94a3b8;
+    --ink-warm: #57534e;
+    --ink-warm-muted: #78716c;
+    --ink-grey: #6b7280;
+    --tint-amber: #fef3c7;
+    --on-amber: #92400e;
+    --tint-amber-soft: #fffbeb;
+    --tint-green: #d1fae5;
+    --on-green: #047857;
+    --tint-violet: #ede9fe;
+    --on-violet: #6d28d9;
+    --tint-pink: #fce7f3;
+    --on-pink: #be185d;
+    --tint-sky: #e0f2fe;
+    --on-sky: #0369a1;
+
+    --tint-warm: #e8e4de;
+    --border-muted: #cbd5e1;
+    --tint-sky-2: #bae6fd;
+    --tint-green-2: #a7f3d0;
+    --tint-pink-2: #fbcfe8;
+    --tint-teal-2: #b2dfdb;
+
     color-scheme: light;
 }
 
@@ -99,6 +133,34 @@
     --shadow-lg:     0 16px 32px rgba(0,0,0,0.8);
     --shadow-card:   0 1px 3px rgba(0,0,0,0.5);
     --shadow-hover:  0 8px 24px -4px rgba(0,0,0,0.6);
+    --border-soft: #2a3647;
+    --border-strong: #475569;
+    --ink-strong: #e2e8f0;
+    --ink-body: #cbd5e1;
+    --ink-muted: #94a3b8;
+    --ink-faint: #64748b;
+    --ink-warm: #d6d3d1;
+    --ink-warm-muted: #a8a29e;
+    --ink-grey: #9ca3af;
+    --tint-amber: #451a03;
+    --on-amber: #fcd34d;
+    --tint-amber-soft: #292524;
+    --tint-green: #064e3b;
+    --on-green: #6ee7b7;
+    --tint-violet: #2e1065;
+    --on-violet: #c4b5fd;
+    --tint-pink: #500724;
+    --on-pink: #f9a8d4;
+    --tint-sky: #0c4a6e;
+    --on-sky: #7dd3fc;
+    --tint-warm: #3f3a34;
+    --border-muted: #475569;
+    --tint-sky-2: #075985;
+    --tint-green-2: #065f46;
+    --tint-pink-2: #6b1839;
+    --tint-teal-2: #134e4a;
+    --sage-light:    #064e3b;
+    --coral-light:   #7f1d1d;
     color-scheme: dark;
 }
 
@@ -1181,4 +1243,27 @@ h1,h2,h3,h4,h5,h6 {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ── Theme toggle ───────────────────────────────────────── */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-600);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    transition: var(--transition);
+}
+.theme-toggle:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--surface);
 }

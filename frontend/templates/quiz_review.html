@@ -69,7 +69,7 @@
         margin-top: 6px;
       }
       .pill-high  { background: var(--emerald-light); color: var(--emerald); }
-      .pill-mid   { background: var(--amber-light);   color: #92400e; }
+      .pill-mid   { background: var(--amber-light);   color: var(--on-amber); }
       .pill-low   { background: var(--rose-light);    color: var(--rose); }
 
       /* ── Main panel ── */
@@ -144,7 +144,7 @@
       .mastery-bar-label { font-size: .78rem; color: var(--text-400); font-weight: 600; margin-bottom: 5px; text-transform: uppercase; letter-spacing:.03em; }
       .mastery-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
       .mastery-fill  { height: 100%; border-radius: 5px; transition: width 1.2s cubic-bezier(.4,0,.2,1); }
-      .fill-before { background: linear-gradient(90deg, #a8a29e, #78716c); }
+      .fill-before { background: linear-gradient(90deg, var(--ink-warm-muted), var(--ink-warm-muted)); }
       .fill-after  { background: linear-gradient(90deg, var(--primary), var(--amber)); }
 
       /* Pace diagnosis */
@@ -155,7 +155,7 @@
         border-radius: var(--radius-sm);
         padding: 14px 18px;
         font-size: .92rem;
-        color: #92400e;
+        color: var(--on-amber);
         margin-bottom: 16px;
       }
       .diagnosis-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -164,9 +164,9 @@
         padding: 5px 12px; border-radius: 20px;
         display: flex; align-items: center; gap: 6px;
       }
-      .diag-guessed     { background:#fce7f3; color:var(--rose); }
-      .diag-confused    { background:#ede9fe; color:#6d28d9; }
-      .diag-misconception { background:var(--amber-light); color:#92400e; }
+      .diag-guessed     { background:var(--tint-pink); color:var(--rose); }
+      .diag-confused    { background:var(--tint-violet); color:var(--on-violet); }
+      .diag-misconception { background:var(--amber-light); color:var(--on-amber); }
 
       /* AI insights */
       .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -224,8 +224,8 @@
         font-weight: 600;
         padding: 3px 10px;
         border-radius: 20px;
-        background: #f1f5f9;
-        color: #64748b;
+        background: var(--surface-2);
+        color: var(--ink-muted);
         letter-spacing: 0.02em;
       }
 
@@ -235,9 +235,9 @@
         padding: 3px 10px; border-radius: 12px;
         margin-top: 8px;
       }
-      .signal-guessed     { background: #fce7f3; color: var(--rose); }
-      .signal-confused    { background: #ede9fe; color: #6d28d9; }
-      .signal-misconception { background: var(--amber-light); color: #92400e; }
+      .signal-guessed     { background: var(--tint-pink); color: var(--rose); }
+      .signal-confused    { background: var(--tint-violet); color: var(--on-violet); }
+      .signal-misconception { background: var(--amber-light); color: var(--on-amber); }
       .signal-correct     { background: var(--emerald-light); color: var(--emerald); }
 
       .q-feedback { font-size: .88rem; color: var(--text-600); margin-top: 8px; line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; }
@@ -257,11 +257,17 @@
       @media print {
         .navbar, .attempts-sidebar, .print-hide-btn { display: none !important; }
         .review-layout { display: block; max-width: 100%; margin: 0; padding: 0; }
-        .panel { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+        .panel { box-shadow: none; border: 1px solid var(--border-strong); break-inside: avoid; }
         body { background: white; color: black; }
       }
     </style>
-  </head>
+    <script>
+    // Applied before first paint so the page never flashes the wrong theme.
+    (function(){try{var t=localStorage.getItem('cogniloop-theme');
+    if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
+</head>
 
   <body>
     <nav class="navbar">
@@ -392,7 +398,7 @@
             <span class="diag-pill diag-misconception">💭 {{ diag.misconception }} misconception{{ 's' if diag.misconception != 1 else '' }}</span>
             {% endif %}
             {% if diag.get('lucky_guess', 0) > 0 %}
-            <span class="diag-pill" style="background:#fef3c7;color:#92400e;">🍀 {{ diag.lucky_guess }} lucky guess{{ 'es' if diag.lucky_guess != 1 else '' }}</span>
+            <span class="diag-pill" style="background:var(--tint-amber);color:var(--on-amber);">🍀 {{ diag.lucky_guess }} lucky guess{{ 'es' if diag.lucky_guess != 1 else '' }}</span>
             {% endif %}
           </div>
           {% endif %}
@@ -474,28 +480,28 @@
             {% if t < 5 %}
               {% set signal = 'guessed' %}
               {% set sig_label = '⚡ Rushed guess' %}
-              {% set sig_style = 'background:#fce7f3;color:#be185d' %}
+              {% set sig_style = 'background:var(--tint-pink);color:var(--on-pink)' %}
             {% elif t > 25 %}
               {% set signal = 'confused' %}
               {% set sig_label = '🤔 Genuine concept gap' %}
-              {% set sig_style = 'background:#ede9fe;color:#6d28d9' %}
+              {% set sig_style = 'background:var(--tint-violet);color:var(--on-violet)' %}
             {% else %}
               {% set signal = 'misconception' %}
               {% set sig_label = '💭 Likely misconception' %}
-              {% set sig_style = 'background:#fef3c7;color:#92400e' %}
+              {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
             {% endif %}
-            {% set card_border = 'border-left:4px solid #be185d' %}
+            {% set card_border = 'border-left:4px solid var(--on-pink)' %}
           {% else %}
             {% if t < 2.5 %}
               {% set signal = 'lucky_guess' %}
               {% set sig_label = '🍀 Lucky guess?' %}
-              {% set sig_style = 'background:#fef3c7;color:#92400e' %}
+              {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
               {% set card_border = 'border-left:4px solid #d97706' %}
             {% else %}
               {% set signal = 'correct' %}
               {% set sig_label = '✓ Correct' %}
-              {% set sig_style = 'background:#d1fae5;color:#047857' %}
-              {% set card_border = 'border-left:4px solid #047857' %}
+              {% set sig_style = 'background:var(--tint-green);color:var(--on-green)' %}
+              {% set card_border = 'border-left:4px solid var(--on-green)' %}
             {% endif %}
           {% endif %}
 
@@ -547,5 +553,6 @@
         {% endif %}
       </main>
     </div>
-  </body>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
 </html>

@@ -7,6 +7,12 @@
     <title>Login - CogniLoop</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
+  <script>
+    // Applied before first paint so the page never flashes the wrong theme.
+    (function(){try{var t=localStorage.getItem('cogniloop-theme');
+    if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
 </head>
 
 <body>
@@ -73,6 +79,7 @@
             }
         });
     </script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 
 </html>

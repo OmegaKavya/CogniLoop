@@ -105,11 +105,11 @@
       .chart-select {
         padding: 6px 14px;
         border-radius: 8px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border);
         font-size: 0.82rem;
         font-weight: 600;
-        color: #475569;
-        background: #f8fafc;
+        color: var(--ink-body);
+        background: var(--bg);
         cursor: pointer;
         outline: none;
         transition: border-color .2s;
@@ -127,9 +127,9 @@
         font-weight: 700;
         font-size: 0.9rem;
       }
-      .speed-fast { background: #dbeafe; color: #1d4ed8; }
-      .speed-steady { background: #d1fae5; color: #047857; }
-      .speed-slow { background: #fef3c7; color: #92400e; }
+      .speed-fast { background: var(--tint-sky); color: #1d4ed8; }
+      .speed-steady { background: var(--tint-green); color: var(--on-green); }
+      .speed-slow { background: var(--tint-amber); color: var(--on-amber); }
       .persona-card {
         margin-top: 16px;
         padding: 14px 18px;
@@ -291,7 +291,13 @@
         background: linear-gradient(135deg, rgba(26,107,114,0.12), rgba(217,119,6,0.08));
       }
     </style>
-  </head>
+    <script>
+    // Applied before first paint so the page never flashes the wrong theme.
+    (function(){try{var t=localStorage.getItem('cogniloop-theme');
+    if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
+</head>
 
   <body>
     <nav class="navbar">
@@ -302,7 +308,7 @@
         CogniLoop
       </a>
       <div class="nav-links" style="display:flex;align-items:center;gap:16px;">
-        <span style="font-size:0.85rem;font-weight:700;background:var(--amber-light);color:#92400e;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
+        <span style="font-size:0.85rem;font-weight:700;background:var(--amber-light);color:var(--on-amber);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
           🔥 {{ user_streak }} Day Streak
         </span>
         <span style="font-size:0.85rem;font-weight:700;background:var(--primary-light);color:var(--primary);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
@@ -353,7 +359,7 @@
           <div class="stat-label">Current Pace</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(4,120,87,0.1);color:#047857;">🧠</div>
+          <div class="stat-icon" style="background:rgba(4,120,87,0.1);color:var(--on-green);">🧠</div>
           <div class="stat-value">{{ learning_cluster }}</div>
           <div class="stat-label">Learning Profile</div>
         </div>
@@ -562,8 +568,8 @@
             legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 16, font: {size: 11, weight: '600'} } }
           },
           scales: {
-            x: { display: true, grid: {display: false}, ticks: {font: {size: 10}, color: '#94a3b8'} },
-            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: {size: 10}, color: '#94a3b8' }, grid: {color: 'rgba(0,0,0,0.04)'} }
+            x: { display: true, grid: {display: false}, ticks: {font: {size: 10}, color: 'var(--ink-faint)'} },
+            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: {size: 10}, color: 'var(--ink-faint)' }, grid: {color: 'rgba(0,0,0,0.04)'} }
           },
           interaction: { intersect: false, mode: 'index' }
         }
@@ -582,7 +588,7 @@
         const value = Math.max(0, Math.min(100, raw));
         const alpha = 0.05 + (value / 100) * 0.8;
         cell.style.backgroundColor = `rgba(217, 119, 6, ${alpha.toFixed(2)})`;
-        if (value > 60) cell.style.color = '#fff';
+        if (value > 60) cell.style.color = 'var(--surface)';
       });
 
       // ── Progress Bars ──
@@ -596,5 +602,6 @@
         a.addEventListener('mouseleave', () => { a.style.borderColor = ''; a.style.transform = ''; });
       });
     </script>
-  </body>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
 </html>

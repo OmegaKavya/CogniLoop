@@ -13,6 +13,12 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a6b72' stroke-width='2.5'><path d='M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4z'/></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/security_guard.js') }}"></script>
+  <script>
+    // Applied before first paint so the page never flashes the wrong theme.
+    (function(){try{var t=localStorage.getItem('cogniloop-theme');
+    if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
 </head>
 
 <body>
@@ -43,7 +49,7 @@
                 <a href="{{ url_for('register') }}" class="btn btn-primary"
                     style="height: 52px; padding: 0 36px; font-size: 1.05rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; box-sizing: border-box;">Get Started</a>
                 <a href="#how-it-works" class="btn btn-secondary"
-                    style="height: 52px; padding: 0 28px; font-size: 1.05rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; background: #ffffff; border: 1.5px solid #cbd5e1; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-decoration: none; box-sizing: border-box; transition: all 0.2s ease;">
+                    style="height: 52px; padding: 0 28px; font-size: 1.05rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; background: var(--surface); border: 1.5px solid var(--border-muted); color: var(--ink-strong); box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-decoration: none; box-sizing: border-box; transition: all 0.2s ease;">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a6b72" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="12" y1="16" x2="12" y2="12"></line>
@@ -152,42 +158,42 @@
 
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--tint-sky), var(--tint-sky-2)); color: var(--on-sky);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                     </div>
                     <h3>Bayesian Knowledge Tracing</h3>
                     <p>Models each concept's mastery probability using a Hidden Markov Model with four parameters: P(L₀), P(T), P(G), P(S). Updates after every response.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--tint-amber), var(--tint-amber)); color: var(--on-amber);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     </div>
                     <h3>Thompson Sampling Bandit</h3>
                     <p>Selects question difficulty via a contextual multi-armed bandit policy. Each arm (easy/medium/hard) maintains Beta distributions updated by learning outcomes.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #047857;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--tint-green), var(--tint-green-2)); color: var(--on-green);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </div>
                     <h3>RAG-Powered Quiz Generation</h3>
                     <p>Retrieval-Augmented Generation extracts transcript context from watched video segments. Groq LLM generates curriculum-aligned MCQs grounded in lecture content.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #ede9fe, #c4b5fd); color: #6d28d9;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--tint-violet), #c4b5fd); color: var(--on-violet);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                     </div>
                     <h3>Micro-Pattern Analytics</h3>
                     <p>Tracks pause, rewind, speed-change, and skip events during video playback. Classifies learner pace (Fast/Standard/Slow) to contextualise quiz difficulty selection.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #be185d;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--tint-pink), var(--tint-pink-2)); color: var(--on-pink);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     </div>
                     <h3>Secure Authentication</h3>
                     <p>PBKDF2-HMAC-SHA256 password hashing with 600K iterations, 16-byte random salts, and timing-attack resistant comparison via <code>secrets.compare_digest</code>.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: linear-gradient(135deg, #e8f5f6, #b2dfdb); color: #1a6b72;">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, var(--surface-2), var(--tint-teal-2)); color: #1a6b72;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
                     </div>
                     <h3>Normalized Learning Gain</h3>
@@ -391,6 +397,7 @@
             });
         });
     </script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 
 </html>

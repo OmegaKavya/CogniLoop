@@ -37,7 +37,7 @@
         display: block;
         padding: 15px 20px;
         margin-bottom: 12px;
-        border: 2px solid #eee;
+        border: 2px solid var(--border-soft);
         border-radius: 8px;
         cursor: pointer;
         transition: var(--transition);
@@ -55,7 +55,7 @@
 
       .timer-bar {
         height: 4px;
-        background: #eee;
+        background: var(--border-soft);
         margin-bottom: 30px;
         overflow: hidden;
       }
@@ -63,7 +63,7 @@
       .hint-box {
         display: none;
         margin-top: 15px;
-        background: #fff8e8;
+        background: var(--tint-amber-soft);
         border-left: 4px solid #f5b041;
         padding: 12px;
         border-radius: 8px;
@@ -86,15 +86,15 @@
         100% { opacity:0; transform:translateY(-80vh) scale(.4); }
       }
       .steps-list { display:flex; flex-direction:column; gap:10px; margin:20px 0 24px; text-align:left; width:min(400px,90vw); }
-      .step-item { display:flex; align-items:center; gap:12px; padding:10px 16px; border-radius:10px; background:#fff; border:1px solid #e8e4de; color:#a8a29e; font-size:.9rem; font-weight:500; transition:all .4s; opacity:.5; }
-      .step-item.active { border-color:#1a6b72; color:#1a6b72; background:#e8f5f6; opacity:1; }
-      .step-item.done   { border-color:#047857; color:#047857; background:#d1fae5; opacity:1; }
+      .step-item { display:flex; align-items:center; gap:12px; padding:10px 16px; border-radius:10px; background:var(--surface); border:1px solid var(--tint-warm); color:var(--ink-warm-muted); font-size:.9rem; font-weight:500; transition:all .4s; opacity:.5; }
+      .step-item.active { border-color:#1a6b72; color:#1a6b72; background:var(--surface-2); opacity:1; }
+      .step-item.done   { border-color:var(--on-green); color:var(--on-green); background:var(--tint-green); opacity:1; }
       .step-dot { width:22px; height:22px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:.7rem; font-weight:800; transition:all .3s; }
-      .step-item.active .step-dot { background:#1a6b72; color:#fff; border-color:#1a6b72; animation:spin 1s linear infinite; }
-      .step-item.done .step-dot   { background:#047857; border-color:#047857; color:#fff; }
-      .dyk-card { width:min(460px,92vw); background:#fff; border:1px solid #e8e4de; border-left:4px solid #d97706; border-radius:12px; padding:16px 20px; text-align:left; }
+      .step-item.active .step-dot { background:#1a6b72; color:var(--surface); border-color:#1a6b72; animation:spin 1s linear infinite; }
+      .step-item.done .step-dot   { background:var(--on-green); border-color:var(--on-green); color:var(--surface); }
+      .dyk-card { width:min(460px,92vw); background:var(--surface); border:1px solid var(--tint-warm); border-left:4px solid #d97706; border-radius:12px; padding:16px 20px; text-align:left; }
       .dyk-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#d97706; margin-bottom:8px; }
-      .dyk-text  { font-size:.92rem; color:#57534e; line-height:1.6; min-height:42px; transition:opacity .4s; }
+      .dyk-text  { font-size:.92rem; color:var(--ink-warm); line-height:1.6; min-height:42px; transition:opacity .4s; }
       .loading-dots::after { content:'.'; animation:loadDots 1.4s steps(4,end) infinite; }
       @keyframes loadDots { 0%,20%{content:'.'} 40%{content:'..'} 60%{content:'...'} 80%,100%{content:''} }
       .particle-field { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
@@ -149,7 +149,7 @@
       .loading-progress-track {
         height: 10px;
         border-radius: 999px;
-        background: #ececec;
+        background: var(--border-soft);
         overflow: hidden;
         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
       }
@@ -197,7 +197,7 @@
       }
 
       .sheet-panel {
-        background: #fff;
+        background: var(--surface);
         border: 1px solid rgba(30, 76, 143, 0.18);
         border-radius: 16px;
         padding: 18px;
@@ -215,7 +215,7 @@
       .sheet-section {
         margin-top: 14px;
         padding-top: 10px;
-        border-top: 1px dashed #e7e7e7;
+        border-top: 1px dashed var(--border-soft);
       }
 
       .sheet-section h4 {
@@ -338,7 +338,7 @@
       .checklist-box {
         width: min(860px, 94vw);
         margin: 24px auto 0;
-        background: #fffdf7;
+        background: var(--surface);
         border: 1px solid rgba(245, 176, 65, 0.25);
         border-radius: 14px;
         padding: 18px 20px;
@@ -395,7 +395,13 @@
         to   { transform: rotate(360deg); }
       }
     </style>
-  </head>
+    <script>
+    // Applied before first paint so the page never flashes the wrong theme.
+    (function(){try{var t=localStorage.getItem('cogniloop-theme');
+    if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
+</head>
 
   <body>
     <nav class="navbar">
@@ -474,7 +480,7 @@
         </svg>
       </div>
       <h2 style="font-size:1.4rem;font-weight:700;color:#1a1a2e;margin:0;">Evaluating your answers<span class="loading-dots"></span></h2>
-      <p style="color:#666;font-size:0.95rem;margin:0;">Generating AI diagnostics &amp; updating mastery</p>
+      <p style="color:var(--ink-muted);font-size:0.95rem;margin:0;">Generating AI diagnostics &amp; updating mastery</p>
     </div>
 
 
@@ -727,7 +733,7 @@
           id="recommendation-box"
           style="
             padding: 25px;
-            background: #f9f9f9;
+            background: var(--surface);
             border-radius: 12px;
             margin-bottom: 30px;
             text-align: left;
@@ -750,7 +756,7 @@
           id="insights-box"
           style="
             padding: 25px;
-            background: #f9f9f9;
+            background: var(--surface);
             border-radius: 12px;
             margin-bottom: 30px;
             text-align: left;
@@ -785,10 +791,10 @@
           style="
             margin-top: 30px;
             text-align: left;
-            background: #fff;
+            background: var(--surface);
             padding: 25px;
             border-radius: 12px;
-            border: 1px solid #eee;
+            border: 1px solid var(--border-soft);
             margin-bottom: 30px;
           "
         >
@@ -854,7 +860,7 @@
       let loadingTipIndex = 0;
       const currentTopicId = JSON.parse(_jsData.dataset.topicId);
       const dykFacts={os:["The first OS (GM-NAA I/O, 1956) was just 4 KB of code.","A context switch takes 1-10 microseconds on modern CPUs.","Linux CFS scheduler is built on a red-black tree.","The term deadlock was formally defined by Dijkstra in 1965."],ds:["Quicksort beats Merge Sort in practice due to cache locality.","Skip lists match BST O(log n) ops via randomisation.","Fibonacci heap gets O(1) amortized decrease-key for Dijkstra.","Tries store a million words using less memory than a million strings."],dbms:["Codd proposed the relational model at IBM in 1970.","PostgreSQL MVCC means readers never block writers.","NULL in SQL means unknown - not 0 or empty string.","The term ACID was coined by Reuter and Harder in 1983."],cn:["The first ARPANET message in 1969 crashed after just 'lo'.","IPv6 has 2^128 addresses - enough for every atom on Earth.","TCP congestion control was added after a 1988 Internet meltdown.","HTTP/3 runs over QUIC (UDP), eliminating TCP head-of-line blocking."]};
-      function startLoadingOverlayAnimations(){const tid=currentTopicId||'os';const facts=dykFacts[tid]||dykFacts.os;let fi=0;const el=document.getElementById('dykText');if(el){el.textContent=facts[0];el.style.transition='opacity .4s';setInterval(()=>{el.style.opacity='0';setTimeout(()=>{fi=(fi+1)%facts.length;el.textContent=facts[fi];el.style.opacity='1';},420);},4000);}[600,1400,2400,3600].forEach((ms,i)=>{setTimeout(()=>{const prev=document.getElementById('step-'+(i-1));if(prev){prev.classList.remove('active');prev.classList.add('done');const d=prev.querySelector('.step-dot');if(d)d.textContent='';}const curr=document.getElementById('step-'+i);if(curr)curr.classList.add('active');},ms);});const field=document.getElementById('particleField');if(field){['#1a6b72','#d97706','#047857','#7c3aed','#be185d'].forEach(c=>{for(let j=0;j<4;j++){const p=document.createElement('div');const sz=4+Math.random()*7;p.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+(Math.random()*100)+'%;bottom:-10px;background:'+c+';border-radius:50%;position:absolute;animation:floatUp '+(6+Math.random()*8)+'s '+(Math.random()*6)+'s ease-in infinite;opacity:0;';field.appendChild(p);}});}}
+      function startLoadingOverlayAnimations(){const tid=currentTopicId||'os';const facts=dykFacts[tid]||dykFacts.os;let fi=0;const el=document.getElementById('dykText');if(el){el.textContent=facts[0];el.style.transition='opacity .4s';setInterval(()=>{el.style.opacity='0';setTimeout(()=>{fi=(fi+1)%facts.length;el.textContent=facts[fi];el.style.opacity='1';},420);},4000);}[600,1400,2400,3600].forEach((ms,i)=>{setTimeout(()=>{const prev=document.getElementById('step-'+(i-1));if(prev){prev.classList.remove('active');prev.classList.add('done');const d=prev.querySelector('.step-dot');if(d)d.textContent='';}const curr=document.getElementById('step-'+i);if(curr)curr.classList.add('active');},ms);});const field=document.getElementById('particleField');if(field){['#1a6b72','#d97706','var(--on-green)','#7c3aed','var(--on-pink)'].forEach(c=>{for(let j=0;j<4;j++){const p=document.createElement('div');const sz=4+Math.random()*7;p.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+(Math.random()*100)+'%;bottom:-10px;background:'+c+';border-radius:50%;position:absolute;animation:floatUp '+(6+Math.random()*8)+'s '+(Math.random()*6)+'s ease-in infinite;opacity:0;';field.appendChild(p);}});}}
       function showLoadingOverlay(){document.getElementById('ai-loading-overlay').style.display='flex';startLoadingOverlayAnimations();}
 
       const topicMainTips = {
@@ -1116,11 +1122,11 @@
               item.style.marginBottom = '20px';
               item.style.padding = '15px';
               item.style.borderLeft = `5px solid ${q.is_correct ? '#006D5B' : '#FFA07A'}`;
-              item.style.background = '#fefefe';
+              item.style.background = 'var(--surface)';
 
               item.innerHTML = `
                   <div style="font-weight: 600; margin-bottom: 5px;">Q${idx + 1}: ${qData ? qData.text : 'Question'}</div>
-                  <div style="font-size: 0.9rem; color: #555;">
+                  <div style="font-size: 0.9rem; color: var(--ink-warm);">
                       <span style="color: ${q.is_correct ? '#006D5B' : '#d9534f'}; font-weight: 700;">
                           ${q.is_correct ? 'Correct' : 'Incorrect'}
                       </span>
@@ -1192,5 +1198,6 @@
 
       loadQuiz();
     </script>
-  </body>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
 </html>
