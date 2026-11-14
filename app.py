@@ -141,6 +141,32 @@ def get_static_cheat_sheet(topic_id, topic_name):
     }
 
 
+def shuffle_checkpoint_options(checkpoints):
+    """Randomise option order, keeping correct_index pointing at the right one.
+
+    Every authored checkpoint lists its correct answer first. Presented in that
+    order, "always pick the first option" scores full marks, so the checkpoint
+    stops being a retrieval exercise and becomes a clicking exercise. Shuffling
+    per request removes that shortcut.
+
+    The checkpoints are formative: the result is shown to the learner and is not
+    posted back, so it does not influence mastery estimation. The answer is
+    therefore allowed to travel to the client, and only the ordering needs to
+    vary.
+    """
+    shuffled = []
+    for checkpoint in checkpoints:
+        options = list(checkpoint.get('options') or [])
+        index = checkpoint.get('correct_index', 0)
+        if len(options) > 1 and 0 <= index < len(options):
+            answer = options[index]
+            random.shuffle(options)
+            checkpoint = dict(checkpoint, options=options,
+                              correct_index=options.index(answer))
+        shuffled.append(checkpoint)
+    return shuffled
+
+
 def build_topic_submodules(video):
     from utils.constants import SUBMODULE_DEFINITIONS
     topic_id = video.get('id', '')
@@ -158,7 +184,7 @@ def build_topic_submodules(video):
                 "video_id": defn.get("video_id") or video_id,
                 "start_sec": defn["start_sec"],
                 "end_sec": defn["end_sec"],
-                "checkpoints": defn["checkpoints"]
+                "checkpoints": shuffle_checkpoint_options(defn["checkpoints"])
             })
         return submodules
 
@@ -203,6 +229,7 @@ def build_topic_submodules(video):
                  "correct_index": 0, "explanation": "Quick drills improve transfer and confidence."}
             ]
         })
+        submodules[-1]["checkpoints"] = shuffle_checkpoint_options(submodules[-1]["checkpoints"])
     return submodules
 
 

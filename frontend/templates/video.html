@@ -523,7 +523,7 @@
 
           const isCorrect = activeCheckpointAnswer === activeCheckpoint.correct_index;
           feedback.style.display = 'block';
-          feedback.style.color = isCorrect ? '#1E4C8F' : '#b45309';
+          feedback.style.color = isCorrect ? 'var(--on-green)' : 'var(--on-amber)';
           feedback.innerText = `${isCorrect ? '✅ Correct.' : '⚠️ Not quite.'} ${activeCheckpoint.explanation}`;
 
           submitBtn.style.display = 'none';

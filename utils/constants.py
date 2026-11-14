@@ -156,19 +156,19 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "Synchronisation, Deadlock & IPC",
-            "objective": "Understand race conditions, critical sections, semaphores, monitors, and all four Coffman deadlock conditions.",
-            "exam_angle": "🎯 GATE Tip: Deadlock detection questions often ask you to identify the missing Coffman condition.",
+            "title": "Process Synchronisation & Semaphores",
+            "objective": "Understand race conditions, the critical-section problem, and how semaphores and monitors enforce mutual exclusion.",
+            "exam_angle": "🎯 GATE Tip: Questions often ask whether a given semaphore usage actually guarantees mutual exclusion and progress.",
             "video_id": "ph2awKa8r5Y",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
                 {
                     "id": "os-cp3-1", "trigger_pct": 30,
-                    "question": "Which Coffman condition can be directly prevented by allowing preemption of resources?",
-                    "options": ["No Preemption", "Circular Wait", "Hold and Wait", "Mutual Exclusion"],
+                    "question": "Which requirement of the critical-section problem guarantees that a process wanting to enter its critical section is not postponed indefinitely?",
+                    "options": ["Bounded waiting", "Mutual exclusion", "Progress", "Preemption"],
                     "correct_index": 0,
-                    "explanation": "Eliminating 'No Preemption' means resources can be forcibly taken, preventing deadlock."
+                    "explanation": "Bounded waiting caps how many times other processes may enter first, so no process waits forever."
                 },
                 {
                     "id": "os-cp3-2", "trigger_pct": 65,
@@ -534,9 +534,9 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "Application Layer & Routing Protocols",
-            "objective": "Understand DNS resolution, HTTP/HTTPS, email protocols, and how routing algorithms (RIP, OSPF, BGP) work.",
-            "exam_angle": "🎯 GATE Tip: Distance Vector vs Link State routing (Bellman-Ford vs Dijkstra) is a classic protocol design question.",
+            "title": "Application Layer Protocols & Web Security",
+            "objective": "Understand DNS resolution, HTTP and HTTPS, email protocols, and the security services the application layer relies on.",
+            "exam_angle": "🎯 GATE Tip: DNS lookup order and the difference between HTTP and HTTPS are frequently examined.",
             "video_id": "18VBVMgjp6w",
             "start_sec": 0,
             "end_sec": 480,
@@ -550,10 +550,10 @@ SUBMODULE_DEFINITIONS = {
                 },
                 {
                     "id": "cn-cp3-2", "trigger_pct": 65,
-                    "question": "OSPF uses which algorithm internally to compute shortest paths?",
-                    "options": ["Dijkstra's algorithm (Link State)", "Bellman-Ford (Distance Vector)", "Floyd-Warshall", "Kruskal's algorithm"],
+                    "question": "Which application-layer protocol is used to retrieve email from a server while leaving messages stored on it?",
+                    "options": ["IMAP", "SMTP", "POP3", "FTP"],
                     "correct_index": 0,
-                    "explanation": "OSPF is a Link State protocol. Each router builds a complete topology map and runs Dijkstra to compute shortest paths."
+                    "explanation": "IMAP keeps mail on the server and syncs state across clients. SMTP sends mail; POP3 typically downloads and removes it."
                 },
                 {
                     "id": "cn-cp3-3", "trigger_pct": 85,

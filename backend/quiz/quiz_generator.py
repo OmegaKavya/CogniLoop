@@ -175,7 +175,8 @@ Return ONLY valid JSON:
         # Static fallback
         if not quiz_data or "questions" not in quiz_data:
             print("[QuizGen] Using static fallback questions")
-            return self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
+            return self._shuffle_question_options(
+                self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions))
 
         cleaned_questions = self._ensure_unique_questions(
             quiz_data.get("questions", []),
@@ -188,9 +189,30 @@ Return ONLY valid JSON:
 
         if not self._is_valid_quiz(quiz_data, min_questions=5):
             print("[QuizGen] Validation failed for LLM generated quiz. Falling back to static questions.")
-            return self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
+            return self._shuffle_question_options(
+                self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions))
 
         print(f"[QuizGen] Returning {len(cleaned_questions)} unique questions")
+        return self._shuffle_question_options(quiz_data)
+
+    @staticmethod
+    def _shuffle_question_options(quiz_data):
+        """Randomise option order within each question.
+
+        Authored fallback questions list the correct answer first, and a model
+        asked for JSON tends to do the same. Served in that order, a learner who
+        notices can score full marks by always picking the first option. That
+        matters more here than for the in-video checkpoints: quiz scores feed
+        mastery estimation and the difficulty policy, so a positional shortcut
+        would saturate mastery and corrupt the signal the system adapts on.
+
+        The answer is stored as its exact text rather than an index, so
+        reordering the options cannot invalidate it.
+        """
+        for question in (quiz_data or {}).get("questions", []):
+            options = question.get("options")
+            if isinstance(options, list) and len(options) > 1:
+                random.shuffle(options)
         return quiz_data
 
     def _get_fallback_quiz(self, topic_id, topic_name, difficulty, num_questions=7, avoid_questions=None):
