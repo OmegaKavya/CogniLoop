@@ -128,7 +128,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Virtual Memory & Page Replacement",
             "objective": "Master paging, virtual address translation, page faults, and replacement policies like LRU and FIFO.",
             "exam_angle": "🎯 GATE Tip: Numerical questions on page fault counts with reference strings are extremely common.",
-            "video_id": "puobwv1xjqc",
+            "video_id": "FWoMSiMep80",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -190,7 +190,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "File Systems & Disk Scheduling",
             "objective": "Master file allocation methods (contiguous, linked, indexed) and disk scheduling algorithms like SCAN, LOOK, and SSTF.",
             "exam_angle": "🎯 GATE Tip: Disk scheduling questions usually require calculating total head movement in cylinder steps.",
-            "video_id": "PySrIB068rg",
+            "video_id": "Ak1a0MnvTH0",
             "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
@@ -506,7 +506,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Transport Layer: TCP vs UDP Deep Dive",
             "objective": "Master TCP's 3-way handshake, flow control (sliding window), congestion control, and when to choose UDP.",
             "exam_angle": "🎯 GATE Tip: TCP sequence number and acknowledgement number calculations appear in numerical questions.",
-            "video_id": "PpsEaqJV_A0",
+            "video_id": "Hyx1RaIVOxU",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -537,7 +537,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Application Layer Protocols & Web Security",
             "objective": "Understand DNS resolution, HTTP and HTTPS, email protocols, and the security services the application layer relies on.",
             "exam_angle": "🎯 GATE Tip: DNS lookup order and the difference between HTTP and HTTPS are frequently examined.",
-            "video_id": "18VBVMgjp6w",
+            "video_id": "pnoWCK82apU",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [

@@ -29,13 +29,33 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import re
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend import config  # noqa: E402
 
 OEMBED = "https://www.youtube.com/oembed"
+WATCH = "https://www.youtube.com/watch"
 TIMEOUT = 25
+
+# A chapter trailer or teaser resolves perfectly well through oembed while
+# containing no teaching. Several such clips were shipped as curriculum before
+# this check existed, so availability alone is not a sufficient test.
+MIN_TEACHING_SECONDS = 8 * 60
+
+
+def duration_seconds(video_id):
+    """Length of the video, or None when it cannot be determined."""
+    request = urllib.request.Request(
+        f"{WATCH}?v={video_id}", headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        page = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode(
+            "utf8", "ignore")
+    except Exception:
+        return None
+    match = re.search(r'"lengthSeconds":"(\d+)"', page)
+    return int(match.group(1)) if match else None
 
 
 def resolve(video_id):
@@ -88,10 +108,15 @@ def main():
     args = parser.parse_args()
 
     entries = collect()
-    dead, errored = [], []
+    dead, errored, thin = [], [], []
 
     for topic_id, label, video_id in entries:
         ok, detail = resolve(video_id)
+        if ok:
+            secs = duration_seconds(video_id)
+            if secs is not None and secs < MIN_TEACHING_SECONDS:
+                thin.append((topic_id, label, video_id, secs))
+                detail = f"{detail}  [{secs // 60}m {secs % 60}s]"
         if ok is None:
             errored.append((topic_id, label, video_id, detail))
             status = "ERROR"
@@ -106,7 +131,13 @@ def main():
                 print(f"        {'':<12} {'':<5} {detail[:70]}")
 
     print(f"\n{len(entries)} videos checked, {len(dead)} unavailable, "
-          f"{len(errored)} could not be reached")
+          f"{len(thin)} too short to be a lecture, {len(errored)} could not be reached")
+
+    if thin:
+        print(f"\nShorter than {MIN_TEACHING_SECONDS // 60} minutes. These resolve but are")
+        print("usually trailers or teasers rather than teaching material:")
+        for topic_id, label, video_id, secs in thin:
+            print(f"  {topic_id}: {label} ({video_id}) {secs // 60}m {secs % 60}s")
 
     if dead:
         print("\nUnavailable, needs a replacement video id:")
@@ -121,7 +152,7 @@ def main():
         for topic_id, label, video_id, detail in errored:
             print(f"  {topic_id}: {label} ({video_id}) {detail}")
 
-    return 1 if dead else 0
+    return 1 if (dead or thin) else 0
 
 
 if __name__ == "__main__":
