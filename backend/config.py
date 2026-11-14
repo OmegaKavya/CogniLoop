@@ -123,7 +123,26 @@ BANDIT_MULTIPLIERS = {
 # Thompson sampling explores through posterior sampling, so no forced
 # uniform-random exploration is needed by default.
 BANDIT_EPSILON = env_float("BANDIT_EPSILON", 0.0)
+
+# "thompson" maximises the sampled success rate; "target" instead selects the
+# tier whose sampled rate is closest to BANDIT_TARGET_RATE.
+#
+# Simulation favours "target": maximising the success rate rewards easy items
+# simply for being easy, so the policy collapses toward the easiest tier
+# regardless of whether that is pedagogically right, whereas targeting a rate
+# does not. It measured better in seven of nine learner-group comparisons and
+# much better where learning depends on matching difficulty to mastery.
+#
+# It is not the default because it needs a target rate, and the right value is
+# an empirical property of real learners. Measured worst-case quality is high
+# near 0.85 but falls below the parameter-free default if the true target is
+# nearer 0.70. Switch to "target" once real response data can calibrate it.
 BANDIT_STRATEGY = os.environ.get("BANDIT_STRATEGY", "thompson")
+
+# Wilson, Shenhav, Straccia & Cohen (2019) derive an optimal training accuracy
+# of about 85% for gradient-descent learners. Their result is not about human
+# classroom learning, so this is a principled starting value, not evidence.
+BANDIT_TARGET_RATE = env_float("BANDIT_TARGET_RATE", 0.85)
 
 # Prior pseudo-counts for an arm in a state no learner has reached yet.
 #

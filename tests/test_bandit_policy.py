@@ -4,8 +4,8 @@ Covers: state key generation, action selection, Q-value updates, exploration/exp
 """
 import os
 import json
-import tempfile
 import pytest
+from backend import config
 from backend.adaptation.bandit_policy import ContextualBanditAdapter
 
 
@@ -78,6 +78,36 @@ class TestBanditGetAction:
         arms = bandit.q_table["Fresh Cluster_Low"]
         assert arms["easy"]["alpha"] > arms["hard"]["alpha"]
         assert arms["easy"]["q_value"] > arms["medium"]["q_value"]
+
+    def test_target_strategy_selects_the_tier_nearest_the_target_rate(self, tmp_path):
+        b = ContextualBanditAdapter(strategy="target", target_rate=0.55,
+                                    storage_path=str(tmp_path / "t.json"))
+        b.get_action("C", 0.5)
+        # Concentrated posteriors: easy ~0.95, medium ~0.55, hard ~0.15
+        b._store.write({"C_Medium": {
+            "easy":   {"q_value": 0.95, "count": 200, "alpha": 190, "beta": 10},
+            "medium": {"q_value": 0.55, "count": 200, "alpha": 110, "beta": 90},
+            "hard":   {"q_value": 0.15, "count": 200, "alpha": 30, "beta": 170},
+        }})
+        picks = [b.get_action("C", 0.5) for _ in range(100)]
+        assert max(set(picks), key=picks.count) == "medium"
+
+    def test_target_strategy_does_not_collapse_to_easiest(self, tmp_path):
+        """Maximising the success rate would always pick easy here."""
+        b = ContextualBanditAdapter(strategy="target", target_rate=0.55,
+                                    storage_path=str(tmp_path / "t2.json"))
+        b.get_action("C", 0.5)
+        b._store.write({"C_Medium": {
+            "easy":   {"q_value": 0.95, "count": 200, "alpha": 190, "beta": 10},
+            "medium": {"q_value": 0.55, "count": 200, "alpha": 110, "beta": 90},
+            "hard":   {"q_value": 0.15, "count": 200, "alpha": 30, "beta": 170},
+        }})
+        picks = {b.get_action("C", 0.5) for _ in range(100)}
+        assert "easy" not in picks
+
+    def test_default_strategy_is_parameter_free(self):
+        """The target rate is uncalibrated, so it must not be on by default."""
+        assert config.BANDIT_STRATEGY == "thompson"
 
     def test_cold_start_prior_is_overridden_by_evidence(self, bandit):
         """The prior is pseudo-counts, not a permanent thumb on the scale."""

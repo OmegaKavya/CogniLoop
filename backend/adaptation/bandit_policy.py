@@ -11,7 +11,7 @@ class ContextualBanditAdapter:
     Keeps backward-compatible Q-table structure.
     """
     def __init__(self, epsilon=None, storage_path=None,
-                 multipliers=None, strategy=None):
+                 multipliers=None, strategy=None, target_rate=None):
         """
         epsilon    Probability of a forced uniform-random action. Thompson
                    sampling already explores through posterior sampling, so
@@ -24,8 +24,10 @@ class ContextualBanditAdapter:
         without editing code.
         """
         strategy = config.BANDIT_STRATEGY if strategy is None else strategy
-        if strategy not in ("thompson", "greedy"):
+        if strategy not in ("thompson", "greedy", "target"):
             raise ValueError(f"unknown strategy: {strategy}")
+        self.target_rate = (config.BANDIT_TARGET_RATE if target_rate is None
+                            else target_rate)
         self.epsilon = config.BANDIT_EPSILON if epsilon is None else epsilon
         self.strategy = strategy
         self.storage_path = storage_path or config.BANDIT_TABLE_PATH
@@ -102,16 +104,21 @@ class ContextualBanditAdapter:
         if self.epsilon > 0.0 and random.random() < self.epsilon:
             return random.choice(self.actions)
 
-        def utility(a):
+        def sampled_rate(a):
             node = self.q_table[state][a]
             alpha, beta = node["alpha"], node["beta"]
             if self.strategy == "greedy":
-                rate = alpha / (alpha + beta)
-            else:
-                rate = random.betavariate(alpha, beta)
-            return rate * self.multipliers[a]
+                return alpha / (alpha + beta)
+            return random.betavariate(alpha, beta)
 
-        return max(self.actions, key=utility)
+        if self.strategy == "target":
+            # Exploration still comes from posterior sampling; only the
+            # objective differs. Maximising the success rate would favour the
+            # easiest tier for being easy rather than for teaching anything.
+            return min(self.actions,
+                       key=lambda a: abs(sampled_rate(a) - self.target_rate))
+
+        return max(self.actions, key=lambda a: sampled_rate(a) * self.multipliers[a])
             
     def update_policy(self, cluster, mastery, action, score):
         """
