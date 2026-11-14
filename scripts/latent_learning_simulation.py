@@ -126,6 +126,14 @@ def p_correct(theta, tier, cfg):
 
 
 def learning_kernel(theta, tier, cfg):
+    if cfg["kernel"] == "difficulty-independent":
+        # Learning does not depend on which tier is served. This is the standard
+        # assumption when BKT's learn rate is fitted per skill rather than per
+        # difficulty, which is how simulated-learner evaluations of difficulty
+        # routing are usually built. Under it no routing policy can change what
+        # a learner knows, so any difference a policy shows in *estimated*
+        # mastery is produced by the estimator, not by learning.
+        return 1.0
     if cfg["kernel"] == "success-target":
         p = p_correct(theta, tier, cfg)
         return math.exp(-((p - cfg["p_star"]) ** 2) / (2.0 * cfg["sigma_p"] ** 2))
@@ -554,6 +562,7 @@ def main():
     print_table("C. Corrected: explicit IRT difficulty b_d, ZPD-distance kernel",
                 compare(c, n_trials))
 
+    estimator_inflation(n_trials=max(50, n_trials // 2))
     configuration_comparison(n_trials=max(50, n_trials // 2))
     target_sweep(b, c, n_trials=max(50, n_trials // 2))
 
@@ -582,6 +591,68 @@ def oracle_fraction(policies, n_steps, n_trials=120, **cfg_overrides):
         oracle = by["oracle-true"]
         scores[name] = {p: 100.0 * by[p] / oracle for p in policies}
     return scores
+
+
+def estimator_inflation(tiers=TIERS, horizons=(2, 3, 5, 8, 12),
+                        p_learn_values=(0.10, 0.20), n_trials=200):
+    """Measure how much difficulty alone moves the *estimate* without moving learning.
+
+    Run under the difficulty-independent kernel, so every policy produces the
+    same latent gain by construction. Whatever separation appears between tiers
+    in the estimated gain is therefore attributable entirely to the estimator:
+    a correct answer on a low-guess item is stronger evidence of mastery, so
+    serving harder items raises the posterior faster without teaching more.
+
+    This matters because simulated-learner evaluations of difficulty routing
+    commonly fit BKT's learn rate per skill rather than per difficulty, and then
+    report the BKT posterior as the outcome. Under exactly those two choices the
+    comparison cannot distinguish a policy that teaches better from one that
+    merely asks harder questions.
+    """
+    def run(cfg, tier):
+        true_gain, est_gain = [], []
+        for t in range(n_trials):
+            seed = 2000 + t
+            rng = random.Random(seed)
+            nprng = np.random.default_rng(seed)
+            learners = build_population(rng)
+            draws = nprng.random((len(learners), cfg["n_steps"]))
+            for i, lr in enumerate(learners):
+                theta = hat = lr["theta0"]
+                stored = round(lr["theta0"], 4)
+                for step in range(cfg["n_steps"]):
+                    correct = draws[i][step] < p_correct(theta, tier, cfg)
+                    theta = advance_mastery(theta, tier, lr["gamma"], cfg)
+                    hat, stored = bkt_posterior(stored, correct, tier, cfg)
+                true_gain.append(theta - lr["theta0"])
+                est_gain.append(hat - lr["theta0"])
+        return float(np.mean(true_gain)), float(np.mean(est_gain))
+
+    print("\nEstimator inflation under difficulty-independent learning")
+    print("Latent gain is identical for every tier by construction, so all "
+          "separation below is produced by the estimator.")
+
+    for p_learn in p_learn_values:
+        print(f"\n  estimator learn rate = {p_learn}")
+        head = (f"  {'items':>6}{'latent gain':>13}"
+                + "".join(f"{'est ' + t:>12}" for t in tiers)
+                + f"{'hard-easy':>12}{'as % latent':>13}")
+        print(head)
+        print("  " + "-" * (len(head) - 2))
+        for n_steps in horizons:
+            cfg = cfg_with(kernel="difficulty-independent",
+                           response_model="guess-slip",
+                           n_steps=n_steps, p_learn=p_learn)
+            latent, _ = run(cfg, tiers[0])
+            estimates = {t: run(cfg, t)[1] for t in tiers}
+            spread = estimates[tiers[-1]] - estimates[tiers[0]]
+            print(f"  {n_steps:>6}{latent:>13.4f}"
+                  + "".join(f"{estimates[t]:>12.4f}" for t in tiers)
+                  + f"{spread:>+12.4f}{100 * spread / latent:>12.1f}%")
+
+    print("\n  Routing toward harder items can report a materially larger gain "
+          "while teaching nothing extra. The effect is largest early and shrinks "
+          "as the assumed learn rate saturates the estimate.")
 
 
 def configuration_comparison(n_trials=120):

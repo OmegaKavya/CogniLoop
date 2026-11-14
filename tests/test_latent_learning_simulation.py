@@ -188,6 +188,43 @@ class TestProbeInterleavedController:
             assert isinstance(out[name]["nlg"], float)
 
 
+class TestEstimatorInflation:
+    """The central methodological claim: under a generative model where learning
+    does not depend on difficulty, routing cannot change what is learned, yet it
+    still moves the BKT posterior."""
+
+    CFG = dict(kernel="difficulty-independent", response_model="guess-slip")
+
+    def test_latent_learning_is_identical_across_tiers(self):
+        cfg = cfg_with(**self.CFG)
+        gains = {advance_mastery(0.3, t, 0.25, cfg) for t in TIERS}
+        assert len(gains) == 1
+
+    def test_harder_items_move_the_estimate_further_on_a_correct_answer(self):
+        """A correct answer on a low-guess item is stronger evidence."""
+        cfg = cfg_with(**self.CFG, p_learn=0.1)
+        easy, _ = bkt_posterior(0.3, True, "easy", cfg)
+        hard, _ = bkt_posterior(0.3, True, "hard", cfg)
+        assert hard > easy
+
+    def test_estimate_separates_while_truth_does_not(self):
+        """End-to-end: equal learning, unequal reported gain."""
+        cfg = cfg_with(**self.CFG, n_steps=3, p_learn=0.1)
+        theta = {t: 0.3 for t in TIERS}
+        hat = {t: 0.3 for t in TIERS}
+        stored = {t: 0.3 for t in TIERS}
+        for t in TIERS:
+            for _ in range(cfg["n_steps"]):
+                theta[t] = advance_mastery(theta[t], t, 0.25, cfg)
+                hat[t], stored[t] = bkt_posterior(stored[t], True, t, cfg)
+        assert len({round(v, 12) for v in theta.values()}) == 1
+        assert hat["hard"] > hat["easy"]
+
+    def test_difficulty_independent_kernel_ignores_the_tier(self):
+        cfg = cfg_with(**self.CFG)
+        assert {learning_kernel(0.5, t, cfg) for t in TIERS} == {1.0}
+
+
 class TestDeployedConfigurations:
     """The before/after specs must describe what the application actually ran,
     otherwise the comparison measures something nobody deployed."""
