@@ -75,7 +75,7 @@ class TestBanditLoadConvergence:
     """Bandit should converge to correct action after many reward signals."""
 
     def test_bandit_converges_to_easy_for_struggling_users(self, tmp_path):
-        bandit = ContextualBanditAdapter(epsilon=0.0, storage_path=str(tmp_path / "q.json"))
+        bandit = ContextualBanditAdapter(epsilon=0.0, strategy="greedy", storage_path=str(tmp_path / "q.json"))
         for _ in range(30):
             bandit.update_policy("General Learner", 0.2, "easy", score=70)
             bandit.update_policy("General Learner", 0.2, "medium", score=20)
@@ -84,7 +84,7 @@ class TestBanditLoadConvergence:
         assert action == "easy"
 
     def test_bandit_converges_to_hard_for_expert_users(self, tmp_path):
-        bandit = ContextualBanditAdapter(epsilon=0.0, storage_path=str(tmp_path / "q2.json"))
+        bandit = ContextualBanditAdapter(epsilon=0.0, strategy="greedy", storage_path=str(tmp_path / "q2.json"))
         for _ in range(30):
             bandit.update_policy("Active Learner", 0.9, "easy", score=40)
             bandit.update_policy("Active Learner", 0.9, "medium", score=60)

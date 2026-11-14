@@ -12,7 +12,7 @@ from backend.adaptation.bandit_policy import ContextualBanditAdapter
 @pytest.fixture
 def bandit(tmp_path):
     storage = str(tmp_path / "q_table.json")
-    return ContextualBanditAdapter(epsilon=0.0, storage_path=storage)  # epsilon=0 forces exploit
+    return ContextualBanditAdapter(epsilon=0.0, strategy="greedy", storage_path=storage)
 
 
 @pytest.fixture
@@ -48,13 +48,14 @@ class TestBanditGetAction:
         assert action in ["easy", "medium", "hard"]
 
     def test_exploit_selects_best_q_value(self, bandit):
-        # Manually set Q-table so "hard" is clearly best
+        # Seed through the store: get_action reads persisted state so that
+        # updates written by other workers are visible.
         state = "General Learner_Medium"
-        bandit.q_table[state] = {
+        bandit._store.write({state: {
             "easy":   {"q_value": 0.3, "count": 5},
             "medium": {"q_value": 0.5, "count": 5},
             "hard":   {"q_value": 0.9, "count": 5},
-        }
+        }})
         action = bandit.get_action("General Learner", 0.6)
         assert action == "hard"
 
@@ -69,7 +70,21 @@ class TestBanditGetAction:
         state = "Brand New Cluster_Low"
         assert state in bandit.q_table
         for a in ["easy", "medium", "hard"]:
-            assert bandit.q_table[state][a]["q_value"] == 0.5
+            assert bandit.q_table[state][a]["count"] == 0
+
+    def test_cold_start_prior_favours_the_easiest_tier(self, bandit):
+        """An unseen state must not route a third of new learners to 'hard'."""
+        bandit.get_action("Fresh Cluster", 0.1)
+        arms = bandit.q_table["Fresh Cluster_Low"]
+        assert arms["easy"]["alpha"] > arms["hard"]["alpha"]
+        assert arms["easy"]["q_value"] > arms["medium"]["q_value"]
+
+    def test_cold_start_prior_is_overridden_by_evidence(self, bandit):
+        """The prior is pseudo-counts, not a permanent thumb on the scale."""
+        for _ in range(40):
+            bandit.update_policy("Fresh2", 0.1, "hard", score=100)
+            bandit.update_policy("Fresh2", 0.1, "easy", score=0)
+        assert bandit.get_action("Fresh2", 0.1) == "hard"
 
     def test_q_table_persisted_to_disk(self, bandit):
         bandit.get_action("General Learner", 0.3)
@@ -86,7 +101,7 @@ class TestBanditUpdatePolicy:
         old_q = bandit.q_table[state]["hard"]["q_value"]
         bandit.update_policy("General Learner", 0.5, "hard", score=100)
         new_q = bandit.q_table[state]["hard"]["q_value"]
-        assert new_q > old_q  # reward(1.0*1.2=1.2) > initial(0.5)
+        assert new_q > old_q  # posterior mean rises after a maximal-score observation
 
     def test_low_score_decreases_q_value(self, bandit):
         bandit.get_action("General Learner", 0.5)
