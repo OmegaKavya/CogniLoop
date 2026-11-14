@@ -2,12 +2,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-import json
 import os
+import random
 import secrets
 from datetime import datetime
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
+from backend import config
 from backend.auth.auth_service import hash_password, verify_password
 
 app = Flask(__name__,
@@ -250,8 +251,8 @@ def health():
     status_code = 200
 
     try:
-        checks['data_dir'] = os.path.isdir('data')
-        checks['videos_seed'] = os.path.isfile('data/videos.json')
+        checks['data_dir'] = os.path.isdir(os.path.dirname(config.VIDEOS_PATH))
+        checks['videos_seed'] = os.path.isfile(config.VIDEOS_PATH)
         if not (checks['data_dir'] and checks['videos_seed']):
             status_code = 503
     except Exception as e:
@@ -308,27 +309,20 @@ def register():
         if not name or not email or not password:
             return jsonify({'success': False, 'message': 'Name, email, and password are required.'}), 400
 
-        users_data = user_repo.get_all()
-        users_list = list(users_data.values()) if isinstance(users_data, dict) else users_data
-        if any(u['email'] == email for u in users_list):
+        def build_user(new_id):
+            return {
+                'id': new_id,
+                'name': name,
+                'email': email,
+                'password': hash_password(password),
+                'study_group': random.choice(['control', 'experimental']),
+                'created_at': datetime.now().isoformat()
+            }
+
+        new_user = user_repo.create(email, build_user)
+        if new_user is None:
             return jsonify({'success': False, 'message': 'Email already registered'})
-        
-        new_id = str(len(users_list) + 1)
-        import random
-        study_group = random.choice(['control', 'experimental'])
-        new_user = {
-            'id': new_id,
-            'name': name,
-            'email': email,
-            'password': hash_password(password),
-            'study_group': study_group,
-            'created_at': datetime.now().isoformat()
-        }
-        
-        # If users.json was originally a list, UserRepository will read it as list, so save should be adapted.
-        # But in my BaseJsonRepository, save(item_id, item_data) assumes a DICT. Let me fix the schema to dict.
-        user_repo.save(new_id, new_user)
-        
+
         session['user_id'] = new_user['id']
         session['user_name'] = new_user['name']
         return jsonify({'success': True})
@@ -518,7 +512,6 @@ from backend.quiz.quiz_insights import insights_engine
 from backend.bkt.bkt_engine import bkt_engine
 from backend.adaptation.bandit_policy import bandit_adapter
 
-QUIZ_ATTEMPTS_FILE = 'data/quiz_attempts.json'
 
 @app.route('/api/video-track', methods=['POST'])
 def video_track():
@@ -643,16 +636,8 @@ def quiz_submit():
     is_correct_overall = score >= 70
     new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
     
-    try:
-        with open('data/micro_patterns.json', 'r') as f:
-            all_patterns = json.load(f)
-        if not isinstance(all_patterns, list):
-            all_patterns = []
-        user_patterns = [p for p in all_patterns if p.get('user_id') == user_id and p.get('video_id') == topic_id]
-        latest_pattern = user_patterns[-1] if user_patterns else {}
-    except Exception:
-        latest_pattern = {}
-    cluster = mp_manager.predict_cluster(latest_pattern)
+    cluster = mp_manager.predict_cluster(
+        mp_manager.latest_interaction(user_id, topic_id))
     
     if study_group == 'experimental':
         # Update Bandit Policy
@@ -787,4 +772,8 @@ def research_analytics():
     })
 
 if __name__ == '__main__':
-    app.run(debug=os.environ.get('FLASK_DEBUG', '1') == '1', port=5001)
+    app.run(
+        debug=os.environ.get('FLASK_DEBUG', '1') == '1',
+        host=os.environ.get('HOST', '127.0.0.1'),
+        port=int(os.environ.get('PORT', '5001')),
+    )
