@@ -21,16 +21,16 @@ flowchart LR
     F --> BKT[IRT-Grounded BKT Engine]
     F --> MP[Micro-Pattern Classifier]
 
-    QG -->|Primary: ~2s| GR[Groq API: llama-3.1-8b]
-    QG -->|Offline Fallback| O[Ollama Local: llama3.2]
+    QG -->|Primary: ~2s| GR[Groq API: openai/gpt-oss-20b]
+    QG -->|Dev-only Fallback| O[Ollama Local: llama3.2]
     QG -->|Static Fallback| SF[Curated Question Pool]
     AI -->|Primary| GR
     AI -->|Fallback| O
 
     QG --> RAG[RAG Retriever: ChromaDB Vectors]
     RAG --> YT[YouTube Transcript API]
-    F --> REP[Repository Layer: fcntl File Locking]
-    REP --> D[(JSON & SQLite Store: Users/Progress/Attempts/Videos)]
+    F --> REP[Repository Layer: locked atomic JSON store]
+    REP --> D[(JSON Store: Users/Progress/Attempts/Videos)]
     F --> AN[Validation Engine: A/B Testing & NLG]
 ```
 
@@ -58,8 +58,9 @@ flowchart LR
 - `backend/analytics/metrics.py`: Computes cohort statistical significance and Normalized Learning Gains ($\text{NLG} = \frac{\text{Post} - \text{Pre}}{100 - \text{Pre}}$).
 
 ### Repository & Persistence Layer (`backend/repositories/` & `data/`)
-- Implements the Repository Pattern with POSIX `fcntl` advisory file locking, guaranteeing ACID consistency and thread safety across JSON storage structures without heavy database overhead.
-- Supports seamless extensibility to PostgreSQL or MongoDB without requiring modifications to business application code.
+- Implements the Repository Pattern over `backend/storage.py`, which holds a single advisory lock across each read-modify-write and swaps the file in with an atomic `os.replace`. Reading and writing under separate locks loses concurrent updates, which is what the earlier implementation did.
+- This gives atomicity and isolation for a single file and durability via `fsync`. It is **not** a transactional database: there are no cross-file transactions, so operations spanning two files are not atomic together. The storage layer is deliberately simple and would be replaced by a real database before any multi-instance deployment.
+- Locks are advisory and per-file, so they coordinate processes on one host. They do not coordinate across hosts.
 
 ---
 
@@ -85,9 +86,10 @@ flowchart LR
 
 ## 4. Quality Assurance & Verification
 
-CogniLoop features an automated verification suite of **162 unit and integration tests** executing via `pytest`:
+CogniLoop features an automated verification suite of **318 unit and integration tests** executing via `pytest`:
 - **Mathematical Validation**: Confirms precision in Bayesian probability equations and Beta distribution convergence in Thompson Sampling.
-- **Resilience Testing**: Simulates concurrent write contention across repository locking structures and tests the 3-tier LLM fallback logic under network isolation.
+- **Concurrency Testing**: Drives concurrent writes against every persisted store and asserts that no record is lost and no file is left unparseable, which earlier implementations failed.
+- **Resilience Testing**: Exercises provider selection and fallback for quiz generation, grading and insights with no provider configured, with one unreachable, and under rate limiting.
 - **End-to-End Functional Coverage**: Validates all routing endpoints, authentication flows, timestamp processing, and report exports with zero regressions.
 
 ---

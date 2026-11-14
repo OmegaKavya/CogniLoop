@@ -3,7 +3,7 @@
 **Author**: Kavya Aggarwal
 
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
-[![Tests Passed](https://img.shields.io/badge/tests-290%20passed-emerald.svg)](#)
+[![Tests Passed](https://img.shields.io/badge/tests-318%20passed-emerald.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-amber.svg)](LICENSE)
 [![Evaluation](https://img.shields.io/badge/evaluation-simulation%20only-lightgrey.svg)](#evaluation-status)
 
@@ -16,7 +16,8 @@ An advanced, standalone closed-loop adaptive learning platform that converts pas
 - **Advanced Adaptive Engine**: Implements IRT-grounded BKT mastery tracking + Thompson Sampling Contextual Bandits + K-Means pacing behavior clustering.
 - **Transcript-Grounded Quiz Generation**: Uses semantic transcript vector indexing (`ChromaDB`) to ground LLM assessment generation exclusively in factual lecture material.
 - **Actionable AI Growth Analytics**: Replaces static scores with personalized cognitive diagnoses (rushed guessing vs. deep conceptual confusion), rapid 5-minute study drills, and an exportable executive PDF cheat sheet report.
-- **Enterprise Reliability & Security**: Features a 3-tier fallback architecture (Groq API -> Ollama Local -> Curated Static Questions), timing-attack resistant PBKDF2-HMAC-SHA256 password hashing, and a client-side interface protection layer (`security_guard.js`).
+- **Graceful Degradation**: Quiz generation, grading and insights each fall back from a hosted model to a local one to a curated static pool, so a missing API key or an unreachable provider degrades the experience rather than breaking it.
+- **Security**: PBKDF2-HMAC-SHA256 password hashing at 600,000 iterations with constant-time comparison, per-account and per-address login throttling, `SameSite=Lax` and `Secure` session cookies, and baseline security headers including a frame-ancestors policy.
 - **Honest Evaluation Status**: CogniLoop has not been evaluated with real learners. An earlier simulated result reported here was found to be confounded and has been withdrawn; see [Evaluation status](#evaluation-status).
 
 ---
@@ -57,16 +58,39 @@ Every submodule includes:
 - Provides an executive revision cheat sheet exportable directly as a high-resolution PDF document.
 
 ### 3. Comprehensive Verification & QA
-- Protected by a suite of **290 automated tests** executing with 100% reliability in pytest.
+- Protected by a suite of **318 automated tests** executing with 100% reliability in pytest.
 - Covers BKT transitions and parameter fitting, bandit selection, concurrency safety of all persisted state, credential handling and abuse limits, LLM provider routing, and full-stack route flows.
 
 ---
+
+## Configuration
+
+All model parameters and storage paths are read from `backend/config.py` and can
+be overridden by environment variable; nothing needs editing in code to retune a
+deployment. The values that matter most:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GROQ_API_KEY` | unset | Hosted model for generation, grading and insights. Without it the system falls back to the static pool and exact-match grading. |
+| `OLLAMA_ENABLED` | `true` | Set `false` wherever no local Ollama runs, otherwise every request pays a connection timeout. |
+| `BANDIT_STRATEGY` | `thompson` | `target` selects the tier nearest `BANDIT_TARGET_RATE` instead of maximising reward. Opt-in: it needs a target calibrated from real learners. |
+| `BKT_USE_FITTED_PARAMS` | `true` | Loads per-skill parameters fitted by `scripts/train_models.py`; falls back to defaults when absent or unidentifiable. |
+| `SESSION_COOKIE_SECURE` | on in production | Follows `FLASK_ENV`; must stay off for local HTTP development. |
+
+## Maintenance
+
+- `python3 scripts/check_video_links.py` verifies every curriculum video still
+  resolves and is long enough to be a lecture rather than a trailer. It exits
+  non-zero on failure, so it can be scheduled. Third-party videos disappear
+  without warning and the player simply shows "unavailable".
+- `python3 scripts/train_models.py` fits BKT parameters from recorded responses.
+  Fits that rest on a constraint boundary are rejected rather than deployed.
 
 ## Quick Start & Installation
 
 ### Prerequisites
 - Python 3.10+ (Python 3.12 recommended)
-- Optional: Local Ollama runtime with `llama3.2` model installed for offline execution
+- Optional: Local Ollama runtime with `llama3.2` for offline development. Not viable in a small production container: the model file alone is several times the memory of a free-tier instance, so set `OLLAMA_ENABLED=false` there.
 - Optional: Free Groq API key (`GROQ_API_KEY`) for ultra-fast (~2 second) generation
 
 ### Installation Step-by-Step
