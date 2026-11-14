@@ -121,15 +121,16 @@ def main():
     i = HORIZONS.index(3)
     mid = (series["hard"][i] + series["easy"][i]) / 2
     ax.annotate(
-        "At three items the hard and easy\nestimates differ by 19% of the\nlatent gain, which is identical",
-        xy=(3.05, mid), xytext=(5.4, 0.205),
-        fontsize=7.4, color="#44403c", va="center", ha="left", zorder=6,
+        "19% of the latent gain",
+        xy=(3.05, mid), xytext=(3.7, 0.668),
+        fontsize=7.6, color="#44403c", va="center", ha="left", zorder=6,
         arrowprops=dict(arrowstyle="-", color="#78716c", lw=0.8,
-                        connectionstyle="arc3,rad=-0.15"))
+                        connectionstyle="arc3,rad=0.25"))
 
-    ax.set_ylim(0.08, 0.70)
-    ax.legend(loc="upper left", frameon=False, fontsize=7.4, handlelength=2.6,
-              borderaxespad=0.4)
+    ax.set_ylim(0.08, 0.72)
+    # Lower right is the only region the curves and the annotation both avoid.
+    ax.legend(loc="lower right", frameon=False, fontsize=7.4, handlelength=2.6,
+              borderaxespad=0.6)
     fig.tight_layout()
 
     out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
