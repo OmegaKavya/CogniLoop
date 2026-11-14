@@ -267,6 +267,49 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
     return quiz
 
 
+@app.after_request
+def set_security_headers(response):
+    """Apply baseline security headers to every response.
+
+    The Content-Security-Policy deliberately allows inline script and style:
+    the templates carry 16 inline scripts and over 200 style attributes, so a
+    strict policy would break the application rather than protect it. The
+    valuable parts here are frame-ancestors, which stops the site being framed
+    for clickjacking, and the restriction of script and frame sources to the
+    origins actually used.
+
+    HSTS is sent only over HTTPS. Sending it over plain HTTP is meaningless,
+    and in local development it would pin localhost to HTTPS in the browser
+    and make the app unreachable.
+    """
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault(
+        'Permissions-Policy',
+        'geolocation=(), microphone=(), camera=(), payment=(), usb=()')
+    response.headers.setdefault('Content-Security-Policy', '; '.join([
+        "default-src 'self'",
+        # s.ytimg.com is required: youtube.com/iframe_api injects its widget
+        # script from there, and without it the video player never loads.
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+        "https://www.youtube.com https://s.ytimg.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        "img-src 'self' data: https:",
+        "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+        "connect-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ]))
+
+    if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https':
+        response.headers.setdefault(
+            'Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    return response
+
+
 @app.route('/')
 def index():
     if 'user_id' in session:
