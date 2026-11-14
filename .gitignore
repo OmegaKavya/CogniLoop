@@ -34,6 +34,9 @@ data/chroma_db/
 *.pkl
 models/
 
+# --- Lock files for concurrency-safe JSON persistence ---
+*.json.lock
+
 # --- Flask & App Runtime ---
 instance/
 *.log

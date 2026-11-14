@@ -1,6 +1,9 @@
 import json
 import os
 from datetime import datetime
+
+from backend import config
+from backend.storage import JsonStore
 import warnings
 import pandas as pd
 try:
@@ -16,18 +19,35 @@ except ImportError:
 class MicroPatternManager:
     FEATURE_COLUMNS = ['pause_count', 'rewatch_count', 'skip_ratio', 'watch_percentage']
 
-    def __init__(self, storage_path='data/micro_patterns.json', model_path='models/clustering_model.pkl'):
+    def __init__(self, storage_path=None, model_path=None):
+        storage_path = storage_path or config.MICRO_PATTERNS_PATH
+        model_path = model_path or config.CLUSTERING_MODEL_PATH
         self.storage_path = storage_path
         self.model_path = model_path
-        os.makedirs('models', exist_ok=True)
+        self._store_cache = None
+        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
         self._ensure_storage()
 
+    @property
+    def _store(self):
+        """Resolved from `storage_path` on each access, not captured at init."""
+        if self._store_cache is None or self._store_cache.path != self.storage_path:
+            self._store_cache = JsonStore(self.storage_path, default=list)
+        return self._store_cache
+
     def _ensure_storage(self):
-        if not os.path.exists(self.storage_path):
-            with open(self.storage_path, 'w') as f:
-                json.dump([], f)
+        self._store.ensure_exists()
 
     def log_interaction(self, user_id, video_id, interaction_data):
+        """Append one interaction event.
+
+        This is the highest-frequency write in the application: the player
+        reports on pause, seek and progress. The previous implementation did an
+        unlocked read-modify-write over the whole file, which under concurrency
+        corrupted it -- and once corrupted, every later append failed too, so
+        tracking and the clustering that depends on it stayed broken until
+        someone deleted the file by hand.
+        """
         log_entry = {
             "user_id": user_id,
             "video_id": video_id,
@@ -35,22 +55,32 @@ class MicroPatternManager:
             **interaction_data
         }
         try:
-            with open(self.storage_path, 'r+') as f:
-                data = json.load(f)
-                data.append(log_entry)
-                f.seek(0)
-                json.dump(data, f, indent=4)
-                f.truncate()
+            def mutate(events):
+                events.append(log_entry)
+                return events
+            self._store.update_replacing(mutate, default=list)
             return True
         except Exception as e:
             print(f"Error logging micro-pattern: {e}")
             return False
 
+    def latest_interaction(self, user_id, video_id):
+        """Most recent recorded interaction for one learner and video, or {}."""
+        try:
+            events = self._store.read()
+        except Exception:
+            return {}
+        if not isinstance(events, list):
+            return {}
+        for event in reversed(events):
+            if event.get("user_id") == user_id and event.get("video_id") == video_id:
+                return event
+        return {}
+
     def train_model(self):
         if not KMeans or not os.path.exists(self.storage_path):
             return False
-        with open(self.storage_path, 'r') as f:
-            data = json.load(f)
+        data = self._store.read()
         if len(data) < 5:
             return False
         
