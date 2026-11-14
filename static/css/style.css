@@ -40,6 +40,22 @@
 
     --transition: all .25s cubic-bezier(.4,0,.2,1);
 
+    /* Surface and status tokens.
+       These names are what the stylesheet and templates actually reference
+       (--border alone is used 37 times). They were previously declared only
+       inside the dark theme block, so in the default light theme every one of
+       those references was invalid at computed-value time and the property
+       silently dropped -- which is why card borders and page backgrounds did
+       not render as designed. */
+    --bg:            #f8fafc;
+    --surface:       #ffffff;
+    --surface-2:     #f1f5f9;
+    --border:        #e2e8f0;
+    --emerald:       #059669;
+    --emerald-light: #ecfdf5;
+    --rose:          #dc2626;
+    --rose-light:    #fef2f2;
+
     /* Aliases for template compatibility */
     --primary-color: var(--primary);
     --secondary-color: var(--amber);
@@ -49,9 +65,17 @@
     --card-bg: var(--surface);
     --border-radius: var(--radius);
     --border-radius-lg: var(--radius-lg);
+
+    color-scheme: light;
 }
 
-[data-theme="dark"] {
+/* Dark theme, opt-in only.
+   Deliberately NOT bound to prefers-color-scheme. The templates still contain
+   around 150 hardcoded colours, including white card backgrounds, so switching
+   on system preference alone would place light surfaces on a dark page. Those
+   literals need migrating to the tokens below before this can follow the
+   system setting. */
+:root[data-theme="dark"] {
     --bg:            #0f172a;
     --surface:       #1e293b;
     --surface-2:     #334155;
@@ -61,11 +85,21 @@
     --text-400:      #94a3b8;
     --primary-light: #1e3a8a;
     --amber-light:   #451a03;
+    --emerald:       #34d399;
     --emerald-light: #064e3b;
+    --rose:          #fb7185;
     --rose-light:    #881337;
+    --border-card:   #334155;
+    --border-subtle: #1e293b;
+    --bg-page:       #0f172a;
+    --bg-surface:    #1e293b;
+    --bg-surface-2:  #334155;
     --shadow-sm:     0 1px 3px rgba(0,0,0,0.5);
     --shadow:        0 4px 12px rgba(0,0,0,0.6);
     --shadow-lg:     0 16px 32px rgba(0,0,0,0.8);
+    --shadow-card:   0 1px 3px rgba(0,0,0,0.5);
+    --shadow-hover:  0 8px 24px -4px rgba(0,0,0,0.6);
+    color-scheme: dark;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -1092,4 +1126,59 @@ h1,h2,h3,h4,h5,h6 {
 
 [data-theme="dark"] .site-footer {
     background: linear-gradient(145deg, #0a1628 0%, #111827 50%, #0a1628 100%);
+}
+/* ── Accessibility ──────────────────────────────────────────
+   Keyboard focus was previously almost entirely unstyled, which leaves anyone
+   navigating without a mouse unable to see where they are. :focus-visible is
+   used rather than :focus so the ring appears for keyboard and assistive
+   navigation without adding an outline to ordinary mouse clicks. */
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+/* Inputs keep a filled ring as well, since the outline alone reads weakly
+   against a white field. */
+:where(input, select, textarea):focus-visible {
+    box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+/* Lets a keyboard user jump straight past the navigation. Visible only when
+   focused, so it costs nothing visually. */
+.skip-to-content {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 1000;
+    padding: 12px 20px;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 0 0 var(--radius-sm) 0;
+}
+.skip-to-content:focus {
+    left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Reveal-on-scroll elements start at opacity 0 and are made visible by
+       script. Simply removing the transition would leave them invisible, so
+       they are forced to their final state instead. */
+    .animate-on-scroll,
+    .animate-visible {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
