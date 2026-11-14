@@ -128,7 +128,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Virtual Memory & Page Replacement",
             "objective": "Master paging, virtual address translation, page faults, and replacement policies like LRU and FIFO.",
             "exam_angle": "🎯 GATE Tip: Numerical questions on page fault counts with reference strings are extremely common.",
-            "video_id": "p3q5IURwH8k",
+            "video_id": "puobwv1xjqc",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -159,7 +159,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Synchronisation, Deadlock & IPC",
             "objective": "Understand race conditions, critical sections, semaphores, monitors, and all four Coffman deadlock conditions.",
             "exam_angle": "🎯 GATE Tip: Deadlock detection questions often ask you to identify the missing Coffman condition.",
-            "video_id": "r_Mboz1NF9g",
+            "video_id": "ph2awKa8r5Y",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -190,7 +190,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "File Systems & Disk Scheduling",
             "objective": "Master file allocation methods (contiguous, linked, indexed) and disk scheduling algorithms like SCAN, LOOK, and SSTF.",
             "exam_angle": "🎯 GATE Tip: Disk scheduling questions usually require calculating total head movement in cylinder steps.",
-            "video_id": "WJ9J8PjFp_Q",
+            "video_id": "PySrIB068rg",
             "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
@@ -380,7 +380,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Normalisation & Database Design",
             "objective": "Apply functional dependencies, identify anomalies, and normalise relations to 1NF, 2NF, 3NF, and BCNF.",
             "exam_angle": "🎯 GATE Tip: Given a relation and FDs, finding the highest normal form it satisfies is a classic 2-mark question.",
-            "video_id": "px7w_kE531o",
+            "video_id": "GFQaEYEc8_8",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -442,7 +442,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Indexing & Query Optimization",
             "objective": "Master index structures (B and B+ trees), sparse vs dense indexing, and algebraic query plan optimizations.",
             "exam_angle": "🎯 GATE Tip: Understanding the minimum and maximum node capacity of a B+ Tree of order 'p' is a core GATE calculation.",
-            "video_id": "7S_tz1z_54A",
+            "video_id": "aZjYr87r1b8",
             "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
@@ -537,7 +537,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Application Layer & Routing Protocols",
             "objective": "Understand DNS resolution, HTTP/HTTPS, email protocols, and how routing algorithms (RIP, OSPF, BGP) work.",
             "exam_angle": "🎯 GATE Tip: Distance Vector vs Link State routing (Bellman-Ford vs Dijkstra) is a classic protocol design question.",
-            "video_id": "vcrJ03rWvN8",
+            "video_id": "18VBVMgjp6w",
             "start_sec": 0,
             "end_sec": 480,
             "checkpoints": [
@@ -568,7 +568,7 @@ SUBMODULE_DEFINITIONS = {
             "title": "Network Security & Cryptography",
             "objective": "Master cryptographic concepts (symmetric vs asymmetric keys), digital signatures, firewalls, and the RSA algorithm.",
             "exam_angle": "🎯 GATE Tip: Number theory questions in cryptography frequently ask you to calculate RSA ciphertexts using modular arithmetic.",
-            "video_id": "4t2dUpXz5c8",
+            "video_id": "C7vmouDOJYM",
             "start_sec": 0,
             "end_sec": None,
             "checkpoints": [
