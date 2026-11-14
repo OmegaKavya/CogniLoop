@@ -563,6 +563,7 @@ def main():
                 compare(c, n_trials))
 
     estimator_inflation(n_trials=max(50, n_trials // 2))
+    misrouting_cost(n_trials=max(50, n_trials // 2))
     configuration_comparison(n_trials=max(50, n_trials // 2))
     target_sweep(b, c, n_trials=max(50, n_trials // 2))
 
@@ -653,6 +654,53 @@ def estimator_inflation(tiers=TIERS, horizons=(2, 3, 5, 8, 12),
     print("\n  Routing toward harder items can report a materially larger gain "
           "while teaching nothing extra. The effect is largest early and shrinks "
           "as the assumed learn rate saturates the estimate.")
+
+
+def misrouting_cost(horizons=(6, 24), n_trials=150):
+    """Cost of serving one tier above vs one tier below the optimum.
+
+    Measured directly rather than inferred from an estimator's error rates: both
+    policies here misroute on every item and differ only in direction, so the
+    comparison isolates the cost asymmetry from estimator quality.
+
+    An earlier version of this analysis combined error rates measured under one
+    model specification with attainment measured as a worst case across three,
+    which made the asymmetry look far larger than it is. The two quantities must
+    come from the same experiment.
+    """
+    def run(cfg, offset):
+        gains = []
+        for t in range(n_trials):
+            seed = 4000 + t
+            rng = random.Random(seed)
+            nprng = np.random.default_rng(seed)
+            learners = build_population(rng)
+            nprng.random((len(learners), cfg["n_steps"]))
+            for lr in learners:
+                theta = lr["theta0"]
+                for _ in range(cfg["n_steps"]):
+                    best = max(range(len(TIERS)),
+                               key=lambda j: learning_kernel(theta, TIERS[j], cfg))
+                    tier = TIERS[min(len(TIERS) - 1, max(0, best + offset))]
+                    theta = advance_mastery(theta, tier, lr["gamma"], cfg)
+                gains.append(theta - lr["theta0"])
+        return float(np.mean(gains))
+
+    print("\nCost of mis-routing by one tier, relative to always serving the optimum")
+    for n_steps in horizons:
+        print(f"\n  horizon {n_steps} items")
+        print(f"  {'model':<8}{'optimal':>10}{'too easy':>12}{'too hard':>12}")
+        print("  " + "-" * 42)
+        for name, overrides in MODEL_SPECS:
+            cfg = cfg_with(**overrides, n_steps=n_steps)
+            optimal = run(cfg, 0)
+            print(f"  {name:<8}{optimal:>10.4f}"
+                  f"{100 * (run(cfg, -1) - optimal) / optimal:>11.1f}%"
+                  f"{100 * (run(cfg, +1) - optimal) / optimal:>11.1f}%")
+
+    print("\n  The asymmetry is large but its direction is specification-dependent. "
+          "Erring easy is the minimax choice because its worst case is bounded "
+          "more tightly, not because it is always better.")
 
 
 def configuration_comparison(n_trials=120):
