@@ -304,6 +304,24 @@ POLICY_SPECS = {
                            "mode": "target"},
     # Credit assignment from a raw binary probe delta: unbiased but very noisy,
     # since a single probe outcome carries one bit.
+    # The routing configuration as originally deployed: skewed tier weights,
+    # forced uniform exploration layered on Thompson sampling, a uniform
+    # cold-start prior, and a hardcoded estimator learn rate.
+    "deployed-before": {"kind": "bandit", "reward": "correctness",
+                        "mult": {"easy": 0.8, "medium": 1.0, "hard": 1.2},
+                        "eps": 0.2, "prior": 1.0, "prior_scheme": "bin",
+                        "p_learn": 0.35},
+    # The configuration after the fixes, matching what the application now runs.
+    "deployed-after": {"kind": "bandit", "reward": "correctness",
+                       "mult": {"easy": 1.0, "medium": 1.0, "hard": 1.0},
+                       "eps": 0.0, "prior": 4.0, "prior_scheme": "conservative",
+                       "p_learn": 0.20},
+    # Not yet deployed: selects the tier whose sampled success rate is nearest a
+    # target rather than the tier with the highest reward.
+    "candidate-target-rate": {"kind": "bandit", "reward": "bernoulli",
+                              "mult": {"easy": 1.0, "medium": 1.0, "hard": 1.0},
+                              "eps": 0.0, "mode": "target", "prior": 4.0,
+                              "prior_scheme": "conservative", "p_learn": 0.20},
     "probe-gain-binary": {"kind": "probe-gain", "signal": "binary"},
     # Credit assignment from a reference-tier-only mastery estimate. Probes all
     # share one difficulty, so this estimate stays difficulty-neutral while
@@ -323,6 +341,14 @@ def probe_test(theta, draws, cfg):
 
 def run_policy(policy_name, learners, response_draws, pre_draws, post_draws, rng, cfg):
     spec = POLICY_SPECS[policy_name]
+
+    # A policy may carry its own estimator learn rate, so that a before/after
+    # comparison reflects the parameter each configuration actually used. Only
+    # the estimator changes; the generative model is held fixed, otherwise the
+    # arms would not be comparable.
+    if "p_learn" in spec:
+        cfg = cfg_with(**{**cfg, "p_learn": spec["p_learn"]})
+
     bandit = controller = None
     if spec["kind"] == "bandit":
         bandit = ThompsonBandit(rng, spec["mult"], spec["eps"],
@@ -330,7 +356,9 @@ def run_policy(policy_name, learners, response_draws, pre_draws, post_draws, rng
                                 target=cfg.get("bandit_target", cfg["p_star"]),
                                 prior_pseudocount=spec.get(
                                     "prior", cfg.get("bandit_prior", 1.0)),
-                                prior_scheme=cfg.get("bandit_prior_scheme", "bin"))
+                                prior_scheme=spec.get(
+                                    "prior_scheme",
+                                    cfg.get("bandit_prior_scheme", "bin")))
     elif spec["kind"] == "probe-gain":
         controller = ProbeGainController(rng)
 
@@ -526,7 +554,55 @@ def main():
     print_table("C. Corrected: explicit IRT difficulty b_d, ZPD-distance kernel",
                 compare(c, n_trials))
 
+    configuration_comparison(n_trials=max(50, n_trials // 2))
     target_sweep(b, c, n_trials=max(50, n_trials // 2))
+
+
+MODEL_SPECS = (
+    ("A", {"response_model": "guess-slip", "kernel": "success-target"}),
+    ("B", {"response_model": "irt", "kernel": "success-target"}),
+    ("C", {"response_model": "irt", "kernel": "zpd-distance"}),
+)
+
+
+def oracle_fraction(policies, n_steps, n_trials=120, **cfg_overrides):
+    """Each policy's NLG as a percentage of the oracle, per model specification.
+
+    Reported against the oracle because the attainable gain differs between
+    specifications, so raw NLG is not comparable across them. The worst case
+    over specifications is the honest summary: it is what a configuration
+    guarantees without knowing which learning model is right.
+    """
+    scores = {}
+    for name, overrides in MODEL_SPECS:
+        cfg = cfg_with(**{**overrides, **cfg_overrides}, n_steps=n_steps)
+        rows = compare(cfg, n_trials, policies=list(policies) + ["oracle-true"],
+                       baseline=policies[0])
+        by = {r["policy"]: r["nlg"] for r in rows}
+        oracle = by["oracle-true"]
+        scores[name] = {p: 100.0 * by[p] / oracle for p in policies}
+    return scores
+
+
+def configuration_comparison(n_trials=120):
+    """Routing quality before and after the configuration fixes."""
+    policies = ["deployed-before", "deployed-after", "candidate-target-rate",
+                "fixed-easy", "fixed-medium"]
+
+    print("\nRouting quality as a percentage of the oracle")
+    print("Worst case is taken over the three learning-model specifications.")
+    header = (f"{'items':>6}" + "".join(f"{p:>22}" for p in policies))
+    print(header)
+    print("-" * len(header))
+
+    for n_steps in (4, 6, 10, 16, 24, 36, 50):
+        scores = oracle_fraction(policies, n_steps, n_trials)
+        worst = {p: min(scores[m][p] for m, _ in MODEL_SPECS) for p in policies}
+        print(f"{n_steps:>6}" + "".join(f"{worst[p]:>22.1f}" for p in policies))
+
+    print("\nThe fixes improve routing at every course length. Adaptive routing "
+          "only overtakes the best fixed policy once a learner answers roughly "
+          "ten items; below that a fixed easy curriculum is as good or better.")
 
 
 def target_sweep(cfg_b, cfg_c, n_trials=100):

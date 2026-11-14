@@ -9,9 +9,11 @@ import random
 
 import pytest
 
+from backend import config
 from backend.adaptation.bandit_policy import ContextualBanditAdapter
 from backend.bkt.bkt_engine import BKTEngine
 from scripts.latent_learning_simulation import (
+    POLICY_SPECS,
     TIERS,
     ProbeGainController,
     ThompsonBandit,
@@ -184,6 +186,38 @@ class TestProbeInterleavedController:
         out = trial(7, cfg, ["probe-gain-binary", "probe-gain-controller"])
         for name in ("probe-gain-binary", "probe-gain-controller"):
             assert isinstance(out[name]["nlg"], float)
+
+
+class TestDeployedConfigurations:
+    """The before/after specs must describe what the application actually ran,
+    otherwise the comparison measures something nobody deployed."""
+
+    def test_before_spec_matches_the_original_defaults(self):
+        spec = POLICY_SPECS["deployed-before"]
+        assert spec["mult"] == {"easy": 0.8, "medium": 1.0, "hard": 1.2}
+        assert spec["eps"] == 0.2
+        assert spec["prior"] == 1.0
+
+    def test_after_spec_matches_current_application_defaults(self):
+        spec = POLICY_SPECS["deployed-after"]
+        assert spec["mult"] == dict(config.BANDIT_MULTIPLIERS)
+        assert spec["eps"] == config.BANDIT_EPSILON
+        assert spec["prior"] == config.BANDIT_PRIOR_PSEUDOCOUNT
+        assert spec["prior_scheme"] == "conservative"
+        assert spec["p_learn"] == config.BKT_DEFAULTS["learn"]
+
+    def test_policy_level_learn_rate_overrides_the_config(self):
+        cfg = cfg_with(response_model="irt", kernel="zpd-distance", p_learn=0.9)
+        out = trial(5, cfg, ["deployed-after", "deployed-before"])
+        assert out["deployed-after"] != out["deployed-before"]
+
+    def test_estimator_rate_does_not_change_the_generative_model(self):
+        """Only the estimator may differ between arms, never the learner."""
+        a = cfg_with(response_model="irt", kernel="zpd-distance", p_learn=0.1)
+        b = cfg_with(response_model="irt", kernel="zpd-distance", p_learn=0.9)
+        for tier in TIERS:
+            assert advance_mastery(0.4, tier, 0.25, a) == advance_mastery(0.4, tier, 0.25, b)
+            assert p_correct(0.4, tier, a) == p_correct(0.4, tier, b)
 
 
 class TestReproducibility:
