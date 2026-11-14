@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import os
 import random
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
 from backend import config
@@ -21,7 +21,40 @@ if not _secret_key:
     _secret_key = secrets.token_hex(32)
 app.secret_key = _secret_key
 
+# Session cookie hardening.
+#
+# SameSite=Lax stops the session cookie from being attached to cross-site POST
+# requests, which is what a cross-site request forgery against these endpoints
+# would rely on. Secure is required in production so the cookie is never sent
+# over plain HTTP, but must stay off for local development, which is served
+# over HTTP and would otherwise drop the cookie entirely.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=config.SESSION_COOKIE_SECURE,
+    PERMANENT_SESSION_LIFETIME=timedelta(seconds=config.SESSION_LIFETIME_SECONDS),
+)
+
+from backend.ratelimit import SlidingWindowLimiter
 from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
+
+login_limiter = SlidingWindowLimiter(
+    config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
+register_limiter = SlidingWindowLimiter(
+    config.REGISTER_MAX_ATTEMPTS, config.REGISTER_ATTEMPT_WINDOW_SECONDS)
+
+
+def _client_address():
+    """Best-effort client address for abuse limiting.
+
+    Behind a proxy the peer address is the proxy, so the forwarded header is
+    consulted. That header is attacker-controlled and is therefore used only to
+    spread rate-limit buckets, never for authorisation.
+    """
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
 
 # Remove load_json and save_json globally
 
@@ -287,15 +320,31 @@ def login():
         data = request.json or {}
         email = data.get('email')
         password = data.get('password')
-        
+
+        account_key = f"account:{str(email).strip().lower()}"
+        address_key = f"address:{_client_address()}"
+        for key in (account_key, address_key):
+            if not login_limiter.check(key):
+                return jsonify({
+                    'success': False,
+                    'message': 'Too many failed attempts. Please try again later.'
+                }), 429, {'Retry-After': str(login_limiter.retry_after(key))}
+
         user = user_repo.find_by_email(email)
         if user and verify_password(password, user.get('password')):
+            # Only failures count toward the limit, so ordinary use is unaffected.
+            login_limiter.reset(account_key)
             session['user_id'] = user['id']
             session['user_name'] = user['name']
             session['study_group'] = user.get('study_group', 'experimental')
             return jsonify({'success': True})
+
+        login_limiter.record(account_key)
+        login_limiter.record(address_key)
+        # Deliberately identical for an unknown account and a wrong password, so
+        # the response cannot be used to discover which emails are registered.
         return jsonify({'success': False, 'message': 'Invalid credentials'})
-    
+
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -308,6 +357,13 @@ def register():
         
         if not name or not email or not password:
             return jsonify({'success': False, 'message': 'Name, email, and password are required.'}), 400
+
+        address_key = f"address:{_client_address()}"
+        if not register_limiter.record(address_key):
+            return jsonify({
+                'success': False,
+                'message': 'Too many sign-ups from this address. Please try again later.'
+            }), 429, {'Retry-After': str(register_limiter.retry_after(address_key))}
 
         def build_user(new_id):
             return {

@@ -149,6 +149,22 @@ BANDIT_PRIOR_TIER = os.environ.get("BANDIT_PRIOR_TIER", "easy")
 MASTERY_BIN_HIGH = env_float("MASTERY_BIN_HIGH", 0.75)
 MASTERY_BIN_MEDIUM = env_float("MASTERY_BIN_MEDIUM", 0.40)
 
+# --- Sessions and abuse limits ----------------------------------------------
+
+IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
+
+# Send the session cookie only over HTTPS in production. Local development is
+# served over HTTP, where a Secure cookie would simply never be stored.
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
+SESSION_LIFETIME_SECONDS = env_int("SESSION_LIFETIME_SECONDS", 7 * 24 * 3600)
+
+# Failed-login throttling. Keyed primarily on the account being attacked, since
+# an attacker controls their own source address but not the target account.
+LOGIN_MAX_ATTEMPTS = env_int("LOGIN_MAX_ATTEMPTS", 10)
+LOGIN_ATTEMPT_WINDOW_SECONDS = env_int("LOGIN_ATTEMPT_WINDOW_SECONDS", 300)
+REGISTER_MAX_ATTEMPTS = env_int("REGISTER_MAX_ATTEMPTS", 20)
+REGISTER_ATTEMPT_WINDOW_SECONDS = env_int("REGISTER_ATTEMPT_WINDOW_SECONDS", 3600)
+
 # --- Language model providers ----------------------------------------------
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")

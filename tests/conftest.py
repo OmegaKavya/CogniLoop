@@ -63,6 +63,16 @@ def test_data_dir():
                 
         yield temp_dir
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """Abuse limits are process-wide, so without this each test inherits the
+    attempts made by every test before it."""
+    from app import login_limiter, register_limiter
+    login_limiter.clear()
+    register_limiter.clear()
+    yield
+
+
 @pytest.fixture
 def client(test_data_dir):
     app.config['TESTING'] = True
