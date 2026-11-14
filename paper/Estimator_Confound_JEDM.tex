@@ -45,6 +45,18 @@ Our argument is that the final step silently changes what is being measured. The
 
 Whether this matters quantitatively depends on the generative model. If the simulation lets difficulty affect the latent learning rate, routing can genuinely change what is learned and the confound is partial. If the simulation fits a single learn rate per skill -- as is standard when parameters come from a fitting library \cite{bulut2023pybkt} -- then difficulty cannot affect learning at all, and the entire measured difference between a difficulty-adaptive and a difficulty-agnostic policy is attributable to the estimator. We show this case is not hypothetical and quantify its size.
 
+\paragraph{Why this matters.} Three things make this more than a technical curiosity.
+
+First, the practice is common. Simulated learners are widely used in educational technology, and a recent systematic review finds their validation is frequently absent or informal \cite{kaser2024simulated}. Reading the knowledge-tracing posterior back as the outcome is the path of least resistance in such a harness, because the estimator is already there and already produces a number that looks like mastery.
+
+Second, the confound changes the direction of a conclusion, not merely the size of an effect. A policy that routes toward harder items is reported as teaching better when it may be teaching nothing extra, so the comparison can recommend the wrong design. Where the estimate also drives advancement, the error compounds: an inflated estimate advances learners sooner, on less knowledge, while the same inflated estimate is reported as improvement.
+
+Third, it is worst where evaluations are cheapest. The inflation we measure is largest at short horizons and decays as the assumed learn rate saturates the posterior, so the shorter and cheaper the simulated comparison, the more of its apparent effect is estimation rather than learning.
+
+The remedy costs almost nothing. Where a simulation already maintains a latent state, reporting it instead of the posterior is a one-line change; where it does not, a fixed-difficulty probe is a few lines more. The contribution is therefore not a new method but a correction that is cheap to adopt and, we argue, necessary to interpret this class of result.
+
+\paragraph{What is new here.} That BKT lacks an item-difficulty parameter is long established \cite{pardos2011ktidem}, as is the difficulty of identifying its parameters from response data \cite{beck2007identifiability}. That simulated learners are under-validated has been documented \cite{kaser2024simulated}. What we have not found stated elsewhere is the geometric consequence of encoding difficulty through guess and slip alone (Section~\ref{sec:geometry}), the named and quantified estimator confound that follows (Section~\ref{sec:inflation}), the asymmetry in the cost of mis-routing and its dependence on the assumed learning model (Section~\ref{sec:asymmetry}), and the horizon below which adaptive routing does not beat a well-chosen fixed curriculum (Section~\ref{sec:horizon}).
+
 \paragraph{Contributions.} We contribute: (i) an analytic characterisation of where each difficulty tier is pedagogically optimal under guess/slip encoding, showing that standard parameter values compress these points into the top of the mastery range (Section~\ref{sec:geometry}); (ii) a controlled demonstration that the reported gain separates by difficulty when the true gain cannot, with magnitudes (Section~\ref{sec:inflation}); (iii) a measurement of the asymmetric cost of mis-routing, showing that its direction is specification-dependent and that erring toward easier items is the minimax choice (Section~\ref{sec:asymmetry}); and (iv) a measurement protocol, together with the observation that adaptive routing needs a non-trivial horizon before it beats a well-chosen fixed curriculum (Sections~\ref{sec:horizon} and \ref{sec:protocol}).
 
 \section{Background and Related Work}
@@ -84,7 +96,7 @@ Table~\ref{tab:geometry} evaluates Equation~\ref{eq:thetastar} at $P^{*} = 0.85$
 
 \begin{table}[ht]
 \centering
-\caption{Mastery at which each tier sits at the target success rate, for standard tier parameters and $P^{*}=0.85$.}
+\caption{Mastery at which each tier sits at the target success rate, for standard tier parameters and $P^{*}=0.85$. Analytic; no simulation involved.}
 \label{tab:geometry}
 \begin{tabular}{lcccc}
 \toprule
@@ -115,7 +127,7 @@ Under Equation~\ref{eq:indep} the latent gain after a fixed number of items is i
 
 \begin{table}[ht]
 \centering
-\caption{Latent and estimated gain under difficulty-independent learning (estimator learn rate $0.10$). The latent gain is identical for all tiers by construction; the estimated gain is not.}
+\caption{Latent and estimated gain under difficulty-independent learning (estimator learn rate $0.10$; 60 learners, 200 seeded trials). The latent gain is identical for all tiers by construction; the estimated gain is not.}
 \label{tab:inflation}
 \begin{tabular}{cccccr}
 \toprule
@@ -143,7 +155,7 @@ A mastery estimator is usually judged by how close $\hat{\theta}$ is to $\theta$
 
 \begin{table}[ht]
 \centering
-\caption{Learning lost by serving one tier above or below the optimum, relative to always serving the optimum, under three learning-model specifications.}
+\caption{Learning lost by serving one tier above or below the optimum, relative to always serving the optimum, under three learning-model specifications (60 learners, 150 seeded trials).}
 \label{tab:asymmetry}
 \footnotesize
 \begin{tabular}{llrrr}
@@ -178,18 +190,18 @@ Adaptive policies are often compared against a random baseline, which is a low b
 
 \begin{table}[ht]
 \centering
-\caption{Worst-case attainment across three learning-model specifications, as a percentage of the oracle policy.}
+\caption{Worst-case attainment across three learning-model specifications, as a percentage of the oracle policy (60 learners, 200 seeded trials).}
 \label{tab:horizon}
 \begin{tabular}{cccc}
 \toprule
 Items per learner & Adaptive routing & Best fixed curriculum & Difference \\
 \midrule
-4  & 55.0 & 60.8 & $-5.8$ \\
-6  & 60.4 & 61.2 & $-0.8$ \\
-10 & 73.4 & 64.1 & $+9.3$ \\
-16 & 76.3 & 67.9 & $+8.4$ \\
-24 & 79.8 & 71.9 & $+7.9$ \\
-50 & 84.2 & 79.1 & $+5.1$ \\
+4  & 53.4 & 60.7 & $-7.4$ \\
+6  & 61.2 & 61.2 & $+0.0$ \\
+10 & 73.5 & 64.0 & $+9.5$ \\
+16 & 76.4 & 68.0 & $+8.3$ \\
+24 & 79.5 & 72.1 & $+7.4$ \\
+50 & 84.3 & 79.2 & $+5.0$ \\
 \bottomrule
 \end{tabular}
 \end{table}
