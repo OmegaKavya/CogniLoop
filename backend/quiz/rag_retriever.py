@@ -1,5 +1,7 @@
 import os
 
+from backend import config
+
 RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").lower() != "false"
 
 try:
@@ -13,7 +15,8 @@ except ImportError:
     CHROMA_AVAILABLE = False
 
 class RAGRetriever:
-    def __init__(self, db_path="data/chroma_db"):
+    def __init__(self, db_path=None):
+        db_path = db_path or config.RAG_DB_PATH
         self.db_path = db_path
         if CHROMA_AVAILABLE:
             os.makedirs(db_path, exist_ok=True)
