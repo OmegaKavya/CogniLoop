@@ -312,3 +312,50 @@ class TestCsrfProtection:
                          json={"topic_id": "test_topic", "watch_percentage": 10},
                          headers={"X-CSRF-Token": mine})
         assert res.status_code == 403
+
+
+class TestAdaptationIsExplainedHonestly:
+    """The result page tells the learner what the policy will serve next.
+
+    The first version of that sentence said "you are scoring well enough to be
+    stretched" whenever the tier rose. That is not why Thompson sampling
+    raises a tier - early on it is exploration - so a learner who had just
+    scored 20% was congratulated on their performance. The explanation must
+    describe the mechanism, not invent a rationale for it.
+    """
+
+    def _submit(self, client, user_id, score_pattern):
+        from backend.quiz.quiz_session import active_quiz_store
+        quiz = _quiz(difficulty="easy")
+        token = active_quiz_store.issue(user_id, quiz)
+        responses = [
+            {"question_id": q["id"],
+             "selected_answer": q["options"][0] if score_pattern else "A",
+             "time_taken": 9}
+            for q in quiz["questions"]
+        ]
+        return client.post('/api/quiz-submit', json={
+            "topic_id": "test_topic", "quiz_token": token, "responses": responses})
+
+    def test_response_names_the_next_tier_and_a_reason(self, client):
+        user_id = _register(client)
+        body = json.loads(self._submit(client, user_id, False).data)
+        assert body['next_difficulty'] in ('easy', 'medium', 'hard')
+        assert body['served_difficulty'] == 'easy'
+        assert body['next_difficulty_reason']
+
+    def test_a_poor_score_is_never_described_as_doing_well(self, client):
+        user_id = _register(client)
+        body = json.loads(self._submit(client, user_id, False).data)
+        assert body['score'] < 50, "this test needs a poor score to be meaningful"
+        reason = body['next_difficulty_reason'].lower()
+        for flattering in ('scoring well', 'doing well', 'well enough'):
+            assert flattering not in reason, (
+                f"a {body['score']}% score was described as: "
+                f"{body['next_difficulty_reason']}")
+
+    def test_early_attempts_are_described_as_exploration(self, client):
+        user_id = _register(client)
+        body = json.loads(self._submit(client, user_id, False).data)
+        assert 'sampling levels' in body['next_difficulty_reason'], (
+            "with almost no evidence the policy is exploring, and should say so")

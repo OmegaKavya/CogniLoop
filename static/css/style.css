@@ -1544,3 +1544,64 @@ html, body {
     max-width: 44ch;
     margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Adaptation note
+   Shown after a quiz: the tier just served, the tier chosen next, and the
+   reason. The policy was previously invisible, so a learner had no way to
+   tell that difficulty was being chosen for them at all.
+   --------------------------------------------------------------------------- */
+
+.adaptation-note {
+    margin: 26px auto 0;
+    max-width: 540px;
+    padding: 16px 20px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    text-align: left;
+}
+
+.adaptation-note__row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.adaptation-note__label {
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-400);
+}
+
+.adaptation-note__arrow { color: var(--text-400); }
+
+.adaptation-note__why {
+    margin: 10px 0 0;
+    font-size: .88rem;
+    line-height: 1.55;
+    color: var(--text-600);
+}
+
+.tier-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    color: var(--text-600);
+}
+
+.tier-chip--next {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--on-primary-light);
+}

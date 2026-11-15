@@ -34,13 +34,62 @@
       }
 
       .option {
-        display: block;
-        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
         margin-bottom: 12px;
         border: 2px solid var(--border-soft);
         border-radius: 8px;
         cursor: pointer;
         transition: var(--transition);
+      }
+
+      /* The number that answers this option from the keyboard. It is also the
+         visual anchor for scanning four options quickly. */
+      .option__key {
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text-600);
+        font-family: var(--font-mono);
+        font-size: .8rem;
+        font-weight: 600;
+      }
+
+      .option.selected .option__key {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--surface);
+      }
+
+      /* Keyboard users must be able to see where they are. */
+      .option:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      .quiz-hintbar {
+        margin-top: 14px;
+        font-size: .78rem;
+        color: var(--text-400);
+        text-align: center;
+      }
+
+      .quiz-hintbar kbd {
+        font-family: var(--font-mono);
+        font-size: .74rem;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text-600);
       }
 
       .option:hover {
@@ -654,6 +703,9 @@
               Next Question
             </button>
           </div>
+          <p class="quiz-hintbar">
+            <kbd>1</kbd>–<kbd>4</kbd> to answer · <kbd>Enter</kbd> to continue · <kbd>H</kbd> for a hint
+          </p>
         </div>
       </div>
 
@@ -669,6 +721,19 @@
             margin: 10px 0;
           "
         ></p>
+
+        <!-- What the policy decided, and why. Without this the adaptation is
+             invisible and the product is indistinguishable from a fixed quiz. -->
+        <div id="adaptation-note" class="adaptation-note" style="display:none;">
+          <div class="adaptation-note__row">
+            <span class="adaptation-note__label">This quiz</span>
+            <span id="served-tier" class="tier-chip">—</span>
+            <span class="adaptation-note__arrow" aria-hidden="true">&rarr;</span>
+            <span class="adaptation-note__label">Next</span>
+            <span id="next-tier" class="tier-chip tier-chip--next">—</span>
+          </div>
+          <p id="next-tier-reason" class="adaptation-note__why"></p>
+        </div>
 
         <div
           class="result-stats"
@@ -983,9 +1048,46 @@
 
       function selectOption(element) {
           const options = element.parentElement.querySelectorAll('.option');
-          options.forEach(opt => opt.classList.remove('selected'));
+          options.forEach(opt => {
+              opt.classList.remove('selected');
+              opt.setAttribute('aria-checked', 'false');
+          });
           element.classList.add('selected');
+          element.setAttribute('aria-checked', 'true');
       }
+
+      // The option text, without the number badge that labels it.
+      function optionText(el) {
+          const label = el.querySelector('.option__text');
+          return (label ? label.innerText : el.innerText).trim();
+      }
+
+      // Answer with the number keys and advance with Enter. A practice session
+      // is dozens of questions; reaching for the mouse each time is the slowest
+      // part of it.
+      document.addEventListener('keydown', (event) => {
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+          if (typing) return;
+
+          const card = document.querySelector('.question-card.active');
+          if (!card) return;
+
+          if (event.key >= '1' && event.key <= '9') {
+              const choice = card.querySelector(`.option[data-index="${event.key}"]`);
+              if (choice) { event.preventDefault(); selectOption(choice); }
+              return;
+          }
+          if (event.key === 'Enter') {
+              event.preventDefault();
+              handleNext();
+              return;
+          }
+          if (event.key.toLowerCase() === 'h') {
+              event.preventDefault();
+              showHint();
+          }
+      });
 
       function showHint() {
           if (!hintsUnlocked) return;
@@ -1004,8 +1106,14 @@
               <div class="question-card active" data-q-id="${question.id}">
                   <span style="color: var(--text-light); font-size: 0.9rem;">Question ${index + 1} of ${quizQuestions.length}</span>
                   <h2 style="margin: 15px 0 25px;">${question.text}</h2>
-                  ${question.options.map(opt => `
-                      <div class="option" onclick="selectOption(this)">${opt}</div>
+                  ${question.options.map((opt, i) => `
+                      <div class="option" role="radio" tabindex="0" aria-checked="false"
+                           data-index="${i + 1}"
+                           onclick="selectOption(this)"
+                           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectOption(this);}">
+                        <span class="option__key" aria-hidden="true">${i + 1}</span>
+                        <span class="option__text">${opt}</span>
+                      </div>
                   `).join('')}
                   <div class="hint-box" id="hint-${question.id}">💡 ${question.hint || 'Eliminate obviously incorrect options first.'}</div>
               </div>
@@ -1036,7 +1144,7 @@
 
           responses.push({
               question_id: currentQuestion.id,
-              selected_answer: selectedOpt ? selectedOpt.innerText : null,
+              selected_answer: selectedOpt ? optionText(selectedOpt) : null,
               time_taken: isAutoAdvance ? questionTimeLimit : timeTaken,
               used_hint: Boolean(hintUsedByQuestion[String(currentQuestion.id)])
           });
@@ -1074,6 +1182,14 @@
 
           // Populate results
           document.getElementById('result-score').innerText = `Score: ${result.score}%`;
+
+          if (result.next_difficulty) {
+              const note = document.getElementById('adaptation-note');
+              document.getElementById('served-tier').innerText = result.served_difficulty || '—';
+              document.getElementById('next-tier').innerText = result.next_difficulty;
+              document.getElementById('next-tier-reason').innerText = result.next_difficulty_reason || '';
+              note.style.display = 'block';
+          }
           document.getElementById('result-mastery').innerText = (result.mastery * 100).toFixed(0) + '%';
           document.getElementById('result-cluster').innerText = result.behavior_cluster || result.cluster;
 

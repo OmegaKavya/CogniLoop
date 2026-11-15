@@ -13,6 +13,7 @@ from backend.auth.auth_service import hash_password, verify_password
 from backend.quiz.quiz_session import active_quiz_store, public_view
 from backend.adaptation.speed_adaptation import speed_adapter
 from backend import curriculum_stats
+from backend import mastery_scale
 
 app = Flask(__name__,
             template_folder='frontend/templates',
@@ -631,12 +632,15 @@ def dashboard():
     # wrong and discouraging.
     def _node(topic_id, name, prereq):
         raw = bkt_states.get(topic_id)
+        described = mastery_scale.describe(raw)
         return {
             "id": topic_id,
             "name": name,
             "prereq": prereq,
             "started": raw is not None,
             "mastery": round((raw if raw is not None else config.BKT_DEFAULTS["prior"]) * 100, 1),
+            "band": described["label"],
+            "band_meaning": described["meaning"],
         }
 
     skill_tree_nodes = [
@@ -665,7 +669,8 @@ def dashboard():
                          # was congratulated on a "1 Day Streak".
                          user_streak=min(total_quizzes, 7),
                          total_quizzes=total_quizzes,
-                         skill_tree_nodes=skill_tree_nodes)
+                         skill_tree_nodes=skill_tree_nodes,
+                         mastery_scale_note=mastery_scale.scale_note())
 
 @app.route('/progress')
 def progress_page():
@@ -965,6 +970,41 @@ def quiz_submit():
     
     quiz_repo.add_attempt(attempt_log)
     
+    # What the policy will serve next, and the reason. The system adapts
+    # silently otherwise: a learner has no way to tell that difficulty is being
+    # chosen for them rather than fixed, which is the one thing that makes this
+    # different from a static quiz app.
+    if study_group == 'experimental':
+        next_difficulty = bandit_adapter.get_action(cluster, new_mastery)
+        topic_attempts = len([a for a in quiz_repo.get_user_attempts(user_id)
+                              if a.get('topic_id') == topic_id])
+
+        # Explain the mechanism, not a story about the learner.
+        #
+        # An earlier version said "you are scoring well enough to be stretched"
+        # whenever the tier went up. That is not why the tier went up: Thompson
+        # sampling draws from each arm's posterior, so early on a change is
+        # usually exploration, and the sentence was attributing a judgement to
+        # the policy that the policy had not made. A learner who had just
+        # scored 20% was told they were doing well.
+        if topic_attempts < 3:
+            why = (f"Trying {next_difficulty} next. With "
+                   f"{topic_attempts} attempt{'' if topic_attempts == 1 else 's'} "
+                   f"on this topic, the system is still sampling levels to find "
+                   f"which one suits you - expect it to move around at first.")
+        elif next_difficulty == current_difficulty:
+            why = (f"Staying at {next_difficulty}. On the evidence so far this "
+                   f"level is producing your best results.")
+        elif config.DIFFICULTY_TIERS.index(next_difficulty) > config.DIFFICULTY_TIERS.index(current_difficulty):
+            why = (f"Moving up to {next_difficulty}. Across your attempts, the "
+                   f"harder level is doing at least as well for you as this one.")
+        else:
+            why = (f"Easing to {next_difficulty}. Across your attempts, the "
+                   f"easier level has been producing better outcomes.")
+    else:
+        next_difficulty = current_difficulty
+        why = "Your group follows a fixed curriculum, so the difficulty does not change."
+
     return jsonify({
         'success': True, 
         'score': score,
@@ -974,7 +1014,10 @@ def quiz_submit():
         'results': eval_result['question_results'],
         'recommendation': recommendation,
         'attempt_id': attempt_id,
-        'ai_insights': ai_insights
+        'ai_insights': ai_insights,
+        'served_difficulty': current_difficulty,
+        'next_difficulty': next_difficulty,
+        'next_difficulty_reason': why
     })
 
 
