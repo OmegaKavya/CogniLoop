@@ -4,7 +4,7 @@ latent gain cannot.
 
 Run from the repository root:
 
-    python3 scripts/make_paper_figure.py
+    python3 scripts/make_inflation_figure.py
 
 Writes paper/figures/estimator_inflation.pdf. The data comes from the same
 functions the paper's tables are built from, so the figure cannot drift away
