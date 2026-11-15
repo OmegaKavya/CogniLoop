@@ -23,10 +23,7 @@ import os
 import random
 import sys
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -39,17 +36,28 @@ from scripts.latent_learning_simulation import (  # noqa: E402
     p_correct,
 )
 
+from scripts.paper_style import (  # noqa: E402
+    GRID,
+    INK,
+    TIER_COLOR,
+    TIER_STYLE,
+    despine,
+    save,
+    use_paper_style,
+)
+
 HORIZONS = (2, 3, 5, 8, 12, 16, 20)
 N_TRIALS = 200
 P_LEARN = 0.10
 
-# Validated categorical palette (all six checks pass against a light surface).
-TIER_STYLE = {
-    "easy":   {"color": "#0B8F84", "ls": "--",  "marker": "o", "label": "Estimated, easy items"},
-    "medium": {"color": "#D97706", "ls": "-.",  "marker": "s", "label": "Estimated, medium items"},
-    "hard":   {"color": "#6D28D9", "ls": ":",   "marker": "^", "label": "Estimated, hard items"},
+# The palette, line styles and markers come from scripts/paper_style.py so
+# every figure in the paper shares one visual language. Only the series labels
+# are local to this figure.
+TIER_LABEL = {
+    "easy":   "Estimated, easy items",
+    "medium": "Estimated, medium items",
+    "hard":   "Estimated, hard items",
 }
-INK = "#1c1917"
 
 
 def measure(cfg, tier):
@@ -85,19 +93,14 @@ def main():
             latent_here = latent  # identical for every tier by construction
         latent_curve.append(latent_here)
 
-    plt.rcParams.update({
-        "font.family": "serif",
-        "font.size": 9,
-        "axes.edgecolor": "#57534e",
-        "axes.linewidth": 0.8,
-    })
+    plt = use_paper_style()
     fig, ax = plt.subplots(figsize=(5.4, 3.4))
 
     # The band between the easiest and hardest estimate is the whole artefact:
     # latent learning is identical across it, so its width is produced entirely
     # by which items were served.
     ax.fill_between(HORIZONS, series["easy"], series["hard"],
-                    color="#6D28D9", alpha=0.10, lw=0, zorder=1,
+                    color=TIER_COLOR["hard"], alpha=0.10, lw=0, zorder=1,
                     label="Spread produced by difficulty alone")
 
     ax.plot(HORIZONS, latent_curve, color=INK, lw=2.4, ls="-", zorder=5,
@@ -106,15 +109,14 @@ def main():
         st = TIER_STYLE[tier]
         ax.plot(HORIZONS, series[tier], color=st["color"], lw=1.8, ls=st["ls"],
                 marker=st["marker"], markersize=4.5, markeredgecolor="white",
-                markeredgewidth=0.6, label=st["label"], zorder=4)
+                markeredgewidth=0.6, label=TIER_LABEL[tier], zorder=4)
 
     ax.set_xlabel("Items answered")
     ax.set_ylabel("Normalised gain")
     ax.set_xticks(list(HORIZONS))
-    ax.grid(True, axis="y", color="#e7e5e4", lw=0.7)
+    ax.grid(True, axis="y", color=GRID, lw=0.7)
     ax.set_axisbelow(True)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
+    despine(ax)
 
     # Label the widest point of the band, placed in clear space with a leader
     # rather than written across the curves.
@@ -132,14 +134,8 @@ def main():
     ax.legend(loc="lower right", frameon=False, fontsize=7.4, handlelength=2.6,
               borderaxespad=0.6)
     fig.tight_layout()
+    save(fig, "estimator_inflation")
 
-    out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           "paper", "figures")
-    os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, "estimator_inflation.pdf")
-    fig.savefig(out, bbox_inches="tight")
-    fig.savefig(out.replace(".pdf", ".png"), dpi=200, bbox_inches="tight")
-    print(f"wrote {out}")
     print(f"latent gain at each horizon: {[round(v, 4) for v in latent_curve]}")
     for tier in TIERS:
         print(f"  estimated, {tier:<7}: {[round(v, 4) for v in series[tier]]}")
