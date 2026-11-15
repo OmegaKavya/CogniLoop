@@ -289,7 +289,7 @@ None of these require abandoning simulation. They require measuring the learner 
 
 All results are reproducible from seeded code released at \url{https://github.com/OmegaKavya/CogniLoop}. The simulation harness, the policy specifications, and the scripts producing each table are included, together with a test suite that verifies the knowledge-tracing implementation used in the simulation is numerically identical to the one in the deployed system it was derived from.
 
-Each figure is generated from the same functions as the table it accompanies, rather than from separately recorded numbers: \texttt{make\_geometry\_figure.py} for Figure~\ref{fig:geometry}, \texttt{make\_paper\_figure.py} for Figure~\ref{fig:inflation} and \texttt{make\_asymmetry\_figure.py} for Figure~\ref{fig:asymmetry}. The last of these asserts every value it plots against Table~\ref{tab:asymmetry} and fails rather than drawing a figure that disagrees with the text.
+Each figure is generated from the same functions as the table it accompanies, rather than from separately recorded numbers: \path{make_geometry_figure.py} for Figure~\ref{fig:geometry}, \path{make_paper_figure.py} for Figure~\ref{fig:inflation}, and \path{make_asymmetry_figure.py} for Figure~\ref{fig:asymmetry}. The last of these asserts every value it plots against Table~\ref{tab:asymmetry} and fails rather than drawing a figure that disagrees with the text.
 
 \bibliographystyle{acmtrans}
 \bibliography{estimator_confound}
