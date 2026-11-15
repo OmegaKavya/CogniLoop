@@ -271,3 +271,57 @@ class TestBuildTopicSubmodules:
             mods = self._build(topic)
             for mod in mods:
                 assert "exam_angle" in mod
+
+
+class TestLandingStatsAreDerived:
+    """The landing page advertised hand-typed figures that had gone stale:
+    48 checkpoints when there were 60, and 290 tests when there were more.
+    These assert the page states what the curriculum actually contains."""
+
+    def test_curriculum_totals_match_the_definitions(self):
+        from backend import curriculum_stats
+        from utils.constants import SUBMODULE_DEFINITIONS
+
+        totals = curriculum_stats.curriculum_totals()
+        expected_submodules = sum(len(m) for m in SUBMODULE_DEFINITIONS.values())
+        expected_checkpoints = sum(len(s.get('checkpoints') or [])
+                                   for mods in SUBMODULE_DEFINITIONS.values()
+                                   for s in mods)
+        assert totals['modules'] == len(SUBMODULE_DEFINITIONS)
+        assert totals['submodules'] == expected_submodules
+        assert totals['checkpoints'] == expected_checkpoints
+        assert totals['hours'] > 0
+
+    def test_per_topic_counts_match(self):
+        from backend import curriculum_stats
+        from utils.constants import SUBMODULE_DEFINITIONS
+
+        per_topic = curriculum_stats.per_topic()
+        assert set(per_topic) == set(SUBMODULE_DEFINITIONS)
+        for topic, mods in SUBMODULE_DEFINITIONS.items():
+            assert per_topic[topic]['submodules'] == len(mods)
+            assert per_topic[topic]['minutes'] > 0
+
+    def test_missing_stats_file_omits_the_test_count(self, tmp_path):
+        """A forgotten run must show nothing rather than a stale number."""
+        from unittest.mock import patch
+        from backend import curriculum_stats
+        with patch.object(curriculum_stats, 'PROJECT_STATS_PATH',
+                          str(tmp_path / 'absent.json')):
+            assert curriculum_stats.test_count() is None
+
+    def test_landing_page_states_the_real_numbers(self, client):
+        from backend import curriculum_stats
+        totals = curriculum_stats.curriculum_totals()
+        html = client.get('/').data.decode()
+        assert f'data-target="{totals["submodules"]}"' in html
+        assert f'data-target="{totals["checkpoints"]}"' in html
+
+    def test_landing_page_makes_no_unsupported_efficacy_claim(self, client):
+        """The site claimed a statistically significant improvement over static
+        instruction. The paper reports the opposite: below roughly ten items a
+        fixed curriculum is as good or better."""
+        html = client.get('/').data.decode().lower()
+        for banned in ('statistically significant', 'p&lt;0.05', 'p<0.05',
+                       'gold standard'):
+            assert banned not in html, f"unsupported claim on the landing page: {banned}"

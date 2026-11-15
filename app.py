@@ -12,6 +12,7 @@ from backend import config
 from backend.auth.auth_service import hash_password, verify_password
 from backend.quiz.quiz_session import active_quiz_store, public_view
 from backend.adaptation.speed_adaptation import speed_adapter
+from backend import curriculum_stats
 
 app = Flask(__name__,
             template_folder='frontend/templates',
@@ -422,7 +423,11 @@ def index():
         return redirect(url_for('dashboard'))
     
     videos = video_repo.get_all_videos()
-    return render_template('landing.html', courses=videos)
+    # Figures derived from the curriculum rather than typed into the template,
+    # where they went stale and advertised numbers that had not been true for
+    # some time.
+    return render_template('landing.html', courses=videos,
+                           stats=curriculum_stats.landing_stats())
 
 @app.route('/health')
 def health():

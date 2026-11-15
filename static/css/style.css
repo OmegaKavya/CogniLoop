@@ -1,6 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,600;1,400&display=swap');
+/* Typography system. One load, one place.
+ *
+ * Literata for display and headings: a text face TypeTogether designed for
+ * Google Play Books, drawn for long-form reading on screen. It gives the
+ * product an academic register rather than the look of a startup landing
+ * page.
+ *
+ * IBM Plex Sans for body and interface: Bold Monday's type system for an
+ * engineering company - humanist, precise, and legible at small sizes.
+ *
+ * IBM Plex Mono for figures and code, so statistics line up in columns and
+ * read as measurements rather than marketing.
+ *
+ * This replaces Plus Jakarta Sans and Lora here, and Inter loaded
+ * separately by two templates - which meant pages did not even match each
+ * other. Inter and Plus Jakarta are the defaults of every generated
+ * template on the web; the point of this pairing is that it is chosen.
+ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&display=swap');
 
 :root {
+    /* Typography */
+    /* Far end of the hero's gradient. Tokenised because it was hardcoded as
+       a pale teal, which in dark mode blended toward white and turned the
+       whole hero into a grey wash. */
+    --hero-wash: #edf6f7;
+
+    --font-display: 'Literata', Georgia, 'Times New Roman', serif;
+    --font-body:    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
     /* Warm Slate + Amber - academic, clean, professional */
     --primary:       #1a6b72;   /* Deep teal - confident, scholarly */
     --primary-light: #e6f4f5;
@@ -110,6 +138,9 @@
    literals need migrating to the tokens below before this can follow the
    system setting. */
 :root[data-theme="dark"] {
+    /* A deeper teal than the dark background, so the hero still has depth
+       without washing out. */
+    --hero-wash: #10262b;
     --bg:            #0f172a;
     --surface:       #1e293b;
     --surface-2:     #334155;
@@ -167,7 +198,7 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: var(--font-body);
     background: var(--bg);
     color: var(--text-900);
     line-height: 1.6;
@@ -176,11 +207,17 @@ body {
 }
 
 h1,h2,h3,h4,h5,h6 {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-weight: 700;
-    letter-spacing: -.02em;
+    font-family: var(--font-display);
+    font-weight: 600;
+    /* Literata is a text face, not a display face: it does not need the tight
+       tracking a geometric sans wants, and tightening it closes the apertures
+       that make it readable. */
+    letter-spacing: -.011em;
+    line-height: 1.25;
     color: var(--text-900);
 }
+
+h1 { font-weight: 700; }
 
 /* ── Navbar ─────────────────────────────────────────────── */
 .navbar {
@@ -209,8 +246,10 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .logo {
-    font-size: 1.4rem;
-    font-weight: 800;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -.015em;
     color: var(--primary);
     display: flex;
     align-items: center;
@@ -364,7 +403,9 @@ h1,h2,h3,h4,h5,h6 {
 }
 .input-group input:focus {
     border-color: var(--primary);
-    background: #fff;
+    /* Was hardcoded #fff, which in dark mode turned the field white while the
+       text stayed light - you could not see what you were typing. */
+    background: var(--surface);
     outline: none;
     box-shadow: 0 0 0 3px rgba(26,107,114,.12);
 }
@@ -456,7 +497,7 @@ h1,h2,h3,h4,h5,h6 {
     align-items: center;
     justify-content: space-between;
     padding: 80px 100px;
-    background: linear-gradient(135deg, var(--bg) 0%, #edf6f7 100%);
+    background: linear-gradient(135deg, var(--bg) 0%, var(--hero-wash) 100%);
     min-height: 85vh;
     gap: 60px;
 }
@@ -479,7 +520,10 @@ h1,h2,h3,h4,h5,h6 {
     line-height: 1.06;
     margin-bottom: 28px;
 }
-.hero-content h1 span {
+/* Scoped to its own class, not every span in the headline: a span added for
+   any other purpose - keeping a hyphenated pair together, say - was picking
+   up the gradient and being recoloured by accident. */
+.hero-content h1 .accent {
     color: transparent;
     background: linear-gradient(130deg, var(--primary), var(--amber));
     -webkit-background-clip: text;
@@ -591,7 +635,14 @@ h1,h2,h3,h4,h5,h6 {
     padding: 24px 28px;
     box-shadow: var(--shadow-sm);
 }
-.stat-card .stat-value { font-size:2.2rem; font-weight:800; color:var(--primary); }
+.stat-card .stat-value {
+    font-family: var(--font-mono);
+    font-size: 2.1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em;
+    color: var(--primary);
+}
 .stat-card .stat-label { font-size:.85rem; color:var(--text-600); font-weight:500; margin-top:4px; }
 
 /* ── Quiz review specific ────────────────────────────────── */
@@ -926,17 +977,24 @@ h1,h2,h3,h4,h5,h6 {
 
 .stat-big {
     display: block;
-    font-size: 3rem;
-    font-weight: 800;
+    font-family: var(--font-mono);
+    font-size: 2.85rem;
+    /* 800 was a shout. A measurement does not need to be bold to be read, and
+       tabular figures keep the counters from reflowing as they animate. */
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em;
     color: var(--primary);
     line-height: 1.1;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .stat-unit {
     display: block;
-    font-size: .95rem;
-    font-weight: 700;
+    font-size: .78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .07em;
     color: var(--text-900);
     margin-bottom: 8px;
 }
@@ -1317,3 +1375,59 @@ h1,h2,h3,h4,h5,h6 {
         padding: 12px 14px;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Typographic refinements
+   Small settings that separate a chosen typeface from a default one.
+   --------------------------------------------------------------------------- */
+
+/* Literata carries real italics and small caps; let the browser use its
+   ligatures and contextual alternates rather than flattening them. */
+body {
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+    text-rendering: optimizeLegibility;
+}
+
+/* Long-form prose is the thing this product exists for, so give it a
+   comfortable measure and looser leading than the interface chrome. */
+.section-desc,
+.proof-card p,
+.submodule-brief__objective {
+    max-width: 68ch;
+    line-height: 1.68;
+}
+
+/* Section labels and eyebrows: the sans, spaced, so they read as signposts
+   rather than competing with the serif headings above them. */
+.section-label {
+    font-family: var(--font-body);
+    font-size: .76rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+}
+
+/* Numerals inside running text should not jump around between weights. */
+.proof-number {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+}
+
+/* Code, identifiers and anything measured. */
+code, kbd, samp, pre, .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Buttons and form controls inherit the interface face explicitly: several
+   browsers reset these to their own UI font otherwise, which was part of why
+   the pages looked inconsistent. */
+button, input, select, textarea, .btn {
+    font-family: var(--font-body);
+}
+
+/* A hyphen is a line-break opportunity, so "Real-Time" split across lines in
+   the hero as "Real-" / "Time". The non-breaking hyphen in the markup fixes
+   the character; this keeps the pair together if a browser ignores it. */
+.nowrap { white-space: nowrap; }

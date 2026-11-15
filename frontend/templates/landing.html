@@ -42,7 +42,7 @@
     <!-- ── Hero Section ── -->
     <header class="hero-container" style="min-height: 70vh;">
         <div class="hero-content animate-fade">
-            <h1>Adaptive <span>Tutoring.</span> Real-Time Mastery.</h1>
+            <h1>Adaptive <span class="accent">Tutoring.</span> <span class="nowrap">Real&#8209;Time</span> Mastery.</h1>
             <p>CogniLoop is an intelligent educational platform that converts passive study sessions into an active mastery loop. By analyzing your in-video watch behaviors and tracking your concept understanding via Bayesian models, the system adjusts questions and difficulty in real-time.</p>
 
             <div class="hero-btns" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px;">
@@ -212,25 +212,33 @@
 
             <div class="stats-grid">
                 <div class="stat-counter-card">
-                    <span class="stat-big" data-target="60">0</span>
+                    <span class="stat-big" data-target="60">60</span>
                     <span class="stat-unit">Simulated Learner Profiles</span>
                     <span class="stat-detail">Across 3 behavioral archetypes: Fast, Standard, Slow</span>
                 </div>
                 <div class="stat-counter-card">
-                    <span class="stat-big" data-target="4">0</span>
-                    <span class="stat-unit">CS Course Modules</span>
-                    <span class="stat-detail">Data Structures, OS, DBMS, Computer Networks</span>
+                    <span class="stat-big" data-target="{{ stats.submodules }}">{{ stats.submodules }}</span>
+                    <span class="stat-unit">Submodules</span>
+                    <span class="stat-detail">Across {{ stats.modules }} courses: Data Structures, OS, DBMS, Computer Networks</span>
                 </div>
                 <div class="stat-counter-card">
-                    <span class="stat-big" data-target="48">0</span>
+                    <span class="stat-big" data-target="{{ stats.checkpoints }}">{{ stats.checkpoints }}</span>
                     <span class="stat-unit">In-Video Checkpoints</span>
-                    <span class="stat-detail">3 checkpoints per submodule × 4 submodules × 4 courses</span>
+                    <span class="stat-detail">Three per submodule, triggered as you watch</span>
                 </div>
+                {% if stats.tests_passing %}
                 <div class="stat-counter-card">
-                    <span class="stat-big" data-target="290">0</span>
+                    <span class="stat-big" data-target="{{ stats.tests_passing }}">{{ stats.tests_passing }}</span>
                     <span class="stat-unit">Automated Tests Passing</span>
-                    <span class="stat-detail">BKT, bandit, storage concurrency, auth, LLM routing, E2E</span>
+                    <span class="stat-detail">BKT, bandit, storage concurrency, auth, quiz integrity, E2E</span>
                 </div>
+                {% else %}
+                <div class="stat-counter-card">
+                    <span class="stat-big" data-target="{{ stats.hours }}">{{ stats.hours }}</span>
+                    <span class="stat-unit">Hours of Curriculum</span>
+                    <span class="stat-detail">Every segment checked against its source lecture's chapters</span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -256,7 +264,7 @@
                 <div class="proof-card">
                     <div class="proof-number">03</div>
                     <h3>Normalized Learning Gain</h3>
-                    <p>We measure real learning using <strong>NLG = (post - pre) / (1 - pre)</strong>, the gold standard metric in education research. Our evaluation shows statistically significant improvement (p&lt;0.05) compared to static sequential instruction.</p>
+                    <p>Progress is measured as <strong>NLG = (post &minus; pre) / (1 &minus; pre)</strong>, a standard metric in education research, rather than a raw score. We report what the measurement shows, including where adaptive routing does <em>not</em> beat a well-chosen fixed curriculum &mdash; that finding is the subject of our methods paper.</p>
                 </div>
                 <div class="proof-card">
                     <div class="proof-number">04</div>
@@ -297,7 +305,10 @@
                 </div>
                 <h3>{{ course.title }}</h3>
                 <p>{{ course.description }}</p>
-                <p style="color: var(--text-400); font-size: 0.85rem; margin-top: 8px;">4 submodules · 12 checkpoints · Adaptive quizzes</p>
+                {% set t = stats.per_topic.get(course.id) %}
+                {% if t %}
+                <p style="color: var(--text-400); font-size: 0.85rem; margin-top: 8px;">{{ t.submodules }} submodules · {{ t.checkpoints }} checkpoints · {{ t.minutes }} min</p>
+                {% endif %}
                 <div style="margin-top: 20px;">
                     <a href="{{ url_for('login') }}" class="btn btn-primary"
                         style="padding: 8px 20px; font-size: 0.9rem; width: auto; background-color: var(--primary-color);">View
@@ -366,23 +377,33 @@
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     const el = entry.target;
-                    const target = parseInt(el.getAttribute('data-target'));
+                    // parseFloat, not parseInt: one of these figures is a
+                    // duration like 11.6, which parseInt silently truncated.
+                    const target = parseFloat(el.getAttribute('data-target'));
+                    if (!isFinite(target)) { counterObserver.unobserve(el); return; }
+
+                    const decimals = (el.getAttribute('data-target').split('.')[1] || '').length;
+                    const steps = 40;
                     let current = 0;
-                    const increment = Math.max(1, Math.floor(target / 40));
+                    const increment = target / steps;
                     const timer = setInterval(() => {
                         current += increment;
                         if (current >= target) {
                             current = target;
                             clearInterval(timer);
                         }
-                        el.textContent = current;
+                        el.textContent = current.toFixed(decimals);
                     }, 30);
                     counterObserver.unobserve(el);
                 }
             });
         }, { threshold: 0.5 });
 
+        // The markup carries the real figure so it is correct without
+        // JavaScript, or if this observer never fires. Zeroing it here is what
+        // makes the count-up possible, and only happens once JS is running.
         document.querySelectorAll('.stat-big[data-target]').forEach(el => {
+            el.textContent = '0';
             counterObserver.observe(el);
         });
 
