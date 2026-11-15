@@ -337,7 +337,7 @@
                 <span class="meta-chip">Mastery: {{ (selected_attempt.mastery * 100)|round(1) }}%</span>
                 <span class="meta-chip">Avg time: {{ selected_attempt.avg_time }}s/q</span>
                 <span class="meta-chip">{{ selected_attempt.question_results|length }} questions</span>
-                <span class="meta-chip">{{ selected_attempt.speed_label if selected_attempt.speed_label else 'Steady' }} pace</span>
+                <span class="meta-chip">{{ selected_attempt.adaptation.speed_label if selected_attempt.adaptation and selected_attempt.adaptation.speed_label else 'Steady' }} pace</span>
               </div>
             </div>
           </div>

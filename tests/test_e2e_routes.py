@@ -71,6 +71,13 @@ class TestPublicRoutes:
         r = client.get('/contact')
         assert r.status_code == 200
 
+    def test_contact_advertises_no_unreachable_address(self, client):
+        """It published support@cogniloop.com, a domain the project does not
+        own, so anyone writing to it reached nobody."""
+        body = json.loads(client.get('/contact').data)
+        assert 'support_email' not in body
+        assert not any('cogniloop.com' in str(v) for v in body.values())
+
 
 # ── Security: all protected routes redirect when not logged in ────────────────
 

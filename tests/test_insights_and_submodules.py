@@ -325,3 +325,27 @@ class TestLandingStatsAreDerived:
         for banned in ('statistically significant', 'p&lt;0.05', 'p<0.05',
                        'gold standard'):
             assert banned not in html, f"unsupported claim on the landing page: {banned}"
+
+
+class TestReviewSpeedLabelConsistency:
+    """The attempt list and the detail view of the same attempt showed
+    different pace labels. The detail read a top-level `speed_label` that the
+    stored record does not have, so it silently fell back to "Steady" for
+    every learner regardless of how fast they actually answered."""
+
+    def test_stored_attempt_has_no_top_level_speed_label(self):
+        """Documents why the template cannot read it from there."""
+        from app import build_review_rows
+        attempt = {"attempt_id": "a1", "topic_id": "os", "score": 50,
+                   "adaptation": {"speed_label": "Fast"}}
+        row = build_review_rows([attempt], {"os": "Operating Systems"})[0]
+        assert row["speed_label"] == "Fast"
+        assert "speed_label" not in attempt
+
+    def test_detail_template_reads_the_same_field_as_the_list(self):
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        html = open(os.path.join(here, "frontend/templates/quiz_review.html")).read()
+        assert "selected_attempt.adaptation.speed_label" in html, (
+            "the detail view is reading a field the stored attempt does not "
+            "have, so it will always display the default")

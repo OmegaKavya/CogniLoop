@@ -636,12 +636,22 @@ h1 { font-weight: 700; }
     box-shadow: var(--shadow-sm);
 }
 .stat-card .stat-value {
-    font-family: var(--font-mono);
-    font-size: 2.1rem;
+    /* Deliberately NOT the mono face. These cards hold mixed content - "4"
+       and "0", but also "Standard" and "General Learner" - and setting mono
+       here rendered those words in a typewriter face with figure spacing.
+       Tabular figures are still useful, and are harmless on text. */
+    font-family: var(--font-display);
+    font-size: 2rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -.03em;
+    letter-spacing: -.015em;
     color: var(--primary);
+}
+
+/* Opt in where the value really is a number. */
+.stat-card .stat-value.is-numeric {
+    font-family: var(--font-mono);
+    letter-spacing: -.03em;
 }
 .stat-card .stat-label { font-size:.85rem; color:var(--text-600); font-weight:500; margin-top:4px; }
 

@@ -457,15 +457,22 @@ def about():
         "name": "CogniLoop",
         "author": "Kavya Aggarwal",
         "description": "Closed-loop adaptive learning platform combining BKT, Thompson Sampling, and RAG.",
-        "status": "Operational"
+        # Neither of these is linked from the interface; they exist for
+        # machine readers. A hardcoded "Operational" string told such a reader
+        # nothing, since it was true whatever the system was doing - /health
+        # is the endpoint that actually checks something.
+        "health_endpoint": "/health"
     })
 
 @app.route('/contact')
 def contact():
+    # No support_email here. This advertised support@cogniloop.com, an address
+    # on a domain the project does not own, so anyone who wrote to it reached
+    # nobody. The repository is a contact route that actually works.
     return jsonify({
         "project": "CogniLoop Research",
         "author": "Kavya Aggarwal",
-        "support_email": "support@cogniloop.com"
+        "repository": "https://github.com/OmegaKavya/CogniLoop"
     })
 
 @app.route('/login', methods=['GET', 'POST'])

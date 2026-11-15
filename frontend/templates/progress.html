@@ -98,7 +98,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(255,255,255,0.85);
+            background: var(--surface);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             padding: 8px 16px;
@@ -135,7 +135,7 @@
             padding: 8px 20px;
             border-radius: 24px;
             border: 1.5px solid var(--border);
-            background: white;
+            background: var(--surface);
             cursor: pointer;
             font-size: 0.85rem;
             font-weight: 600;
@@ -148,14 +148,14 @@
             color: #d97706;
         }
         .filter-tab.active {
-            background: #d97706;
+            background: var(--amber);
             color: white;
             border-color: #d97706;
         }
 
         /* ── Attempt Cards ── */
         .attempt-card {
-            background: white;
+            background: var(--surface);
             border-radius: 14px;
             padding: 22px 26px;
             margin-bottom: 16px;
@@ -243,8 +243,8 @@
             font-weight: 600;
             display: inline-block;
         }
-        .tag-fast { background: var(--tint-sky); color: #0284c7; }
-        .tag-steady { background: var(--tint-green); color: #16a34a; }
+        .tag-fast { background: var(--tint-sky); color: var(--on-sky); }
+        .tag-steady { background: var(--tint-green); color: var(--on-green); }
         .tag-slow { background: var(--tint-amber-soft); color: #ea580c; }
 
         .attempt-right {
@@ -266,7 +266,7 @@
         .empty-state {
             text-align: center;
             padding: 80px 20px;
-            background: rgba(255,255,255,0.85);
+            background: var(--surface);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
@@ -299,7 +299,7 @@
             transition: all .25s ease;
         }
         .empty-state .btn-go:hover {
-            background: #005a4a;
+            background: var(--primary-dark, var(--primary));
             transform: translateY(-2px);
             box-shadow: 0 6px 18px rgba(0,109,91,0.2);
         }
