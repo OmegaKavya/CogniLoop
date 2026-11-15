@@ -622,12 +622,28 @@ def dashboard():
     user_xp = sum(a.get('score', 0) * 10 for a in user_attempts)
     bkt_states = bkt_engine.get_all_states().get(user_id, {})
 
-    # Compute skill tree nodes and connections
+    # Skill tree. `started` distinguishes a measured estimate from the prior.
+    #
+    # This previously fell back to 0.3 for any topic with no state and rendered
+    # it as "30.0% BKT Mastery" in red. That number is the model's prior, not a
+    # measurement of the learner - so a brand-new learner opened the dashboard
+    # to four red failing scores for work they had not done yet. It was both
+    # wrong and discouraging.
+    def _node(topic_id, name, prereq):
+        raw = bkt_states.get(topic_id)
+        return {
+            "id": topic_id,
+            "name": name,
+            "prereq": prereq,
+            "started": raw is not None,
+            "mastery": round((raw if raw is not None else config.BKT_DEFAULTS["prior"]) * 100, 1),
+        }
+
     skill_tree_nodes = [
-        {"id": "os", "name": "Operating Systems", "prereq": None, "mastery": round(bkt_states.get("os", 0.3) * 100, 1)},
-        {"id": "ds", "name": "Data Structures", "prereq": None, "mastery": round(bkt_states.get("ds", 0.3) * 100, 1)},
-        {"id": "dbms", "name": "DBMS", "prereq": "ds", "mastery": round(bkt_states.get("dbms", 0.3) * 100, 1)},
-        {"id": "cn", "name": "Computer Networks", "prereq": "os", "mastery": round(bkt_states.get("cn", 0.3) * 100, 1)}
+        _node("os", "Operating Systems", None),
+        _node("ds", "Data Structures", None),
+        _node("dbms", "DBMS", "ds"),
+        _node("cn", "Computer Networks", "os"),
     ]
 
     return render_template('dashboard.html', 
@@ -644,7 +660,11 @@ def dashboard():
                          latest_review_by_topic=latest_review_by_topic,
                          topic_heatmap_rows=topic_heatmap_rows,
                          user_xp=user_xp,
-                         user_streak=max(1, min(total_quizzes, 7)),
+                         # A learner who has taken no quizzes has no streak.
+                         # This used to floor at 1, so an account minutes old
+                         # was congratulated on a "1 Day Streak".
+                         user_streak=min(total_quizzes, 7),
+                         total_quizzes=total_quizzes,
                          skill_tree_nodes=skill_tree_nodes)
 
 @app.route('/progress')

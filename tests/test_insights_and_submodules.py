@@ -349,3 +349,44 @@ class TestReviewSpeedLabelConsistency:
         assert "selected_attempt.adaptation.speed_label" in html, (
             "the detail view is reading a field the stored attempt does not "
             "have, so it will always display the default")
+
+
+class TestFirstRunHonesty:
+    """What a brand-new account is told about itself.
+
+    The dashboard greeted a minutes-old account with "Welcome back", credited
+    it with a "1 Day Streak" it had not earned, and showed four red 30.0%
+    scores. That 30% is the BKT prior - the model's starting assumption, not a
+    measurement - so a learner who had done nothing was shown four failing
+    grades for work they had not attempted.
+    """
+
+    def _fresh(self, client):
+        import uuid
+        email = f"firstrun-{uuid.uuid4().hex[:8]}@test.com"
+        client.post('/register', json={"name": "New", "email": email, "password": "pw"})
+        return client.get('/dashboard').data.decode()
+
+    def test_new_account_is_not_welcomed_back(self, client):
+        assert 'Welcome back' not in self._fresh(client)
+
+    def test_new_account_has_no_streak(self, client):
+        html = self._fresh(client)
+        assert '1 Day Streak' not in html
+        assert '0 Day Streak' in html
+
+    def test_untouched_topics_show_not_started_rather_than_the_prior(self, client):
+        html = self._fresh(client)
+        assert 'Not started' in html
+        assert '30.0%' not in html, (
+            "the BKT prior is being rendered as though it were a measured score")
+
+    def test_empty_chart_explains_itself(self, client):
+        html = self._fresh(client)
+        assert 'No attempts yet' in html
+
+    def test_skill_tree_leads_with_plain_language(self, client):
+        html = self._fresh(client)
+        assert 'Prerequisite DAG' not in html, (
+            "a GATE candidate is not the audience for 'prerequisite DAG'")
+        assert 'How well you know each subject' in html

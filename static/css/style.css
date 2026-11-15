@@ -32,6 +32,7 @@
     /* Warm Slate + Amber - academic, clean, professional */
     --primary:       #1a6b72;   /* Deep teal - confident, scholarly */
     --primary-light: #e6f4f5;
+    --on-primary-light: #0f4d52;
     --primary-dark:  #114b50;
     --amber:         #d97706;   /* Warm amber - CogniLoop gold */
     --amber-light:   #fef3c7;
@@ -149,6 +150,10 @@
     --text-600:      #cbd5e1;
     --text-400:      #94a3b8;
     --primary-light: #1e3a8a;
+    /* The teal --primary is close to unreadable on this navy tint; the XP
+       badge was dark-on-dark. Tints need a paired foreground, as the amber
+       and green ones already have. */
+    --on-primary-light: #bfdbfe;
     --amber-light:   #451a03;
     --emerald:       #34d399;
     --emerald-light: #064e3b;
@@ -1441,3 +1446,101 @@ button, input, select, textarea, .btn {
    the hero as "Real-" / "Time". The non-breaking hyphen in the markup fixes
    the character; this keeps the pair together if a browser ignores it. */
 .nowrap { white-space: nowrap; }
+
+/* ---------------------------------------------------------------------------
+   Small screens
+   The navbar was a non-wrapping flex row with 56px side padding carrying a
+   wordmark, two badges, a theme toggle and the links. Below roughly 700px it
+   simply ran off the edge: the streak and XP badges overflowed, the links
+   disappeared past the right edge, and the whole page scrolled sideways.
+   Nothing in the stylesheet addressed the navbar at any breakpoint.
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+    .navbar {
+        padding: 10px 16px;
+        height: auto;
+        min-height: 60px;
+        flex-wrap: wrap;
+        row-gap: 10px;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        gap: 10px !important;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .nav-links a { margin-left: 0; font-size: .9rem; }
+
+    /* The badges are decoration, not navigation. They shrink first so the
+       links they were crowding out stay reachable. */
+    .nav-links > span {
+        font-size: .76rem !important;
+        padding: 3px 8px !important;
+    }
+
+    .nav-buttons { width: 100%; justify-content: flex-start; }
+}
+
+@media (max-width: 520px) {
+    /* Two columns at this width left no room for a label like "LEARNING
+       PROFILE", which was being clipped rather than wrapped. */
+    .stat-row { grid-template-columns: 1fr !important; }
+    .stat-card .stat-value { font-size: 1.6rem; }
+    .hero-content h1 { font-size: 1.9rem; }
+    .landing-section h2, .category-header h2 { font-size: 1.5rem; }
+    .stat-big { font-size: 2.1rem; }
+}
+
+/* A page should never scroll sideways. The rules above remove the causes; this
+   is the backstop for anything added later that forgets. */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Long unbroken strings - an email address, a topic id - must not be able to
+   push a card wider than the screen. */
+.stat-card, .dash-panel, .course-card, .attempt-card, .submodule-brief {
+    overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   Empty states
+   A panel with no data used to render its chrome and nothing else - axes with
+   no line, headers with no rows - which reads as a broken page rather than a
+   new account. These say what will fill the space and how to get there.
+   --------------------------------------------------------------------------- */
+
+.panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+    min-height: 220px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+}
+
+.panel-empty__mark { font-size: 1.9rem; margin-bottom: 10px; opacity: .75; }
+
+.panel-empty__title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-900);
+    margin: 0 0 6px;
+}
+
+.panel-empty__body {
+    font-size: .9rem;
+    line-height: 1.6;
+    color: var(--text-600);
+    max-width: 44ch;
+    margin: 0;
+}
