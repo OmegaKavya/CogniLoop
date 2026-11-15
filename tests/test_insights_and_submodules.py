@@ -165,10 +165,17 @@ class TestSubmoduleDefinitions:
         for topic in ("os", "ds", "dbms", "cn"):
             assert topic in SUBMODULE_DEFINITIONS, f"Topic '{topic}' missing"
 
-    def test_each_topic_has_four_modules(self):
+    def test_each_topic_has_at_least_four_modules(self):
+        """A floor, not an exact count.
+
+        Pinning this at exactly four made the curriculum's shape a test
+        requirement: Data Structures legitimately needs six, because stacks and
+        queues, hashing, and graph traversal are each a submodule's worth of
+        material and were previously crammed into titles that no video covered.
+        """
         from utils.constants import SUBMODULE_DEFINITIONS
         for topic, mods in SUBMODULE_DEFINITIONS.items():
-            assert len(mods) == 4, f"Topic '{topic}' has {len(mods)} modules, expected 4"
+            assert len(mods) >= 4, f"Topic '{topic}' has only {len(mods)} modules"
 
     def test_each_module_has_required_keys(self):
         from utils.constants import SUBMODULE_DEFINITIONS
@@ -199,8 +206,25 @@ class TestSubmoduleDefinitions:
         for topic, mods in SUBMODULE_DEFINITIONS.items():
             for mod in mods:
                 assert mod["start_sec"] >= 0
-                if mod["end_sec"] is not None:
-                    assert mod["end_sec"] > mod["start_sec"]
+                assert mod["end_sec"] is not None, (
+                    f"{topic}/{mod['title']}: end_sec is None, which plays the "
+                    f"whole video - that shipped 135-minute submodules")
+                assert mod["end_sec"] > mod["start_sec"]
+
+    def test_module_windows_are_long_enough_to_teach(self):
+        """A window of a few minutes on a multi-hour course serves its
+        introduction, not the subject the submodule is named after. Every
+        submodule pointing at a long video once had exactly that bug."""
+        from utils.constants import SUBMODULE_DEFINITIONS
+        for topic, mods in SUBMODULE_DEFINITIONS.items():
+            for mod in mods:
+                length = mod["end_sec"] - mod["start_sec"]
+                assert length >= 8 * 60, (
+                    f"{topic}/{mod['title']}: window is only "
+                    f"{length // 60}m {length % 60}s")
+                assert length <= 75 * 60, (
+                    f"{topic}/{mod['title']}: window is {length // 60}m, "
+                    f"too long for a single submodule")
 
     def test_exam_angles_contain_gate_tip(self):
         from utils.constants import SUBMODULE_DEFINITIONS

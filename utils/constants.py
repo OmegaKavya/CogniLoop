@@ -97,9 +97,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Process & Thread Lifecycle",
             "objective": "Understand how processes are created, scheduled, and terminated - and how threads differ from processes.",
             "exam_angle": "🎯 GATE Tip: Process state diagrams and context switch overhead appear in almost every OS paper.",
-            "video_id": "26QPDBe-NB8",
+            # Replaced 26QPDBe-NB8, which is a history of operating systems
+            # (Multics, Unix, MS-DOS) and contains no process or thread content.
+            "video_id": "hpfeXwS8s78",
             "start_sec": 0,
-            "end_sec": 420,
+            "end_sec": 2243,
             "checkpoints": [
                 {
                     "id": "os-cp1-1", "trigger_pct": 30,
@@ -128,9 +130,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Virtual Memory & Page Replacement",
             "objective": "Master paging, virtual address translation, page faults, and replacement policies like LRU and FIFO.",
             "exam_angle": "🎯 GATE Tip: Numerical questions on page fault counts with reference strings are extremely common.",
+            # Ran to 8:00, which stopped before "FIFO page replacement" at
+            # 10:41 - the replacement half of this submodule's own title.
             "video_id": "FWoMSiMep80",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 1208,
             "checkpoints": [
                 {
                     "id": "os-cp2-1", "trigger_pct": 30,
@@ -159,9 +163,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Process Synchronisation & Semaphores",
             "objective": "Understand race conditions, the critical-section problem, and how semaphores and monitors enforce mutual exclusion.",
             "exam_angle": "🎯 GATE Tip: Questions often ask whether a given semaphore usage actually guarantees mutual exclusion and progress.",
+            # Ran to 8:00, cutting off mid-way through the producer-consumer
+            # derivation and before semaphores are introduced at all.
             "video_id": "ph2awKa8r5Y",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 1285,
             "checkpoints": [
                 {
                     "id": "os-cp3-1", "trigger_pct": 30,
@@ -187,12 +193,21 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "File Systems & Disk Scheduling",
-            "objective": "Master file allocation methods (contiguous, linked, indexed) and disk scheduling algorithms like SCAN, LOOK, and SSTF.",
+            "title": "Disk Scheduling Algorithms",
+            "objective": "Work through FCFS, SSTF, SCAN and LOOK, and compute total head movement for a given request queue.",
             "exam_angle": "🎯 GATE Tip: Disk scheduling questions usually require calculating total head movement in cylinder steps.",
-            "video_id": "Ak1a0MnvTH0",
+            # Replaced Ak1a0MnvTH0, a 118-minute video with no chapters that
+            # was served in full. Retitled to match what is actually taught:
+            # file allocation methods are not covered here.
+            #
+            # Note on picking replacements: uEM7LfP_0mw was the first choice
+            # and resolves fine on the watch page, but returns HTTP 401 from
+            # oembed because embedding is disabled - so it would have rendered
+            # as an unplayable frame. Candidates must be checked for
+            # embeddability, not just existence.
+            "video_id": "rVvL6v50qr0",
             "start_sec": 0,
-            "end_sec": None,
+            "end_sec": 1175,
             "checkpoints": [
                 {
                     "id": "os-cp4-1", "trigger_pct": 30,
@@ -220,12 +235,16 @@ SUBMODULE_DEFINITIONS = {
     ],
     'ds': [
         {
-            "title": "Linear Structures & Complexity Analysis",
-            "objective": "Master arrays, linked lists, stacks, queues, and how to choose the right structure based on operation costs.",
+            "title": "Complexity Analysis & Linear Structures",
+            "objective": "Master abstract data types, Big-O reasoning, and the cost model behind static arrays, dynamic arrays and linked lists.",
             "exam_angle": "🎯 GATE Tip: Time complexity questions often compare array vs linked list for insert/delete at arbitrary positions.",
+            # 0:00-58:26 of the full course: abstract data types, Big-O,
+            # static and dynamic arrays, singly and doubly linked lists.
+            # Previously ran to 7:00, which ended inside the Big-O section and
+            # never reached arrays or linked lists at all.
             "video_id": "RBSGKlAvoiM",
             "start_sec": 0,
-            "end_sec": 420,
+            "end_sec": 3506,
             "checkpoints": [
                 {
                     "id": "ds-cp1-1", "trigger_pct": 30,
@@ -236,110 +255,187 @@ SUBMODULE_DEFINITIONS = {
                 },
                 {
                     "id": "ds-cp1-2", "trigger_pct": 65,
-                    "question": "Which data structure is most suitable for implementing function call recursion in programming languages?",
-                    "options": ["Stack", "Queue", "Heap", "Graph"],
+                    "question": "Accessing the element at index i is O(1) for an array but O(n) for a linked list. Why?",
+                    "options": ["An array's elements are contiguous, so the address is computed arithmetically", "Arrays are always sorted and linked lists are not", "Linked lists store elements on disk", "Arrays cache every index in a lookup table"],
                     "correct_index": 0,
-                    "explanation": "Recursion uses a call stack (LIFO): each function call pushes a frame, return pops it."
+                    "explanation": "An array's address is base + i × element_size, computed in constant time. A linked list must follow i pointers."
                 },
                 {
                     "id": "ds-cp1-3", "trigger_pct": 85,
-                    "question": "A deque (double-ended queue) generalises both stack and queue. Which operation is NOT O(1) for a deque?",
-                    "options": ["Search by value", "Insert at front", "Delete from rear", "Insert at rear"],
+                    "question": "A dynamic array doubles its capacity when full. What is the amortised cost of a single append?",
+                    "options": ["O(1)", "O(n)", "O(log n)", "O(n log n)"],
                     "correct_index": 0,
-                    "explanation": "All insert/delete at ends are O(1) for deques. Search requires O(n) traversal."
+                    "explanation": "Doubling makes copies rare: n appends cost O(n) in total, so each append is O(1) amortised even though one of them is O(n)."
                 }
             ]
         },
         {
-            "title": "Trees, BSTs & Balanced Structures",
-            "objective": "Understand binary trees, BST operations, AVL rotations, heaps, and tree traversal patterns.",
-            "exam_angle": "🎯 GATE Tip: BST worst-case height (skewed tree = O(n)) vs AVL guaranteed O(log n) is a classic exam contrast.",
-            "video_id": "qH6yxkw0u78",
-            "start_sec": 0,
-            "end_sec": 480,
+            "title": "Stacks & Queues",
+            "objective": "Understand stack and queue semantics, their array and linked-list implementations, and where each is the right choice.",
+            "exam_angle": "🎯 GATE Tip: Questions often ask which structure models a given access pattern, or to simulate a sequence of push/pop operations.",
+            # 58:26-91:32: stack introduction, implementation and code, then
+            # queue introduction, implementation and code.
+            "video_id": "RBSGKlAvoiM",
+            "start_sec": 3506,
+            "end_sec": 5492,
             "checkpoints": [
                 {
                     "id": "ds-cp2-1", "trigger_pct": 30,
+                    "question": "Which data structure is most suitable for implementing function call recursion in programming languages?",
+                    "options": ["Stack", "Queue", "Heap", "Hash table"],
+                    "correct_index": 0,
+                    "explanation": "Call frames are pushed on entry and popped on return, which is exactly last-in-first-out behaviour."
+                },
+                {
+                    "id": "ds-cp2-2", "trigger_pct": 65,
+                    "question": "A deque (double-ended queue) generalises both stack and queue. Which operation is NOT O(1) for a deque?",
+                    "options": ["Access by arbitrary index", "Insert at front", "Insert at back", "Remove from front"],
+                    "correct_index": 0,
+                    "explanation": "A deque gives O(1) insert and remove at both ends, but indexing into the middle is not a deque operation."
+                },
+                {
+                    "id": "ds-cp2-3", "trigger_pct": 85,
+                    "question": "You implement a queue using two stacks. What is the amortised cost of a dequeue?",
+                    "options": ["O(1)", "O(n)", "O(log n)", "O(n²)"],
+                    "correct_index": 0,
+                    "explanation": "Each element is moved between the two stacks at most once, so the cost spread over a sequence of operations is constant."
+                }
+            ]
+        },
+        {
+            "title": "Binary Search Trees & Traversals",
+            "objective": "Master BST insertion, removal and the four traversal orders, and understand why an unbalanced BST degrades to a list.",
+            "exam_angle": "🎯 GATE Tip: BST worst-case height (skewed tree = O(n)) vs a balanced tree's O(log n) is a classic exam contrast.",
+            # 183:54-239:26: BST introduction, insertion, removal, traversals
+            # and code. The previous video (qH6yxkw0u78) was a 15-minute
+            # introduction to trees that contained no BST content at all,
+            # despite the submodule being titled for it.
+            "video_id": "RBSGKlAvoiM",
+            "start_sec": 11034,
+            "end_sec": 14366,
+            "checkpoints": [
+                {
+                    "id": "ds-cp3-1", "trigger_pct": 30,
                     "question": "What is the worst-case time complexity of search in an unbalanced Binary Search Tree?",
                     "options": ["O(n)", "O(log n)", "O(1)", "O(n log n)"],
                     "correct_index": 0,
                     "explanation": "A skewed BST degenerates to a linked list: search becomes O(n) in the worst case."
                 },
                 {
-                    "id": "ds-cp2-2", "trigger_pct": 65,
-                    "question": "In a max-heap, which property must hold for every node?",
-                    "options": ["A node's value ≥ both its children's values", "A node's value ≤ both its children's values", "Left child > right child always", "All leaf nodes have equal values"],
-                    "correct_index": 0,
-                    "explanation": "Max-heap property: parent ≥ children. This ensures the maximum element is always at the root."
-                },
-                {
-                    "id": "ds-cp2-3", "trigger_pct": 85,
-                    "question": "Which traversal of a BST visits nodes in sorted (ascending) order?",
-                    "options": ["Inorder (Left → Root → Right)", "Preorder (Root → Left → Right)", "Postorder (Left → Right → Root)", "Level-order (BFS)"],
-                    "correct_index": 0,
-                    "explanation": "Inorder traversal of a BST always produces sorted output due to the BST ordering property."
-                }
-            ]
-        },
-        {
-            "title": "Graphs, Hashing & Algorithm Design",
-            "objective": "Apply BFS/DFS, shortest path algorithms, and hash table design with collision resolution strategies.",
-            "exam_angle": "🎯 GATE Tip: Dijkstra vs Bellman-Ford trade-offs (negative edges, complexity) appear frequently.",
-            "video_id": "tWVWeAqZ0WU",
-            "start_sec": 0,
-            "end_sec": 480,
-            "checkpoints": [
-                {
-                    "id": "ds-cp3-1", "trigger_pct": 30,
-                    "question": "Why can't Dijkstra's algorithm handle graphs with negative edge weights?",
-                    "options": ["It assumes all relaxations are final once a node is visited", "It uses BFS which doesn't support weights", "It only works on trees", "It requires the graph to be directed"],
-                    "correct_index": 0,
-                    "explanation": "Dijkstra marks nodes as 'settled'. A negative edge could make a settled node reachable for cheaper, violating this assumption."
-                },
-                {
                     "id": "ds-cp3-2", "trigger_pct": 65,
-                    "question": "In open addressing (linear probing), what happens when the hash table becomes very full?",
-                    "options": ["Clustering increases, making search degrade toward O(n)", "Performance improves due to cache locality", "Collisions become impossible", "The table automatically resizes"],
+                    "question": "Which traversal of a BST visits nodes in sorted (ascending) order?",
+                    "options": ["In-order", "Pre-order", "Post-order", "Level-order"],
                     "correct_index": 0,
-                    "explanation": "Linear probing causes primary clustering: long runs of occupied slots degrade average search time."
+                    "explanation": "In-order traversal visits left subtree, node, then right subtree, which yields ascending order for a BST."
                 },
                 {
                     "id": "ds-cp3-3", "trigger_pct": 85,
-                    "question": "Which algorithm finds the Minimum Spanning Tree by always picking the globally cheapest edge that doesn't form a cycle?",
-                    "options": ["Kruskal's Algorithm", "Prim's Algorithm", "Dijkstra's Algorithm", "Bellman-Ford"],
+                    "question": "When deleting a BST node that has two children, which node replaces it?",
+                    "options": ["Its in-order successor or predecessor", "Its parent", "The deepest leaf in the tree", "The root of the tree"],
                     "correct_index": 0,
-                    "explanation": "Kruskal's sorts all edges by weight and greedily adds the cheapest that doesn't form a cycle (uses Union-Find)."
+                    "explanation": "Replacing with the in-order successor (smallest in the right subtree) or predecessor preserves the BST ordering property."
                 }
             ]
         },
         {
-            "title": "Advanced Trees & Heap Operations",
-            "objective": "Master AVL tree self-balancing rotations, the optimal cost of building a heap (heapify), and prefix/Trie structures.",
-            "exam_angle": "🎯 GATE Tip: The time complexity of building a heap from scratch is O(n), NOT O(n log n). This is a frequent trick question.",
-            "video_id": "HqPJF2L5h9U",
-            "start_sec": 0,
-            "end_sec": None,
+            "title": "Hashing & Hash Tables",
+            "objective": "Understand hash functions, separate chaining, open addressing and linear probing, and how load factor drives performance.",
+            "exam_angle": "🎯 GATE Tip: Collision-resolution questions ask you to simulate probing sequences and count comparisons.",
+            # 239:26-286:36: hash functions, separate chaining and its code,
+            # open addressing, linear probing. Hashing was previously named in
+            # the graphs submodule's title but appeared in no video.
+            "video_id": "RBSGKlAvoiM",
+            "start_sec": 14366,
+            "end_sec": 17196,
             "checkpoints": [
                 {
                     "id": "ds-cp4-1", "trigger_pct": 30,
-                    "question": "After inserting a node in an AVL tree, what is the maximum height difference allowed between left and right subtrees of any node?",
-                    "options": ["1", "2", "0", "Unlimited"],
+                    "question": "In open addressing (linear probing), what happens when the hash table becomes very full?",
+                    "options": ["Clustering increases, making search degrade toward O(n)", "Performance improves due to cache locality", "Collisions become impossible", "The table automatically resizes"],
                     "correct_index": 0,
-                    "explanation": "An AVL tree is a self-balancing binary search tree where the height difference (balance factor) must be at most 1."
+                    "explanation": "Primary clustering makes probe sequences longer as the load factor rises, so lookups degrade toward linear scanning."
                 },
                 {
                     "id": "ds-cp4-2", "trigger_pct": 65,
-                    "question": "What is the worst-case time complexity of building a binary heap of size n using the bottom-up heapify (Build-Heap) algorithm?",
-                    "options": ["O(n)", "O(n log n)", "O(log n)", "O(n²)"],
+                    "question": "With separate chaining, what is the worst-case time complexity of a lookup?",
+                    "options": ["O(n)", "O(1)", "O(log n)", "O(n log n)"],
                     "correct_index": 0,
-                    "explanation": "Build-Heap runs in O(n) because the work done at each level decreases exponentially as height increases."
+                    "explanation": "If every key hashes to the same bucket, the chain holds all n entries and lookup becomes a linear scan."
                 },
                 {
                     "id": "ds-cp4-3", "trigger_pct": 85,
-                    "question": "Which data structure is most efficient for prefix-matching and autocomplete lookups on a set of strings?",
-                    "options": ["Trie (Prefix Tree)", "Hash Table", "Red-Black Tree", "Binary Search Tree"],
+                    "question": "A hash table's load factor is defined as which ratio?",
+                    "options": ["Number of stored entries divided by number of buckets", "Number of buckets divided by number of entries", "Number of collisions divided by number of lookups", "Table size in bytes divided by key size"],
                     "correct_index": 0,
-                    "explanation": "Tries store characters in edges/nodes, allowing O(L) prefix search, where L is the prefix length, independent of table size."
+                    "explanation": "Load factor α = n/m. It is the parameter that governs expected probe length, which is why implementations resize once it crosses a threshold."
+                }
+            ]
+        },
+        {
+            "title": "Heaps & Priority Queues",
+            "objective": "Master the heap property, heapify, heap sort, and how an array represents a complete binary tree.",
+            "exam_angle": "🎯 GATE Tip: Build-Heap being O(n) rather than O(n log n) is a frequently tested subtlety.",
+            # The full 51-minute lecture: binary tree representation, complete
+            # trees, insert, delete, heap sort, heapify, priority queues.
+            "video_id": "HqPJF2L5h9U",
+            "start_sec": 0,
+            "end_sec": 3068,
+            "checkpoints": [
+                {
+                    "id": "ds-cp5-1", "trigger_pct": 30,
+                    "question": "In a max-heap, which property must hold for every node?",
+                    "options": ["A node's value ≥ both its children's values", "A node's value ≤ both its children's values", "Left child > right child always", "All leaf nodes have equal values"],
+                    "correct_index": 0,
+                    "explanation": "The max-heap property requires every parent to be at least as large as its children, which puts the maximum at the root."
+                },
+                {
+                    "id": "ds-cp5-2", "trigger_pct": 65,
+                    "question": "What is the worst-case time complexity of building a binary heap of size n using the bottom-up heapify (Build-Heap) algorithm?",
+                    "options": ["O(n)", "O(n log n)", "O(log n)", "O(n²)"],
+                    "correct_index": 0,
+                    "explanation": "Most nodes are near the bottom and sift down only a short distance; summing the work over all levels gives O(n), not O(n log n)."
+                },
+                {
+                    "id": "ds-cp5-3", "trigger_pct": 85,
+                    "question": "A heap is stored in an array with the root at index 0. Where are the children of the node at index i?",
+                    "options": ["2i+1 and 2i+2", "i+1 and i+2", "i/2 and i/2+1", "2i and 2i+1"],
+                    "correct_index": 0,
+                    "explanation": "Because a heap is a complete binary tree, the layout is implicit: children of i sit at 2i+1 and 2i+2, and the parent at (i-1)/2."
+                }
+            ]
+        },
+        {
+            "title": "Graphs: Representation & Traversal",
+            "objective": "Understand adjacency lists and matrices, depth-first and breadth-first traversal, and how to answer reachability questions on a graph.",
+            "exam_angle": "🎯 GATE Tip: Questions ask which traversal to use, and compare adjacency list vs matrix space for sparse and dense graphs.",
+            # 2:23-60:44: graph basics, depth-first and breadth-first traversal,
+            # has-path, undirected path, connected components. Previously ran
+            # 0:00-8:00, which was the course introduction and stopped as
+            # traversal began at 7:10.
+            "video_id": "tWVWeAqZ0WU",
+            "start_sec": 143,
+            "end_sec": 3644,
+            "checkpoints": [
+                {
+                    "id": "ds-cp6-1", "trigger_pct": 30,
+                    "question": "For a sparse graph with V vertices and E edges, why is an adjacency list preferred over an adjacency matrix?",
+                    "options": ["It uses O(V+E) space instead of O(V²)", "It allows O(1) edge-existence checks", "It keeps the vertices sorted", "It supports negative edge weights"],
+                    "correct_index": 0,
+                    "explanation": "A matrix always costs O(V²) regardless of how few edges exist. A list stores only the edges present, so sparse graphs use far less memory."
+                },
+                {
+                    "id": "ds-cp6-2", "trigger_pct": 65,
+                    "question": "To find the shortest path between two nodes in an UNWEIGHTED graph, which traversal should you use?",
+                    "options": ["Breadth-first search", "Depth-first search", "Either gives the shortest path", "Neither; only Dijkstra works"],
+                    "correct_index": 0,
+                    "explanation": "BFS explores by increasing distance, so the first time it reaches a node it has used the fewest possible edges. DFS offers no such guarantee."
+                },
+                {
+                    "id": "ds-cp6-3", "trigger_pct": 85,
+                    "question": "Which data structure does an iterative depth-first search use to track nodes still to visit?",
+                    "options": ["Stack", "Queue", "Priority queue", "Hash set"],
+                    "correct_index": 0,
+                    "explanation": "DFS explores the most recently discovered node first, which is stack behaviour. Swapping the stack for a queue turns the same algorithm into BFS."
                 }
             ]
         }
@@ -349,9 +445,13 @@ SUBMODULE_DEFINITIONS = {
             "title": "Relational Model, Keys & SQL Fundamentals",
             "objective": "Understand relational algebra, key types, SQL joins, and aggregate functions with GROUP BY and HAVING.",
             "exam_angle": "🎯 GATE Tip: Relational algebra expressions and SQL query output prediction are near-guaranteed exam questions.",
+            # Ran 0:00-7:00 of a 260-minute course, which is its introduction.
+            # "Tables & Keys" begins at 23:10 and "SQL Basics" at 43:31, so
+            # neither subject named in this submodule's title was reached.
+            # Ends before the MySQL installation chapters at 52:26.
             "video_id": "HXV3zeQKqGY",
-            "start_sec": 0,
-            "end_sec": 420,
+            "start_sec": 156,
+            "end_sec": 3146,
             "checkpoints": [
                 {
                     "id": "db-cp1-1", "trigger_pct": 30,
@@ -380,9 +480,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Normalisation & Database Design",
             "objective": "Apply functional dependencies, identify anomalies, and normalise relations to 1NF, 2NF, 3NF, and BCNF.",
             "exam_angle": "🎯 GATE Tip: Given a relation and FDs, finding the highest normal form it satisfies is a classic 2-mark question.",
+            # Ran to 8:00, which ends inside 2NF. 3NF, 4NF and 5NF were never
+            # shown despite being the substance of the submodule.
             "video_id": "GFQaEYEc8_8",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 1714,
             "checkpoints": [
                 {
                     "id": "db-cp2-1", "trigger_pct": 30,
@@ -411,9 +513,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Transactions, Concurrency & Recovery",
             "objective": "Master ACID properties, isolation levels, concurrency control protocols, and crash recovery mechanisms.",
             "exam_angle": "🎯 GATE Tip: Serializability of schedules (conflict vs view) and lock-based protocol questions are very common.",
+            # Ran to 8:00, ending just after "Atomicity and aborts". Isolation
+            # levels (9:44) and serializability (21:53) were never reached.
             "video_id": "5ZjhNTM8XU8",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 2468,
             "checkpoints": [
                 {
                     "id": "db-cp3-1", "trigger_pct": 30,
@@ -439,12 +543,15 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "Indexing & Query Optimization",
-            "objective": "Master index structures (B and B+ trees), sparse vs dense indexing, and algebraic query plan optimizations.",
+            "title": "Indexing with B-Trees and B+ Trees",
+            "objective": "Master multi-level indexing, m-way search trees, and B-tree and B+ tree structure, insertion and node capacity.",
             "exam_angle": "🎯 GATE Tip: Understanding the minimum and maximum node capacity of a B+ Tree of order 'p' is a core GATE calculation.",
+            # Retitled: this covers index structures thoroughly but does not
+            # cover algebraic query plan optimisation, which the old title
+            # promised.
             "video_id": "aZjYr87r1b8",
             "start_sec": 0,
-            "end_sec": None,
+            "end_sec": 2381,
             "checkpoints": [
                 {
                     "id": "db-cp4-1", "trigger_pct": 30,
@@ -475,9 +582,11 @@ SUBMODULE_DEFINITIONS = {
             "title": "Network Architecture & Addressing",
             "objective": "Understand OSI vs TCP/IP layering, IP addressing, subnetting, and ARP/ICMP roles.",
             "exam_angle": "🎯 GATE Tip: Subnetting calculations (hosts per subnet, network address, broadcast) are standard numerical questions.",
+            # Ran to 7:00, which stopped before "Packet switching and IP" at
+            # 9:11 - the addressing half of this submodule's own title.
             "video_id": "3QhU9jd03a0",
             "start_sec": 0,
-            "end_sec": 420,
+            "end_sec": 739,
             "checkpoints": [
                 {
                     "id": "cn-cp1-1", "trigger_pct": 30,
@@ -503,12 +612,14 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "Transport Layer: TCP vs UDP Deep Dive",
-            "objective": "Master TCP's 3-way handshake, flow control (sliding window), congestion control, and when to choose UDP.",
+            "title": "Transport Layer: TCP and UDP",
+            "objective": "Understand what the transport layer is responsible for, how TCP provides reliable ordered delivery, and when UDP is the better choice.",
             "exam_angle": "🎯 GATE Tip: TCP sequence number and acknowledgement number calculations appear in numerical questions.",
-            "video_id": "Hyx1RaIVOxU",
+            # Replaced Hyx1RaIVOxU, a 117-minute video with no chapters that was
+            # served as its first 8 minutes.
+            "video_id": "kAty4mKczEg",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 971,
             "checkpoints": [
                 {
                     "id": "cn-cp2-1", "trigger_pct": 30,
@@ -534,12 +645,14 @@ SUBMODULE_DEFINITIONS = {
             ]
         },
         {
-            "title": "Application Layer Protocols & Web Security",
-            "objective": "Understand DNS resolution, HTTP and HTTPS, email protocols, and the security services the application layer relies on.",
-            "exam_angle": "🎯 GATE Tip: DNS lookup order and the difference between HTTP and HTTPS are frequently examined.",
+            "title": "Application Layer Protocols",
+            "objective": "Understand HTTP, FTP, SMTP and POP: what each protocol is for, which transport it runs over, and the port numbers they use.",
+            "exam_angle": "🎯 GATE Tip: Protocol-to-port-number mappings and which protocols use TCP versus UDP are frequently examined.",
+            # Retitled: web security is not covered in this lecture. It is
+            # taught in the cryptography submodule that follows.
             "video_id": "pnoWCK82apU",
             "start_sec": 0,
-            "end_sec": 480,
+            "end_sec": 1065,
             "checkpoints": [
                 {
                     "id": "cn-cp3-1", "trigger_pct": 30,
@@ -568,9 +681,12 @@ SUBMODULE_DEFINITIONS = {
             "title": "Network Security & Cryptography",
             "objective": "Master cryptographic concepts (symmetric vs asymmetric keys), digital signatures, firewalls, and the RSA algorithm.",
             "exam_angle": "🎯 GATE Tip: Number theory questions in cryptography frequently ask you to calculate RSA ciphertexts using modular arithmetic.",
+            # Served all 135 minutes, including DES/AES/MD5/SHA walkthroughs and
+            # an "Interview Questions" segment. Now ends at 32:59, after
+            # symmetric and asymmetric key cryptography and hashing.
             "video_id": "C7vmouDOJYM",
             "start_sec": 0,
-            "end_sec": None,
+            "end_sec": 1979,
             "checkpoints": [
                 {
                     "id": "cn-cp4-1", "trigger_pct": 30,

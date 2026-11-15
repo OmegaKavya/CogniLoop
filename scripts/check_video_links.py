@@ -44,6 +44,18 @@ TIMEOUT = 25
 # this check existed, so availability alone is not a sufficient test.
 MIN_TEACHING_SECONDS = 8 * 60
 
+# A submodule plays a [start_sec, end_sec) window of its video, and a window
+# can be wrong in ways a live link never reveals. Both failures shipped:
+#
+#   - `end_sec: None` meant "play to the end", so submodules pointing at
+#     multi-hour courses served the entire 135-minute video.
+#   - A window of 0-480 on a 260-minute course serves its introduction, not
+#     the subject the submodule is named after.
+#
+# Neither is visible from the link check, so the window is checked too.
+MIN_SEGMENT_SECONDS = 8 * 60
+MAX_SEGMENT_SECONDS = 75 * 60
+
 
 def duration_seconds(video_id):
     """Length of the video, or None when it cannot be determined."""
@@ -73,6 +85,43 @@ def resolve(video_id):
         return False, f"HTTP {exc.code}"
     except Exception as exc:  # network trouble is not the same as link rot
         return None, f"{type(exc).__name__}: {exc}"
+
+
+def check_segments():
+    """Validate every submodule's playback window. Returns a list of problems.
+
+    This needs no network access for the structural checks; the duration bound
+    is applied by the caller, which already knows each video's length.
+    """
+    from utils.constants import SUBMODULE_DEFINITIONS
+
+    problems = []
+    for topic_id, modules in SUBMODULE_DEFINITIONS.items():
+        for module in modules:
+            title = module.get("title", "")
+            start = module.get("start_sec")
+            end = module.get("end_sec")
+
+            if start is None or start < 0:
+                problems.append((topic_id, title, "start_sec is missing or negative"))
+                continue
+            if end is None:
+                problems.append((topic_id, title,
+                                 "end_sec is None, so the whole video plays"))
+                continue
+            if end <= start:
+                problems.append((topic_id, title, f"empty window {start}-{end}"))
+                continue
+
+            length = end - start
+            if length < MIN_SEGMENT_SECONDS:
+                problems.append((topic_id, title,
+                                 f"window is only {length // 60}m {length % 60}s, "
+                                 f"likely an introduction rather than the topic"))
+            elif length > MAX_SEGMENT_SECONDS:
+                problems.append((topic_id, title,
+                                 f"window is {length // 60}m, too long for one submodule"))
+    return problems
 
 
 def collect():
@@ -109,11 +158,13 @@ def main():
 
     entries = collect()
     dead, errored, thin = [], [], []
+    durations = {}
 
     for topic_id, label, video_id in entries:
         ok, detail = resolve(video_id)
         if ok:
             secs = duration_seconds(video_id)
+            durations[video_id] = secs
             if secs is not None and secs < MIN_TEACHING_SECONDS:
                 thin.append((topic_id, label, video_id, secs))
                 detail = f"{detail}  [{secs // 60}m {secs % 60}s]"
@@ -130,8 +181,29 @@ def main():
             if not args.quiet and ok:
                 print(f"        {'':<12} {'':<5} {detail[:70]}")
 
+    # Playback windows: structural checks, plus the bound that needs the
+    # durations fetched above.
+    segment_problems = check_segments()
+    from utils.constants import SUBMODULE_DEFINITIONS
+    for topic_id, modules in SUBMODULE_DEFINITIONS.items():
+        for module in modules:
+            end = module.get("end_sec")
+            length = durations.get(module.get("video_id"))
+            if end is not None and length and end > length:
+                segment_problems.append((
+                    topic_id, module.get("title", ""),
+                    f"end_sec {end} is past the end of the video ({length}s)"))
+
     print(f"\n{len(entries)} videos checked, {len(dead)} unavailable, "
           f"{len(thin)} too short to be a lecture, {len(errored)} could not be reached")
+    print(f"{len(segment_problems)} submodule playback windows look wrong")
+
+    if segment_problems:
+        print("\nPlayback windows to correct. A window that is too short "
+              "usually serves\nthe video's introduction rather than the "
+              "subject the submodule is named for:")
+        for topic_id, title, reason in segment_problems:
+            print(f"  {topic_id}: {title} - {reason}")
 
     if thin:
         print(f"\nShorter than {MIN_TEACHING_SECONDS // 60} minutes. These resolve but are")
@@ -152,7 +224,7 @@ def main():
         for topic_id, label, video_id, detail in errored:
             print(f"  {topic_id}: {label} ({video_id}) {detail}")
 
-    return 1 if (dead or thin) else 0
+    return 1 if (dead or thin or segment_problems) else 0
 
 
 if __name__ == "__main__":
