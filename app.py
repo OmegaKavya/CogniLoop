@@ -11,6 +11,7 @@ from utils.constants import STATIC_CHEAT_SHEETS
 from backend import config
 from backend.auth.auth_service import hash_password, verify_password
 from backend.quiz.quiz_session import active_quiz_store, public_view
+from backend.adaptation.speed_adaptation import speed_adapter
 
 app = Flask(__name__,
             template_folder='frontend/templates',
@@ -766,7 +767,7 @@ def quiz_submit():
     avg_time = eval_result['avg_time']
     
     # Still keep a speed label for UI purposes, but use bandit for actual difficulty
-    speed_label = "Fast" if avg_time < 10 else "Slow" if avg_time > 25 else "Steady"
+    speed_label = speed_adapter.speed_label(avg_time)
     adaptation = {
         "speed_label": speed_label,
         "new_difficulty": current_difficulty # Recorded for historical purposes
@@ -844,7 +845,9 @@ def quiz_submit():
         "quiz_meta": {
             "difficulty": quiz.get('difficulty', current_difficulty),
             "num_questions": len(quiz.get('questions', [])),
-            "timer_seconds": quiz.get('timer_seconds', 0),
+            # The key written by build_quiz_payload is question_time_seconds.
+            # Reading 'timer_seconds' meant this logged 0 on every attempt.
+            "timer_seconds": quiz.get('question_time_seconds', 0),
             "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
         },
         "question_results": reviewed_questions,

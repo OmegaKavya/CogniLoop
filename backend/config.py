@@ -77,6 +77,14 @@ CLUSTERING_MODEL_PATH = _path("CLUSTERING_MODEL_PATH", "models/clustering_model.
 RAG_DB_PATH = _path("RAG_DB_PATH", "data/chroma_db")
 ACTIVE_QUIZ_PATH = _path("ACTIVE_QUIZ_PATH", "data/active_quizzes.json")
 
+# --- Response speed --------------------------------------------------------
+
+# Average seconds per question below which a learner is "Fast" and above which
+# they are "Slow". Single definition: these thresholds were previously written
+# out three separate times and could drift apart silently.
+SPEED_FAST_SECONDS = env_float("SPEED_FAST_SECONDS", 10.0)
+SPEED_SLOW_SECONDS = env_float("SPEED_SLOW_SECONDS", 25.0)
+
 # --- Quiz integrity --------------------------------------------------------
 
 # How long an issued quiz stays gradable. The answer key lives server-side for
