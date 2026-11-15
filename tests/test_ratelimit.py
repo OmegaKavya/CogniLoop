@@ -117,7 +117,24 @@ class TestSessionCookieHardening:
                                        "password": "pw"})
         res = client.post('/login', json={"email": "cookie@test.com",
                                           "password": "pw"})
-        cookie = res.headers.get('Set-Cookie', '')
-        if cookie:
+        # Several cookies are set on this response, so pick out the session one
+        # by name. Reading headers.get('Set-Cookie') returns whichever happens
+        # to be first, which made this assert against the CSRF cookie instead.
+        session_cookies = [value for value in res.headers.getlist('Set-Cookie')
+                           if value.startswith('session=')]
+        for cookie in session_cookies:
             assert 'HttpOnly' in cookie
+            assert 'SameSite=Lax' in cookie
+
+    def test_csrf_cookie_is_readable_by_script_but_still_same_site(self, client):
+        """The CSRF cookie is deliberately not HttpOnly - the page's own
+        JavaScript has to read it to echo it back in a header."""
+        client.post('/register', json={"name": "C", "email": "csrfcookie@test.com",
+                                       "password": "pw"})
+        res = client.get('/dashboard')
+        csrf_cookies = [value for value in res.headers.getlist('Set-Cookie')
+                        if value.startswith('csrf_token=')]
+        assert csrf_cookies, "no CSRF cookie was issued to an authenticated user"
+        for cookie in csrf_cookies:
+            assert 'HttpOnly' not in cookie
             assert 'SameSite=Lax' in cookie

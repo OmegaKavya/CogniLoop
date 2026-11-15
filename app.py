@@ -296,6 +296,83 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
     return quiz
 
 
+def _is_admin(user_id):
+    """Whether this account may read cohort-wide research data.
+
+    Resolved from the stored record rather than the session, so revoking
+    access takes effect on the next request instead of whenever the learner
+    happens to log in again.
+    """
+    if not config.ADMIN_EMAILS:
+        return False
+    users = user_repo.get_all()
+    if not isinstance(users, list):
+        return False
+    for user in users:
+        if str(user.get('id')) == str(user_id):
+            return str(user.get('email', '')).strip().lower() in config.ADMIN_EMAILS
+    return False
+
+
+CSRF_HEADER = 'X-CSRF-Token'
+CSRF_COOKIE = 'csrf_token'
+CSRF_SAFE_METHODS = frozenset({'GET', 'HEAD', 'OPTIONS', 'TRACE'})
+
+
+def _csrf_token():
+    """This session's CSRF token, minted on first use."""
+    token = session.get('csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['csrf_token'] = token
+    return token
+
+
+@app.before_request
+def require_csrf_token():
+    """Reject state-changing requests that do not echo the CSRF token.
+
+    Double-submit: the authoritative token lives in the session, and a
+    readable cookie carries a copy that `static/js/security_guard.js` echoes
+    back in a header. A cross-origin page can make the browser send the
+    cookie, but the same-origin policy stops it reading the value, so it
+    cannot produce the matching header.
+
+    Only authenticated requests are checked. An unauthenticated POST is
+    login or registration, where there is no session to ride and nothing to
+    forge on the user's behalf; requiring a token there would only mean
+    rejecting the first request every new visitor makes. Those routes are
+    covered by SameSite=Lax and their own rate limits.
+    """
+    if request.method in CSRF_SAFE_METHODS or 'user_id' not in session:
+        return None
+
+    expected = session.get('csrf_token')
+    presented = request.headers.get(CSRF_HEADER, '')
+    if expected and secrets.compare_digest(str(expected), str(presented)):
+        return None
+
+    return jsonify({
+        'success': False,
+        'message': 'Request could not be verified. Please reload the page.',
+    }), 403
+
+
+@app.after_request
+def set_csrf_cookie(response):
+    """Publish the token in a cookie the page's own JavaScript can read.
+
+    Deliberately not HttpOnly: the whole point is that same-origin script can
+    read it and an attacker's script cannot.
+    """
+    if 'user_id' in session:
+        response.set_cookie(
+            CSRF_COOKIE, _csrf_token(),
+            secure=bool(app.config.get('SESSION_COOKIE_SECURE')),
+            httponly=False, samesite='Lax', path='/')
+    return response
+
+
 @app.after_request
 def set_security_headers(response):
     """Apply baseline security headers to every response.
@@ -907,8 +984,17 @@ from backend.analytics.metrics import analytics_engine
 def research_analytics():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-    
-    # In a real app, restrict this to admin users only.
+
+    # Cohort-wide data: every learner's study group and aggregate performance.
+    # The allowlist is empty unless ADMIN_EMAILS is configured, so this fails
+    # closed rather than serving the cohort to whoever asks.
+    #
+    # The address is read from the stored record rather than the session, so
+    # it reflects the account as it is now and never has to travel in the
+    # cookie.
+    if not _is_admin(session['user_id']):
+        return jsonify({'success': False, 'message': 'Forbidden'}), 403
+
     report = analytics_engine.generate_experiment_report()
     return jsonify({
         'success': True,

@@ -9,6 +9,8 @@ import uuid
 from unittest.mock import patch, MagicMock
 import pytest
 
+from backend import config
+
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -321,16 +323,40 @@ class TestVideoTracking:
 # ── Research analytics ────────────────────────────────────────────────────────
 
 class TestResearchAnalytics:
-    def test_analytics_endpoint_returns_200(self, client):
+    """The endpoint exposes every learner's study group and performance.
+
+    It previously admitted any logged-in learner, with a source comment noting
+    that it ought to be restricted. It is now behind an allowlist that is
+    empty by default, so an unconfigured deployment withholds the data rather
+    than publishing it.
+    """
+
+    def test_ordinary_learner_is_refused(self, client):
         client.post('/register', json={"email": "analytics@test.com", "name": "A", "password": "p"})
         r = client.get('/api/research-analytics')
-        assert r.status_code == 200
+        assert r.status_code == 403, "cohort data served to a non-admin"
 
-    def test_analytics_returns_json(self, client):
-        client.post('/register', json={"email": "analytics2@test.com", "name": "A", "password": "p"})
+    def test_anonymous_is_refused(self, client):
         r = client.get('/api/research-analytics')
+        assert r.status_code == 401
+
+    def test_allowlisted_admin_is_served(self, client):
+        from unittest.mock import patch
+        email = "admin-analytics@test.com"
+        client.post('/register', json={"email": email, "name": "A", "password": "p"})
+        with patch.object(config, 'ADMIN_EMAILS', frozenset({email})):
+            r = client.get('/api/research-analytics')
+        assert r.status_code == 200
         body = json.loads(r.data)
         assert isinstance(body, dict)
+        assert body.get('success') is True
+
+    def test_allowlist_match_ignores_case_and_padding(self, client):
+        from unittest.mock import patch
+        client.post('/register', json={"email": "Mixed.Case@Test.com", "name": "A", "password": "p"})
+        with patch.object(config, 'ADMIN_EMAILS', frozenset({"mixed.case@test.com"})):
+            r = client.get('/api/research-analytics')
+        assert r.status_code == 200
 
 
 # ── Quiz review page ──────────────────────────────────────────────────────────

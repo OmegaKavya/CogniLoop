@@ -77,6 +77,21 @@ CLUSTERING_MODEL_PATH = _path("CLUSTERING_MODEL_PATH", "models/clustering_model.
 RAG_DB_PATH = _path("RAG_DB_PATH", "data/chroma_db")
 ACTIVE_QUIZ_PATH = _path("ACTIVE_QUIZ_PATH", "data/active_quizzes.json")
 
+# --- Access control --------------------------------------------------------
+
+# Addresses permitted to read the cohort-wide research analytics, which expose
+# every learner's study group and aggregate performance.
+#
+# Empty by default, which denies everyone: the endpoint previously admitted
+# any logged-in learner, with a comment noting it ought to be restricted. An
+# empty allowlist fails closed, so forgetting to configure this withholds the
+# data rather than publishing it.
+ADMIN_EMAILS = frozenset(
+    address.strip().lower()
+    for address in os.environ.get("ADMIN_EMAILS", "").split(",")
+    if address.strip()
+)
+
 # --- Response speed --------------------------------------------------------
 
 # Average seconds per question below which a learner is "Fast" and above which

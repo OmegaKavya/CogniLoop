@@ -1267,3 +1267,53 @@ h1,h2,h3,h4,h5,h6 {
     border-color: var(--primary);
     background: var(--surface);
 }
+
+/* ---------------------------------------------------------------------------
+   Submodule brief
+   Shown above the player so the learner knows what to watch for before
+   watching, rather than finding it in a modal afterwards. Built entirely from
+   tokens, so the dark theme is inherited rather than restated.
+   --------------------------------------------------------------------------- */
+
+.submodule-brief {
+    margin-bottom: 14px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+}
+
+.submodule-brief__label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.submodule-brief__objective {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--text-dark);
+}
+
+.submodule-brief__exam {
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    background: var(--tint-amber-soft);
+    border: 1px solid var(--tint-amber);
+    border-radius: 8px;
+    color: var(--on-amber);
+}
+
+@media (max-width: 640px) {
+    .submodule-brief {
+        padding: 12px 14px;
+    }
+}

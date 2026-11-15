@@ -4,6 +4,8 @@ import json
 import tempfile
 from unittest.mock import patch
 
+from flask.testing import FlaskClient
+
 from app import app
 from backend.bkt.bkt_engine import bkt_engine
 from backend.adaptation.bandit_policy import bandit_adapter
@@ -74,10 +76,37 @@ def reset_rate_limiters():
     yield
 
 
+class CsrfAwareClient(app.test_client_class or FlaskClient):
+    """A test client that echoes the CSRF cookie, as a browser does.
+
+    The application protects authenticated state-changing requests with a
+    double-submit token: the server sets a readable `csrf_token` cookie and
+    `static/js/security_guard.js` returns it in an `X-CSRF-Token` header. A
+    bare test client sends the cookie but not the header, so every
+    authenticated POST would be rejected.
+
+    Attaching the header here keeps the tests exercising what a browser
+    actually does. That the protection works is covered separately, by tests
+    that deliberately omit or corrupt the header.
+    """
+
+    def open(self, *args, **kwargs):
+        method = str(kwargs.get('method', args[1] if len(args) > 1 else 'GET')).upper()
+        if method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            cookie = self.get_cookie('csrf_token')
+            if cookie is not None and not kwargs.get('_skip_csrf'):
+                headers = dict(kwargs.get('headers') or {})
+                headers.setdefault('X-CSRF-Token', cookie.value)
+                kwargs['headers'] = headers
+        kwargs.pop('_skip_csrf', None)
+        return super().open(*args, **kwargs)
+
+
 @pytest.fixture
 def client(test_data_dir):
     app.config['TESTING'] = True
     app.secret_key = 'test-secret'
+    app.test_client_class = CsrfAwareClient
     
     # Patch all the paths in repositories
     with patch.object(user_repo, 'file_path', os.path.join(test_data_dir, 'users.json')), \

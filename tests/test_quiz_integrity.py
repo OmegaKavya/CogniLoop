@@ -16,6 +16,7 @@ import time
 import uuid
 from unittest.mock import patch
 
+from app import app
 from backend.quiz.quiz_session import ActiveQuizStore, public_view
 
 
@@ -251,3 +252,63 @@ class TestGradingIsDeterministic:
         by_id = {str(r['question_id']): r for r in result['question_results']}
         assert by_id['1']['is_correct'] is True
         assert by_id['2']['is_correct'] is False
+
+
+class TestCsrfProtection:
+    """Authenticated state-changing requests must carry the double-submit token.
+
+    The test client attaches the header automatically, as a browser does, so
+    these tests strip or corrupt it deliberately. Without that, the protection
+    would be present but never actually exercised.
+    """
+
+    def test_authenticated_post_without_the_header_is_rejected(self, client):
+        _register(client)
+        res = client.post('/api/video-track',
+                          json={"topic_id": "test_topic", "watch_percentage": 10},
+                          headers={"X-CSRF-Token": ""})
+        assert res.status_code == 403, (
+            "a state-changing request was accepted with no CSRF token")
+
+    def test_wrong_token_is_rejected(self, client):
+        _register(client)
+        res = client.post('/api/video-track',
+                          json={"topic_id": "test_topic", "watch_percentage": 10},
+                          headers={"X-CSRF-Token": "not-the-right-token"})
+        assert res.status_code == 403
+
+    def test_correct_token_is_accepted(self, client):
+        _register(client)
+        res = client.post('/api/video-track',
+                          json={"topic_id": "test_topic", "pause_count": 1,
+                                "rewatch_count": 0, "skip_ratio": 0.0,
+                                "watch_percentage": 10, "last_time": 5,
+                                "total_duration": 100, "max_reached": 5})
+        assert res.status_code == 200
+
+    def test_reads_are_not_blocked(self, client):
+        _register(client)
+        assert client.get('/dashboard').status_code == 200
+
+    def test_registration_does_not_require_a_token(self, client):
+        """There is no session to ride before login, and requiring a token
+        would reject the first request every new visitor makes."""
+        res = client.post('/register', json={
+            "name": "Fresh", "email": f"fresh-{uuid.uuid4().hex[:8]}@test.com",
+            "password": "pw"})
+        assert res.status_code in (200, 201)
+
+    def test_token_is_bound_to_the_session(self, client, test_data_dir):
+        """One learner's token must not authorise another's request."""
+        _register(client)
+        with client.session_transaction() as sess:
+            mine = sess['csrf_token']
+
+        other = app.test_client()
+        other.post('/register', json={
+            "name": "Other", "email": f"other-{uuid.uuid4().hex[:8]}@test.com",
+            "password": "pw"})
+        res = other.post('/api/video-track',
+                         json={"topic_id": "test_topic", "watch_percentage": 10},
+                         headers={"X-CSRF-Token": mine})
+        assert res.status_code == 403

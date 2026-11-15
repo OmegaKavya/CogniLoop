@@ -438,6 +438,75 @@ SUBMODULE_DEFINITIONS = {
                     "explanation": "DFS explores the most recently discovered node first, which is stack behaviour. Swapping the stack for a queue turns the same algorithm into BFS."
                 }
             ]
+        },
+        {
+            "title": "Union-Find & Minimum Spanning Trees",
+            "objective": "Understand the union-find (disjoint set) structure with path compression, and how Kruskal's algorithm uses it to build a minimum spanning tree.",
+            "exam_angle": "🎯 GATE Tip: Kruskal vs Prim trade-offs, and the near-constant amortised cost of union-find with path compression, are both commonly examined.",
+            # 148:26-183:54 of the full course: union-find introduction,
+            # Kruskal's algorithm, union and find operations, path compression
+            # and code. Added because minimum spanning trees are core GATE
+            # material that no submodule previously covered.
+            "video_id": "RBSGKlAvoiM",
+            "start_sec": 8906,
+            "end_sec": 11034,
+            "checkpoints": [
+                {
+                    "id": "ds-cp7-1", "trigger_pct": 30,
+                    "question": "Kruskal's algorithm sorts edges by weight and adds each one unless it would form a cycle. Which structure detects the cycle efficiently?",
+                    "options": ["Union-find (disjoint set)", "A min-heap", "A hash table of visited nodes", "An adjacency matrix"],
+                    "correct_index": 0,
+                    "explanation": "Two endpoints already in the same set means adding the edge closes a cycle. Union-find answers that in near-constant amortised time."
+                },
+                {
+                    "id": "ds-cp7-2", "trigger_pct": 65,
+                    "question": "What does path compression do in a union-find structure?",
+                    "options": ["Points every node visited during a find directly at the root", "Sorts the elements within each set", "Merges all sets into one", "Rebalances the tree to equal depth on both sides"],
+                    "correct_index": 0,
+                    "explanation": "Flattening the path during a find makes later finds on those nodes O(1) in practice; with union by rank the amortised cost is the inverse Ackermann function."
+                },
+                {
+                    "id": "ds-cp7-3", "trigger_pct": 85,
+                    "question": "For a dense graph, which minimum spanning tree algorithm is generally preferred?",
+                    "options": ["Prim's, because its cost depends on vertices rather than sorting all edges", "Kruskal's, because sorting is always cheaper", "Either; they have identical complexity", "Neither works on dense graphs"],
+                    "correct_index": 0,
+                    "explanation": "Kruskal sorts E edges at O(E log E), which hurts when E approaches V². Prim with an adjacency matrix runs in O(V²), which is better for dense graphs."
+                }
+            ]
+        },
+        {
+            "title": "Shortest Paths: Dijkstra's Algorithm",
+            "objective": "Work through Dijkstra's single-source shortest path algorithm step by step, and understand the assumption that makes it fail on negative edges.",
+            "exam_angle": "🎯 GATE Tip: Questions ask you to trace the algorithm's distance array step by step, and to explain why negative weights break it.",
+            # Added for the same reason as the submodule above: single-source
+            # shortest paths are core GATE material that no video covered. The
+            # graph traversal submodule teaches BFS and DFS only.
+            "video_id": "GGBLtcM26xA",
+            "start_sec": 0,
+            "end_sec": 1190,
+            "checkpoints": [
+                {
+                    "id": "ds-cp8-1", "trigger_pct": 30,
+                    "question": "Why can't Dijkstra's algorithm handle graphs with negative edge weights?",
+                    "options": ["It assumes all relaxations are final once a node is settled", "It uses BFS, which doesn't support weights", "It only works on trees", "It requires the graph to be directed"],
+                    "correct_index": 0,
+                    "explanation": "Dijkstra marks a node 'settled' when it is popped. A negative edge could later make that node reachable more cheaply, violating the assumption."
+                },
+                {
+                    "id": "ds-cp8-2", "trigger_pct": 65,
+                    "question": "Using a binary min-heap, what is the time complexity of Dijkstra's algorithm on a graph with V vertices and E edges?",
+                    "options": ["O((V + E) log V)", "O(V²)", "O(E log E)", "O(V + E)"],
+                    "correct_index": 0,
+                    "explanation": "Each vertex is extracted once at O(log V) and each edge may trigger one decrease-key, also O(log V), giving O((V+E) log V)."
+                },
+                {
+                    "id": "ds-cp8-3", "trigger_pct": 85,
+                    "question": "Which algorithm correctly handles negative edge weights and detects negative cycles?",
+                    "options": ["Bellman-Ford", "Dijkstra's", "Prim's", "Breadth-first search"],
+                    "correct_index": 0,
+                    "explanation": "Bellman-Ford relaxes every edge V-1 times. A further successful relaxation on the Vth pass proves a negative cycle exists."
+                }
+            ]
         }
     ],
     'dbms': [

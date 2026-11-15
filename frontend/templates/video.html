@@ -253,6 +253,22 @@
         </aside>
 
         <div>
+          <!--
+            What to watch for, shown above the player rather than behind the
+            Notes button. The objective and the exam angle are the two pieces
+            that change how a learner watches, so they are least useful once
+            the video has already been watched.
+          -->
+          <section id="submodule-brief" class="submodule-brief" aria-live="polite">
+            <p class="submodule-brief__objective">
+              <span class="submodule-brief__label">What to learn</span>
+              <span id="brief-objective"></span>
+            </p>
+            <p class="submodule-brief__exam" id="brief-exam-wrap">
+              <span id="brief-exam"></span>
+            </p>
+          </section>
+
           <div class="video-player-container">
             <div id="player"></div>
           </div>
@@ -365,7 +381,7 @@
                   <p style="margin:0;font-size:0.9rem;color:var(--text-dark);">${mod.objective}</p>
               </div>
 
-              ${mod.exam_angle ? `<div style="margin-bottom:16px;background:var(--tint-amber-soft);padding:12px 16px;border-radius:8px;border:1px solid var(--tint-amber);font-size:0.88rem;color:#b45309;">${mod.exam_angle}</div>` : ''}
+              ${mod.exam_angle ? `<div style="margin-bottom:16px;background:var(--tint-amber-soft);padding:12px 16px;border-radius:8px;border:1px solid var(--tint-amber);font-size:0.88rem;color:var(--on-amber);">${mod.exam_angle}</div>` : ''}
 
               <h4 style="color:var(--primary-color);margin:16px 0 8px;font-size:0.92rem;text-transform:uppercase;letter-spacing:0.04em;">💡 Core Concepts & Principles</h4>
               <ul style="padding-left:20px;font-size:0.9rem;line-height:1.6;color:var(--text-dark);margin-bottom:18px;">
@@ -418,9 +434,30 @@
           max_reached: 0
       };
 
+      function renderBrief() {
+          // Mirrors the active submodule's objective and exam angle above the
+          // player. Written with textContent rather than innerHTML because the
+          // strings come from curriculum data and are not markup.
+          const mod = submodules[activeSubmoduleIndex];
+          const objective = document.getElementById('brief-objective');
+          const exam = document.getElementById('brief-exam');
+          const examWrap = document.getElementById('brief-exam-wrap');
+          if (!mod || !objective) return;
+
+          objective.textContent = mod.objective || '';
+          if (mod.exam_angle) {
+              exam.textContent = mod.exam_angle;
+              examWrap.style.display = '';
+          } else {
+              examWrap.style.display = 'none';
+          }
+      }
+
       function renderSubmodules() {
           const list = document.getElementById('submodule-list');
           if (!list) return;
+
+          renderBrief();
 
           list.innerHTML = '';
           submodules.forEach((module, idx) => {
