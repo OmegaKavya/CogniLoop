@@ -48,15 +48,20 @@ class QuizGenerator:
         return random.randint(base_min, base_max)
 
     def _get_adaptive_difficulty(self, difficulty, speed_label):
-        speed = (speed_label or "Steady").lower()
-        if speed == "slow":
-            if difficulty == "hard":
-                return "medium"
-            return random.choice(["easy", "medium"])
-        if speed == "fast":
-            if difficulty == "easy":
-                return "medium"
-            return random.choice(["medium", "hard"])
+        """The difficulty tier to serve. This is the caller's tier, unchanged.
+
+        This method used to override the caller with `random.choice` based on a
+        speed label, which broke the adaptation loop in three places at once:
+        the bandit selected one arm, a coin flip served a different tier, and
+        the arm that was selected got credited with the outcome of the tier that
+        was served. A policy cannot learn from an action log that does not record
+        what it actually did.
+
+        Difficulty now has exactly one owner - the bandit (or the fixed tier,
+        for the control group). Response speed still adapts the quiz, but
+        through `_get_question_count`, where it does not contend for the same
+        decision.
+        """
         return difficulty
 
     def _normalize_text(self, text):
@@ -186,6 +191,10 @@ Return ONLY valid JSON:
 
         quiz_data["questions"] = cleaned_questions
         quiz_data["num_questions"] = len(cleaned_questions)
+        # The model echoes a `difficulty` field back, and what it echoes is not
+        # reliably the tier it was asked for. The served tier is authoritative:
+        # it is what the bandit chose and what its arm will be credited with.
+        quiz_data["difficulty"] = adaptive_difficulty
 
         if not self._is_valid_quiz(quiz_data, min_questions=5):
             print("[QuizGen] Validation failed for LLM generated quiz. Falling back to static questions.")

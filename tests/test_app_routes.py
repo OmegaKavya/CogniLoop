@@ -70,17 +70,21 @@ def test_api_quiz_submit(mock_evaluate, client):
         "question_results": [{"question_id": 1, "is_correct": True, "feedback": "Good"}]
     }
     
-    # Need to simulate having a quiz in session. Flask test_client allows session transaction
+    # The quiz is issued server-side and the client holds only a token. It
+    # cannot be staged by writing to the session, because the answer key no
+    # longer travels there.
+    from backend.quiz.quiz_session import active_quiz_store
     with client.session_transaction() as sess:
-        sess['current_quiz'] = {
-            "questions": [{"id": 1, "text": "Q1", "answer": "A"}],
-            "difficulty": "medium"
-        }
-    
+        user_id = sess['user_id']
+    token = active_quiz_store.issue(user_id, {
+        "questions": [{"id": 1, "text": "Q1", "answer": "A"}],
+        "difficulty": "medium"
+    })
+
     res = client.post('/api/quiz-submit', json={
         "topic_id": "test_topic",
         "responses": [{"question_id": 1, "selected_answer": "A", "time_taken": 12}],
-        "difficulty": "medium"
+        "quiz_token": token
     })
     
     assert res.status_code == 200

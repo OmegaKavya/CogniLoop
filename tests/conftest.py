@@ -9,6 +9,7 @@ from backend.bkt.bkt_engine import bkt_engine
 from backend.adaptation.bandit_policy import bandit_adapter
 from backend.adaptation.micro_pattern import mp_manager
 from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
+from backend.quiz.quiz_session import active_quiz_store
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRODUCTION_DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
@@ -85,7 +86,21 @@ def client(test_data_dir):
          patch.object(quiz_repo, 'file_path', os.path.join(test_data_dir, 'quiz_attempts.json')), \
          patch.object(bkt_engine, 'storage_path', os.path.join(test_data_dir, 'bkt_states.json')), \
          patch.object(bandit_adapter, 'storage_path', os.path.join(test_data_dir, 'bandit_q_table.json')), \
-         patch.object(mp_manager, 'storage_path', os.path.join(test_data_dir, 'micro_patterns.json')):
-        
+         patch.object(mp_manager, 'storage_path', os.path.join(test_data_dir, 'micro_patterns.json')), \
+         patch.object(active_quiz_store, 'file_path', os.path.join(test_data_dir, 'active_quizzes.json')):
+
         with app.test_client() as client:
             yield client
+
+
+@pytest.fixture
+def issued_quiz(client):
+    """Issue a quiz server-side and hand back the token the client must present.
+
+    The answer key is no longer reachable from the session cookie, so a test
+    cannot stage one by writing to `session`; it has to go through the same
+    issuing path the application uses.
+    """
+    def issue(user_id, quiz):
+        return active_quiz_store.issue(user_id, quiz)
+    return issue

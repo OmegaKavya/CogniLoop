@@ -28,6 +28,7 @@ data/quiz_attempts.json
 data/micro_patterns.json
 data/bkt_states.json
 data/bandit_q_table.json
+data/active_quizzes.json
 data/chroma_db/
 
 # --- Trained ML Models ---

@@ -26,8 +26,12 @@ class TestFullLearningFlow:
         assert quiz_res.status_code == 200
         assert quiz_res.json["success"] is True
 
+        from backend.quiz.quiz_session import active_quiz_store
         with client.session_transaction() as sess:
-            sess['current_quiz'] = {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "medium"}
+            user_id = sess['user_id']
+        token = active_quiz_store.issue(
+            user_id,
+            {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "medium"})
 
         with patch('backend.quiz.quiz_evaluator.evaluator.evaluate') as mock_eval:
             mock_eval.return_value = {
@@ -37,7 +41,7 @@ class TestFullLearningFlow:
             sub_res = client.post('/api/quiz-submit', json={
                 "topic_id": "os",
                 "responses": [{"question_id": 1, "selected_answer": "A", "time_taken": 10}],
-                "difficulty": "medium"
+                "quiz_token": token
             })
 
         assert sub_res.status_code == 200
@@ -59,15 +63,19 @@ class TestFullLearningFlow:
 
     def test_quiz_review_list_after_attempt(self, client):
         self._register_and_login(client, email="review_test@test.com")
+        from backend.quiz.quiz_session import active_quiz_store
         with client.session_transaction() as sess:
-            sess['current_quiz'] = {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "easy"}
+            user_id = sess['user_id']
+        token = active_quiz_store.issue(
+            user_id,
+            {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "easy"})
         with patch('backend.quiz.quiz_evaluator.evaluator.evaluate') as mock_eval:
             mock_eval.return_value = {"score": 60, "avg_time": 15, "total_time": 15,
                 "question_results": [{"question_id": 1, "is_correct": False, "feedback": "Wrong"}]}
             client.post('/api/quiz-submit', json={
                 "topic_id": "test_topic",
                 "responses": [{"question_id": 1, "selected_answer": "B", "time_taken": 15}],
-                "difficulty": "easy"
+                "quiz_token": token
             })
         review_res = client.get('/quiz-review')
         assert review_res.status_code == 200

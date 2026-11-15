@@ -5,6 +5,7 @@ Covers: all routes, auth flow, API correctness, quiz data structure, quiz submit
 Uses the conftest fixtures to isolate test data.
 """
 import json
+import uuid
 from unittest.mock import patch, MagicMock
 import pytest
 
@@ -204,7 +205,11 @@ class TestQuizAPI:
 
 class TestQuizSubmit:
     def _do_submit(self, client, score=80, n_correct=4, n_wrong=1, suffix=""):
-        email = f"submit{score}x{n_correct}x{n_wrong}{suffix}@test.com"
+        # Unique per call. The learner store is session-scoped, so deriving the
+        # address from the score alone made two tests with the same score share
+        # an account: the second registration failed as a duplicate and the
+        # request then ran with no authenticated user.
+        email = f"submit{score}x{n_correct}x{n_wrong}{suffix}-{uuid.uuid4().hex[:8]}@test.com"
         client.post('/register', json={"email": email, "name": "S", "password": "p"})
         correct = [
             {'id': i, 'text': f'Q{i}?', 'is_correct': True,
@@ -223,15 +228,18 @@ class TestQuizSubmit:
         mock_qs = [{'id': q['id'], 'text': q['text'],
                     'options': ['Option A', 'Option B', 'Option C', 'Option D'],
                     'answer': 'Option A', 'hint': 'h'} for q in all_qrs]
+        from backend.quiz.quiz_session import active_quiz_store
         with client.session_transaction() as sess:
-            # Preserve user_id from register, add quiz data
-            sess.setdefault('user_id', sess.get('user_id'))
-            sess['current_quiz'] = {'questions': mock_qs, 'topic_id': 'os',
-                                    'difficulty': 'medium', 'session_id': 'e2e'}
+            user_id = sess.get('user_id')
+        token = active_quiz_store.issue(
+            user_id,
+            {'questions': mock_qs, 'topic_id': 'os',
+             'difficulty': 'medium', 'session_id': 'e2e'})
         payload = {
             'topic_id': 'os', 'video_id': 'xyz123', 'session_id': 'e2e',
             'question_results': all_qrs,
             'score': score, 'total': n_correct + n_wrong,
+            'quiz_token': token,
         }
         return client.post('/api/quiz-submit', json=payload)
 

@@ -75,6 +75,20 @@ BANDIT_TABLE_PATH = _path("BANDIT_TABLE_PATH", "data/bandit_q_table.json")
 BKT_PARAMS_PATH = _path("BKT_PARAMS_PATH", "models/bkt_params.json")
 CLUSTERING_MODEL_PATH = _path("CLUSTERING_MODEL_PATH", "models/clustering_model.pkl")
 RAG_DB_PATH = _path("RAG_DB_PATH", "data/chroma_db")
+ACTIVE_QUIZ_PATH = _path("ACTIVE_QUIZ_PATH", "data/active_quizzes.json")
+
+# --- Quiz integrity --------------------------------------------------------
+
+# How long an issued quiz stays gradable. The answer key lives server-side for
+# this long and is then dropped, so an abandoned quiz does not accumulate.
+# Long enough for a slow reader to finish a ten-question set; short enough that
+# the store stays small without a scheduled job.
+ACTIVE_QUIZ_TTL_SECONDS = env_int("ACTIVE_QUIZ_TTL_SECONDS", 3 * 60 * 60)
+
+# Upper bound on simultaneously outstanding quizzes per learner. Each open tab
+# issues one. A handful is legitimate; thousands would mean a client looping on
+# the issue endpoint, so the oldest are evicted rather than trusted.
+ACTIVE_QUIZ_MAX_PER_USER = env_int("ACTIVE_QUIZ_MAX_PER_USER", 8)
 
 # --- BKT -------------------------------------------------------------------
 

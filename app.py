@@ -10,6 +10,7 @@ import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
 from backend import config
 from backend.auth.auth_service import hash_password, verify_password
+from backend.quiz.quiz_session import active_quiz_store, public_view
 
 app = Flask(__name__,
             template_folder='frontend/templates',
@@ -718,11 +719,17 @@ def api_quiz_data(topic_id):
     watch_time = user_video_progress.get('last_position', 0)
 
     quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group)
-    session['current_quiz'] = quiz
+
+    # The quiz, answer key included, stays on the server. The client gets an
+    # opaque token and a redacted copy. It previously received the whole object
+    # twice over - once in this response body and once in the session cookie,
+    # which is signed but not encrypted and so is readable by its holder.
+    quiz_token = active_quiz_store.issue(user_id, quiz)
 
     return jsonify({
         'success': True,
-        'quiz': quiz,
+        'quiz': public_view(quiz),
+        'quiz_token': quiz_token,
         'static_cheat_sheet': get_static_cheat_sheet(topic_id, video['title'])
     })
 
@@ -737,11 +744,19 @@ def quiz_submit():
     user_id = session['user_id']
     topic_id = data.get('topic_id')
     responses = data.get('responses', [])
-    current_difficulty = data.get('difficulty', 'medium')
-    
-    quiz = session.get('current_quiz')
+
+    # Single-use: consuming the token stops one issued quiz being replayed to
+    # farm repeated mastery updates from the same set of questions.
+    quiz = active_quiz_store.consume(data.get('quiz_token'), user_id)
     if not quiz:
         return jsonify({'success': False, 'message': 'Quiz session expired. Please refresh the page.'}), 400
+
+    # The tier the server actually served, from the server's own copy of the
+    # quiz. Reading this from the request body let the client name the
+    # difficulty its own mastery update would be computed with - selecting
+    # `hard` swaps guess/slip from 0.30/0.05 to 0.10/0.15 and inflates the
+    # posterior - and name the bandit arm that would be credited for the result.
+    current_difficulty = quiz.get('difficulty', 'medium')
 
     eval_result = evaluator.evaluate(quiz, responses)
     if not eval_result:

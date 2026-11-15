@@ -844,6 +844,9 @@
     ></div>
     <script>
       let quizData = null;
+      // Opaque handle to the quiz held server-side. The answer key never
+      // reaches this page, so grading is only possible by presenting this.
+      let quizToken = null;
       let quizQuestions = [];
       let currentQuestionIdx = 0;
       let responses = [];
@@ -1054,9 +1057,12 @@
           const response = await fetch('/api/quiz-submit', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              // The difficulty is deliberately not sent. The server grades and
+              // updates the model against its own copy of the issued quiz, so
+              // the tier is read there rather than taken from this client.
               body: JSON.stringify({
                   topic_id: quizData.topic_id,
-                  difficulty: quizData.difficulty,
+                  quiz_token: quizToken,
                   responses: responses
               })
           });
@@ -1168,6 +1174,7 @@
               }
 
               quizData = data.quiz;
+              quizToken = data.quiz_token;
               quizQuestions = quizData.questions || [];
               questionTimeLimit = Number(quizData.question_time_seconds || 12);
               currentQuestionIdx = 0;

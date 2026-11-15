@@ -75,27 +75,53 @@ class QuizEvaluator:
                     "time_taken": time_taken
                 })
                 
-            # 2. Batch AI Evaluation
+            # 2. Grade deterministically. This is the authority, for every
+            #    question, whether or not a model is reachable.
+            #
+            #    These are multiple-choice items and we hold the exact text of
+            #    the correct option, so correctness is string equality. There is
+            #    nothing here for a model to adjudicate, and letting one try
+            #    means a single hallucinated `is_correct` silently flips the
+            #    grade, the mastery update computed from it, and the difficulty
+            #    the learner is routed to next.
+            for req in eval_requests:
+                graded = self._match_fallback(req['selected'], req['correct_answer'])
+                req['is_correct'] = graded['is_correct']
+                results_map[req['id']] = {
+                    "question_id": req['id'],
+                    "is_correct": graded["is_correct"],
+                    "time_taken": req['time_taken'],
+                    "feedback": graded["feedback"],
+                }
+
+            # 3. Ask the model for explanatory feedback only, and merge nothing
+            #    else. It is told the verdict rather than asked for it, so its
+            #    explanation always agrees with the grade the learner is shown.
             if eval_requests:
-                prompt = "Evaluate the following student answers.\n\n"
+                prompt = "Write feedback for each graded answer below.\n\n"
                 for req in eval_requests:
-                    prompt += f"[ID: {req['id']}]\nQuestion: {req['question']}\nCorrect Answer: {req['correct_answer']}\nStudent's Answer: {req['selected']}\n\n"
-                
+                    verdict = "CORRECT" if req['is_correct'] else "INCORRECT"
+                    prompt += (f"[ID: {req['id']}]\nQuestion: {req['question']}\n"
+                               f"Correct Answer: {req['correct_answer']}\n"
+                               f"Student's Answer: {req['selected']}\n"
+                               f"Verdict (already decided, do not dispute): {verdict}\n\n")
+
                 prompt += """
-                For each ID, act as an expert tutor.
-                1. Determine if the Student's Answer is semantically identical or correct regarding the Question.
-                2. Provide a 1-sentence supportive explanation.
-                
+                For each ID, act as an expert tutor and write a single
+                supportive sentence explaining the concept behind the verdict.
+                The verdict is final and is not yours to change.
+
                 Return ONLY a JSON array of objects with this structure (no markdown blocks, just raw JSON):
                 [
-                    {"id": "the_id", "is_correct": true/false, "feedback": "Your explanation here"}
+                    {"id": "the_id", "feedback": "Your explanation here"}
                 ]
                 """
-                
+
                 batch_results = self.client.complete_json(
                     prompt,
-                    system="You are an expert tutor grading answers. Return valid "
-                           "JSON only, with no markdown and no explanation.",
+                    system="You are an expert tutor writing feedback on answers "
+                           "that have already been graded. Return valid JSON "
+                           "only, with no markdown and no explanation.",
                     max_tokens=1500,
                     temperature=0.2,
                     ollama_timeout=config.OLLAMA_EVAL_TIMEOUT,
@@ -107,30 +133,16 @@ class QuizEvaluator:
                                      or batch_results.get('evaluations') or [])
 
                 if isinstance(batch_results, list):
-                    by_id = {r['id']: r for r in eval_requests}
                     for res in batch_results:
                         if not isinstance(res, dict):
                             continue
                         res_id = str(res.get('id'))
-                        req = by_id.get(res_id)
-                        if req:
-                            results_map[res_id] = {
-                                "question_id": res_id,
-                                "is_correct": bool(res.get('is_correct', False)),
-                                "time_taken": req['time_taken'],
-                                "feedback": res.get('feedback', '')
-                            }
-
-            # 3. Deterministic fallback for anything the model did not grade
-            for req in eval_requests:
-                if req['id'] not in results_map:
-                    graded = self._match_fallback(req['selected'], req['correct_answer'])
-                    results_map[req['id']] = {
-                        "question_id": req['id'],
-                        "is_correct": graded["is_correct"],
-                        "time_taken": req['time_taken'],
-                        "feedback": graded["feedback"],
-                    }
+                        entry = results_map.get(res_id)
+                        feedback = res.get('feedback')
+                        # Only the prose is taken. `is_correct` is ignored even
+                        # when the model volunteers one.
+                        if entry and isinstance(feedback, str) and feedback.strip():
+                            entry["feedback"] = feedback.strip()
 
             # 4. Construct final results in order
             for resp in responses:
