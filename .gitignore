@@ -107,5 +107,11 @@ local_notes/
 # Nothing in the reproducibility claim depends on these files. The simulation
 # harness, the figure scripts and the test suite are what regenerate every
 # number, and they remain tracked.
-paper/Estimator_Confound_JEDM.tex
-paper/Estimator_Confound_JEDM.pdf
+# Match by extension, not by name. The two lines below previously named one
+# specific file, and the compiled PDF actually sent to the editor is called
+# Aggarwal_EstimatorConfound_JEDM.pdf, so it was tracked by nothing and a
+# single "git add -A" would have published the manuscript.
+# Figures live in paper/figures/ and stay tracked; the class file, bibliography
+# and style file are not manuscript text.
+paper/*.tex
+paper/*.pdf
