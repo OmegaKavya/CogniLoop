@@ -24,7 +24,9 @@ An advanced, standalone closed-loop adaptive learning platform that converts pas
 
 ## System Architecture & Curriculum Structure
 
-For technical system blueprints, mathematical models, module boundaries, and request pipelines, review [ARCHITECTURE.md](ARCHITECTURE.md) and the paper in [paper/Estimator_Confound_JEDM.tex](paper/Estimator_Confound_JEDM.tex).
+For technical system blueprints, mathematical models, module boundaries, and request pipelines, review [ARCHITECTURE.md](ARCHITECTURE.md).
+
+The analysis of the estimator confound is written up as a manuscript. Its source is deliberately not tracked here, because similarity checkers crawl public repositories and the manuscript would match itself at submission. The code it refers to is public, which is what the reproducibility statement means.
 
 ### Core Computer Science Curriculum
 CogniLoop structures core university CS topics into modular learning paths. The system includes **16 distinct submodules** across four primary domain areas:
@@ -139,8 +141,8 @@ carry a notice at the top; their output should not be cited.
 The corrected harness is `scripts/latent_learning_simulation.py`. It keeps
 latent mastery separate from the estimator's belief, scores on a
 difficulty-neutral probe, and is verified to reproduce the deployed knowledge
-tracing implementation exactly. Analysis of the original failure mode is in
-`paper/Estimator_Confound_JEDM.tex`.
+tracing implementation exactly. Analysis of the original failure mode is in the manuscript, which is not
+tracked in this repository.
 
 What the simulation does support, and what it does not:
 
