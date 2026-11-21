@@ -534,11 +534,19 @@ def analyse_tier_calibration(cfg):
         th = (cfg["p_star"] - g) / den
         th_s = f"{th:.4f}" if th <= 1.0 else f"{th:.4f} (unattainable)"
         print(f"{t:<10}{g:>8.2f}{s:>8.2f}{mx:>16.3f}{th_s:>20}")
-    print("All three optima lie in the top of the mastery scale, and the hard")
-    print("tier's maximum accuracy equals P* exactly, so it is optimal only as")
-    print("theta -> 1. Over the mastery range learners actually occupy the")
-    print("optimal action is therefore constant, and no adaptive policy can")
-    print("outperform the best fixed policy.")
+    print("All three points lie in the top of the mastery scale, and the hard")
+    print("tier's maximum accuracy equals P* exactly, so its curve MEETS the")
+    print("target only as theta -> 1.")
+    print()
+    print("Meeting the target is not the same as being the nearest tier, and")
+    print("conflating the two was an error in an earlier draft. Taking")
+    print("argmin_d |P(correct | theta, d) - P*|, the nearest tier switches at")
+    print("theta = 0.889 and theta = 0.966. Both sit inside the top ninth, so")
+    print("the optimal action is constant over roughly the lowest nine tenths")
+    print("of the range rather than over all of it.")
+    print()
+    print("The compression depends on the target as well as on guess and slip:")
+    print("at P* = 0.65 the same tiers meet it at 0.538, 0.643 and 0.733.")
 
 
 def main():
