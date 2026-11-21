@@ -61,10 +61,26 @@ def pool():
             if _pool is None:
                 from psycopg_pool import ConnectionPool
 
-                # Small: a free Postgres allows few connections and this runs on
-                # one small instance. Opening lazily keeps a cold start cheap.
-                _pool = ConnectionPool(_dsn(), min_size=0, max_size=4,
-                                       open=True, timeout=10.0)
+                # prepare_threshold=None disables psycopg's automatic prepared
+                # statements. They break against a transaction-mode pooler such
+                # as Neon's -pooler endpoint or PgBouncer, because the prepared
+                # statement is registered on one backend connection and the next
+                # execution can land on another. The failure is intermittent and
+                # reads as "prepared statement does not exist", which is a long
+                # way from the cause. Nothing here runs the same query often
+                # enough for the lost optimisation to matter.
+                #
+                # Small pool: a free Postgres allows few connections and this
+                # runs on one small instance. Opening lazily keeps a cold start
+                # cheap, and min_size=0 lets Neon scale to zero undisturbed.
+                _pool = ConnectionPool(
+                    _dsn(),
+                    min_size=0,
+                    max_size=4,
+                    open=True,
+                    timeout=10.0,
+                    kwargs={"prepare_threshold": None},
+                )
     return _pool
 
 
