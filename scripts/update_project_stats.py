@@ -40,21 +40,35 @@ def main():
               "advertise a count from a failing run.")
         return 1
 
-    passed = None
-    for token in summary.replace("=", " ").split():
-        if token.isdigit():
-            passed = int(token)
-            break
+    # Count skipped tests as part of the suite, not as absent from it.
+    #
+    # Ten Postgres integration tests skip unless DATABASE_URL is set, so a
+    # default run reports 366 passed while the suite holds 376. Advertising
+    # 366 would understate it, and advertising 376 while this file said 366
+    # is the kind of drift that makes every other number suspect. Report both.
+    counts = {}
+    tokens = summary.replace("=", " ").replace(",", " ").split()
+    for index, token in enumerate(tokens):
+        if token in ("passed", "skipped", "failed", "error", "errors") and index:
+            previous = tokens[index - 1]
+            if previous.isdigit():
+                counts[token.rstrip("s")] = int(previous)
+
+    passed = counts.get("passed")
+    skipped = counts.get("skipped", 0)
     if not passed:
         print("\nCould not parse a test count from pytest's summary line.")
         return 1
+    total = passed + skipped
 
     _, commit, _ = run("git", "rev-parse", "--short", "HEAD")
     _, when, _ = run("git", "log", "-1", "--format=%cI")
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     payload = {
+        "tests_total": total,
         "tests_passing": passed,
+        "tests_skipped": skipped,
         "measured_at_commit": commit or None,
         "commit_date": when or None,
     }

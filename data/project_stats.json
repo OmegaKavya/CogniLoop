@@ -1,5 +1,7 @@
 {
-  "tests_passing": 362,
-  "measured_at_commit": "e57435c",
-  "commit_date": "2026-11-15T16:19:58+05:30"
+  "tests_total": 376,
+  "tests_passing": 366,
+  "tests_skipped": 10,
+  "measured_at_commit": "b3e0671",
+  "commit_date": "2026-11-21T17:34:00+05:30"
 }

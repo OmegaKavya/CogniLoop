@@ -30,7 +30,7 @@ flowchart LR
     QG --> RAG[RAG Retriever: ChromaDB Vectors]
     RAG --> YT[YouTube Transcript API]
     F --> REP[Repository Layer: locked atomic JSON store]
-    REP --> D[(JSON Store: Users/Progress/Attempts/Videos)]
+    REP --> D[(Document Store: Postgres when DATABASE_URL is set, else JSON files)]
     F --> AN[Validation Engine: A/B Testing & NLG]
 ```
 
@@ -59,7 +59,13 @@ flowchart LR
 
 ### Repository & Persistence Layer (`backend/repositories/` & `data/`)
 - Implements the Repository Pattern over `backend/storage.py`, which holds a single advisory lock across each read-modify-write and swaps the file in with an atomic `os.replace`. Reading and writing under separate locks loses concurrent updates, which is what the earlier implementation did.
-- This gives atomicity and isolation for a single file and durability via `fsync`. It is **not** a transactional database: there are no cross-file transactions, so operations spanning two files are not atomic together. The storage layer is deliberately simple and would be replaced by a real database before any multi-instance deployment.
+- This gives atomicity and isolation for a single file and durability via `fsync`. It is **not** a transactional database: there are no cross-file transactions, so operations spanning two files are not atomic together.
+
+**Since v4.0 the backend is selectable.** `backend/storage.py` exposes `open_store`, which returns a Postgres-backed `PgStore` when `DATABASE_URL` is set and the file-backed `JsonStore` otherwise. Both implement one contract, so the five call sites are identical either way and the test suite still runs with no database.
+
+This was not a preference. Render's free tier has an ephemeral filesystem and `render.yaml` declares no disk, so every deploy, restart and idle spin-down destroyed every account, mastery estimate and attempt history. Measured, not assumed: an account registered at 15:01 could not log in at 16:05 the same day.
+
+`PgStore` keeps the file path as the document key, so `data/users.json` addresses the same document in either backend and the migration script, the backups and the call sites all name things the same way. `update()` holds `SELECT ... FOR UPDATE` across the read-modify-write, which is the cross-machine equivalent of the advisory lock it replaces. That makes this the first version that would survive running more than one instance, which the file backend never could.
 - Locks are advisory and per-file, so they coordinate processes on one host. They do not coordinate across hosts.
 
 ---
@@ -86,7 +92,7 @@ flowchart LR
 
 ## 4. Quality Assurance & Verification
 
-CogniLoop features an automated verification suite of **362 unit and integration tests** executing via `pytest`:
+CogniLoop features an automated verification suite of **376 unit and integration tests** executing via `pytest`:
 - **Mathematical Validation**: Confirms precision in Bayesian probability equations and Beta distribution convergence in Thompson Sampling.
 - **Concurrency Testing**: Drives concurrent writes against every persisted store and asserts that no record is lost and no file is left unparseable, which earlier implementations failed.
 - **Resilience Testing**: Exercises provider selection and fallback for quiz generation, grading and insights with no provider configured, with one unreachable, and under rate limiting.

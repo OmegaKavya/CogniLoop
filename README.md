@@ -3,7 +3,7 @@
 **Author**: Kavya Aggarwal
 
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
-[![Tests Passed](https://img.shields.io/badge/tests-362%20passed-emerald.svg)](#)
+[![Tests Passed](https://img.shields.io/badge/tests-376%20passed-emerald.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-amber.svg)](LICENSE)
 [![Evaluation](https://img.shields.io/badge/evaluation-simulation%20only-lightgrey.svg)](#evaluation-status)
 
@@ -60,7 +60,7 @@ Every submodule includes:
 - Provides an executive revision cheat sheet exportable directly as a high-resolution PDF document.
 
 ### 3. Comprehensive Verification & QA
-- Protected by a suite of **362 automated tests** executing with 100% reliability in pytest.
+- Protected by a suite of **376 automated tests** executing with 100% reliability in pytest.
 - Covers BKT transitions and parameter fitting, bandit selection, concurrency safety of all persisted state, credential handling and abuse limits, LLM provider routing, and full-stack route flows.
 
 ---
@@ -78,6 +78,7 @@ deployment. The values that matter most:
 | `BANDIT_STRATEGY` | `thompson` | `target` selects the tier nearest `BANDIT_TARGET_RATE` instead of maximising reward. Opt-in: it needs a target calibrated from real learners. |
 | `BKT_USE_FITTED_PARAMS` | `true` | Loads per-skill parameters fitted by `scripts/train_models.py`; falls back to defaults when absent or unidentifiable. |
 | `SESSION_COOKIE_SECURE` | on in production | Follows `FLASK_ENV`; must stay off for local HTTP development. |
+| `DATABASE_URL` | unset | Postgres connection string. Set, documents are stored in Postgres; unset, they are JSON files under `data/`. Required in any deployment with an ephemeral filesystem, which is every free tier. Use the pooled endpoint. |
 
 ## Maintenance
 
@@ -96,6 +97,36 @@ Without it they stop at `ModuleNotFoundError: No module named 'backend'`.
   without warning and the player simply shows "unavailable".
 - `python3 scripts/train_models.py` fits BKT parameters from recorded responses.
   Fits that rest on a constraint boundary are rejected rather than deployed.
+- `PYTHONPATH=. python3 scripts/migrate_json_to_postgres.py` copies the JSON
+  documents in `data/` into Postgres. Run once per environment. It refuses to
+  overwrite a document that already exists unless given `--overwrite`, so a
+  second run cannot replace live data with a local copy, and `--dry-run`
+  reports what it would do. The files are left in place as a point-in-time
+  backup.
+
+### Database maintenance
+
+- **Schema.** One table, `documents(key TEXT PRIMARY KEY, data JSONB,
+  updated_at TIMESTAMPTZ)`, created on first use. There is no migration tool
+  and none is needed while the schema is one table; a second table would be
+  the point to add one.
+- **Backups.** Neon keeps point-in-time restore on its free tier, which covers
+  accidental deletion. For an independent copy, read every document out with
+  `PgStore` and write it to disk; the JSON files from the original migration
+  are such a copy.
+- **Connections.** The pool is `max_size=4` with `min_size=0`, so an idle
+  instance holds none and a free Postgres is never exhausted. Prepared
+  statements are disabled because a transaction-mode pooler reassigns backend
+  connections between executions.
+- **Growth.** `quiz_attempts` is the document that grows without bound. JSONB
+  stores it compressed, 221 kB of files became 34 kB in the database, but the
+  whole document is still read and rewritten on each append. Splitting
+  attempts into rows is the next change if it becomes slow.
+- **Tests.** `tests/test_storage_postgres.py` exercises the real database and
+  skips without `DATABASE_URL`, so the default suite needs nothing installed:
+  `DATABASE_URL=... PYTHONPATH=. pytest tests/test_storage_postgres.py`. It
+  writes under a `tests/_pg_*` key prefix and deletes it afterwards, so it is
+  safe to point at the production database.
 
 ## Quick Start & Installation
 
