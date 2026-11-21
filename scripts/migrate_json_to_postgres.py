@@ -62,21 +62,28 @@ def main():
             failed += 1
             continue
 
+        size = os.path.getsize(path)
         with pool().connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"SELECT 1 FROM {TABLE} WHERE key = %s", (key,))
                 exists = cur.fetchone() is not None
 
-                if exists and not args.overwrite:
-                    print(f"  SKIP  {key}: already in the database")
-                    skipped += 1
+                if args.dry_run:
+                    verb = "WOULD REPLACE" if exists and args.overwrite else (
+                        "SKIP" if exists else "WOULD COPY")
+                    print(f"  {verb:<13} {key} ({size:,} bytes)")
+                    skipped += 1 if exists and not args.overwrite else 0
                     continue
 
-                size = os.path.getsize(path)
-                verb = "WOULD" if args.dry_run else ("REPLACE" if exists else "COPY")
-                print(f"  {verb:<7} {key} ({size:,} bytes)")
-
-                if not args.dry_run:
+                # The existence check above is for REPORTING only. The decision
+                # is made by the constraint, not by that read.
+                #
+                # Checking and then writing is a race: a live worker that
+                # creates this key in between would have its data replaced by
+                # whatever is on this laptop, even without --overwrite. Letting
+                # ON CONFLICT DO NOTHING make the decision is atomic, so the
+                # guard cannot be stepped over by concurrent traffic.
+                if args.overwrite:
                     cur.execute(
                         f"""
                         INSERT INTO {TABLE} (key, data) VALUES (%s, %s)
@@ -85,7 +92,22 @@ def main():
                         """,
                         (key, json.dumps(data)),
                     )
+                else:
+                    cur.execute(
+                        f"INSERT INTO {TABLE} (key, data) VALUES (%s, %s) "
+                        f"ON CONFLICT (key) DO NOTHING",
+                        (key, json.dumps(data)),
+                    )
+
+                # rowcount is 0 when the conflict clause declined to write, so
+                # this reports what the database actually did rather than what
+                # the earlier read predicted.
+                if cur.rowcount:
+                    print(f"  {'REPLACED' if exists else 'COPIED':<9} {key} ({size:,} bytes)")
                     copied += 1
+                else:
+                    print(f"  {'SKIPPED':<9} {key}: already in the database")
+                    skipped += 1
             conn.commit()
 
     print(f"\ncopied {copied}, skipped {skipped}, failed {failed}")
