@@ -14,10 +14,15 @@ target success rate P* and the mastery theta*_d at which each tier sits exactly
 on that target.
 
 The argument the figure has to make visible is that the three theta*_d lie
-close together and close to ceiling: over the mastery range a cohort actually
-occupies during instruction, the optimal tier does not change, so an adaptive
-policy has nothing to adapt to. In the table this is six numbers; here it is
-the width of the shaded band.
+close together and close to ceiling, and that the tier NEAREST the target
+therefore changes only near the top of the scale.
+
+Meeting the target and being the nearest tier are different conditions, and
+conflating them was an error in an earlier draft: theta*_hard = 1 says the hard
+curve touches P* only at complete mastery, not that hard is never the best
+available choice. Selecting argmin_d |P(correct | theta, d) - P*| gives switch
+points at 0.889 and 0.966, both inside the top ninth of the scale, which is the
+quantity the corrected text relies on. The dotted verticals mark them.
 
 The curves and the crossing points come from the same functions the table is
 computed from, so the figure cannot drift away from the numbers in the text.
@@ -79,9 +84,32 @@ def main():
     lo, hi = min(present), max(present)
     ax.axvspan(lo, hi, color="#6D28D9", alpha=0.07, lw=0, zorder=1)
 
+    # The switch points: where the tier nearest the target changes. These, not
+    # the theta*_d, are what the paper's claim now rests on, so the figure has
+    # to show them or it illustrates a weaker statement than the text makes.
+    # `th` rather than `theta`: the plotted curve already owns that name as an
+    # array, and shadowing it here silently broke the curves.
+    def nearest(th):
+        return min(TIERS, key=lambda d: abs(p_correct(th, d, cfg) - p_star))
+
+    switches = []
+    previous = nearest(0.0)
+    for step in range(1, 10001):
+        th = step / 10000
+        current = nearest(th)
+        if current != previous:
+            switches.append(th)
+            previous = current
+    for th in switches:
+        ax.axvline(th, color=INK, lw=0.9, ls=(0, (1, 2.5)), alpha=0.55, zorder=2)
+        ax.text(th, 0.03, f"{th:.3f}", ha="center", va="bottom",
+                fontsize=7, color=INK, alpha=0.75, zorder=4)
+
     # Target success rate: a reference, so neutral ink rather than a tier hue.
     ax.axhline(p_star, color=INK, lw=1.1, ls=(0, (4, 3)), zorder=3)
-    ax.text(0.015, p_star + 0.012, f"Target success rate $P^*={p_star:g}$",
+    # Mid-axis: the legend now holds the upper left, and nothing crosses
+    # y=0.85 until theta is past 0.8, so this span is clear.
+    ax.text(0.40, p_star + 0.012, f"Target success rate $P^*={p_star:g}$",
             fontsize=7.6, color=INK, va="bottom", ha="left", zorder=6)
 
     for tier in TIERS:
@@ -130,7 +158,9 @@ def main():
 
     # Lower right is clear: every curve is rising toward the top right, and the
     # annotations sit centre and upper left.
-    ax.legend(loc="lower right", frameon=False, fontsize=7.6,
+    # Upper left: every curve starts below 0.31, so that corner is empty,
+    # and the switch-point labels now occupy the lower right.
+    ax.legend(loc="upper left", frameon=False, fontsize=7.6,
               handlelength=2.6, borderaxespad=0.6)
     fig.tight_layout()
     save(fig, "tier_geometry")
