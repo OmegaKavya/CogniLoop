@@ -153,3 +153,21 @@ class JsonStore:
         with self._locked(exclusive=True):
             if not os.path.exists(self.path):
                 self._write_unlocked(self._empty())
+
+
+def open_store(path, default=None, indent=2):
+    """Return the store this deployment should use for `path`.
+
+    Postgres when DATABASE_URL is set, JSON files otherwise. The choice lives
+    here rather than at the five call sites so there is one place to read to
+    know where data goes, and so local development and the test suite keep
+    working with no database and no configuration.
+
+    Both classes implement the same contract, including `update` holding a
+    lock across the whole read-modify-write. A caller cannot tell them apart.
+    """
+    if os.environ.get("DATABASE_URL", "").strip():
+        from backend.storage_pg import PgStore
+
+        return PgStore(path, default=default, indent=indent)
+    return JsonStore(path, default=default, indent=indent)

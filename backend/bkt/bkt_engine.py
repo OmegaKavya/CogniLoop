@@ -1,5 +1,5 @@
 from backend import config
-from backend.storage import JsonStore
+from backend.storage import open_store
 
 
 class BKTEngine:
@@ -62,7 +62,7 @@ class BKTEngine:
         reassignment, which is how tests redirect state to a temporary file.
         """
         if self._store_cache is None or self._store_cache.path != self.storage_path:
-            self._store_cache = JsonStore(self.storage_path)
+            self._store_cache = open_store(self.storage_path)
         return self._store_cache
 
     def _ensure_storage(self):

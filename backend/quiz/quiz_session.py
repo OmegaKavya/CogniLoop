@@ -43,7 +43,7 @@ import secrets
 import time
 
 from backend import config
-from backend.storage import JsonStore
+from backend.storage import open_store
 
 
 def public_view(quiz):
@@ -97,7 +97,7 @@ class ActiveQuizStore:
         directory.
         """
         if self._store_cache is None or self._store_cache.path != self.file_path:
-            self._store_cache = JsonStore(self.file_path)
+            self._store_cache = open_store(self.file_path)
         return self._store_cache
 
     def _prune(self, data, now):

@@ -81,6 +81,15 @@ deployment. The values that matter most:
 
 ## Maintenance
 
+Every script in `scripts/` resolves `backend` as a top-level package, so run
+them from the repository root with it on the path:
+
+```bash
+PYTHONPATH=. python3 scripts/<name>.py
+```
+
+Without it they stop at `ModuleNotFoundError: No module named 'backend'`.
+
 - `python3 scripts/check_video_links.py` verifies every curriculum video still
   resolves and is long enough to be a lecture rather than a trailer. It exits
   non-zero on failure, so it can be scheduled. Third-party videos disappear

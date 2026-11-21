@@ -14,6 +14,12 @@ services:
         generateValue: true
       - key: GROQ_API_KEY
         sync: false
+      # Postgres connection string, set by hand in the dashboard rather than
+      # committed. With it unset the app falls back to JSON files on the
+      # container filesystem, which this tier erases on every deploy, restart
+      # and idle spin-down.
+      - key: DATABASE_URL
+        sync: false
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
       - key: OLLAMA_ENABLED

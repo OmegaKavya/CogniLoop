@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from backend import config
-from backend.storage import JsonStore
+from backend.storage import open_store
 import warnings
 import pandas as pd
 try:
@@ -32,7 +32,7 @@ class MicroPatternManager:
     def _store(self):
         """Resolved from `storage_path` on each access, not captured at init."""
         if self._store_cache is None or self._store_cache.path != self.storage_path:
-            self._store_cache = JsonStore(self.storage_path, default=list)
+            self._store_cache = open_store(self.storage_path, default=list)
         return self._store_cache
 
     def _ensure_storage(self):

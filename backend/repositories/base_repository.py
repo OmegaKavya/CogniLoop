@@ -1,4 +1,4 @@
-from backend.storage import JsonStore
+from backend.storage import open_store
 
 
 class BaseJsonRepository:
@@ -24,7 +24,7 @@ class BaseJsonRepository:
         temporary directory.
         """
         if self._store_cache is None or self._store_cache.path != self.file_path:
-            self._store_cache = JsonStore(self.file_path)
+            self._store_cache = open_store(self.file_path)
         return self._store_cache
 
     def _read_data(self):

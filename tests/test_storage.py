@@ -19,7 +19,7 @@ from backend.repositories.core_repositories import (
     UserProgressRepository,
     UserRepository,
 )
-from backend.storage import JsonStore
+from backend.storage import JsonStore, open_store
 
 
 def run_concurrently(fn, n):
@@ -195,3 +195,42 @@ class TestEngineConcurrency:
         run_concurrently(
             lambda _: bandit.update_policy("C", 0.5, "medium", score=80), 120)
         assert bandit.q_table["C_Medium"]["medium"]["count"] == 120
+
+
+class TestStoreSelection:
+    """`open_store` decides where every document in the application lives.
+
+    These assert the decision itself, not the backends. A mistake here is the
+    kind that silently writes production data to a container filesystem that is
+    erased on the next deploy, which is exactly the failure this migration
+    exists to fix.
+    """
+
+    def test_falls_back_to_json_without_a_database_url(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        store = open_store(str(tmp_path / "a.json"))
+        assert isinstance(store, JsonStore)
+
+    def test_blank_database_url_is_not_a_database_url(self, tmp_path, monkeypatch):
+        # An unset variable and one set to "" arrive the same way on a host
+        # where someone cleared the field rather than deleting it.
+        monkeypatch.setenv("DATABASE_URL", "   ")
+        store = open_store(str(tmp_path / "b.json"))
+        assert isinstance(store, JsonStore)
+
+    def test_selects_postgres_when_a_database_url_is_present(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@example.invalid/db")
+        import backend.storage_pg as storage_pg
+
+        # Constructing a PgStore creates the table, so the schema call is
+        # stubbed; the assertion is about which class was chosen, and a test
+        # that needed a live database would not run in CI.
+        monkeypatch.setattr(storage_pg, "ensure_schema", lambda: None)
+        store = open_store(str(tmp_path / "c.json"))
+        assert isinstance(store, storage_pg.PgStore)
+
+    def test_postgres_key_is_the_path_relative_to_the_repository(self, monkeypatch):
+        import backend.storage_pg as storage_pg
+
+        key = storage_pg.PgStore._key_for("data/users.json")
+        assert key == "data/users.json"
