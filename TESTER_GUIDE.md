@@ -17,8 +17,15 @@ By taking part you're agreeing that your quiz answers, response times and
 scores can be used in my research, including in an academic paper, **reported
 only as anonymous aggregates — never individually and never by name**.
 
+**One thing you should know:** to generate questions and write your feedback,
+the system sends quiz content and your answers to an external AI provider
+(Groq). **Your name, email and account are never sent** — only the question
+text, which option you picked, and how long you took. If you'd rather that
+didn't happen, don't take part, and no hard feelings.
+
 You can stop at any point, and ask me to delete everything, without giving a
-reason. Just tell me.
+reason. Just tell me — I have a script that removes your account, attempts,
+progress and learning estimates, and confirms nothing is left.
 
 ---
 
@@ -151,8 +158,14 @@ One line each.
 
 ## Privacy
 
-Your answers, timings and scores. Nothing else, shared with no one. Your email
-is a login and nothing more. Say the word and I delete all of it.
+Your answers, timings and scores — nothing else. Your email is a login and is
+never contacted.
+
+Your answers pass through an external AI provider (Groq) to be graded and to
+generate feedback, **without your name or email attached**. Nothing goes
+anywhere else, and no one but me sees your individual results.
+
+Say the word and I delete all of it.
 
 ## If something goes wrong
 
