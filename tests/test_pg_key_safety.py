@@ -44,6 +44,10 @@ class TestEveryTempRootIsCovered:
         "/tmp/users.json",
         "/private/tmp/users.json",
         "/var/tmp/users.json",
+        # tmpfs on Linux, which is what this deploys to. gettempdir() does not
+        # return it. Added after the round 7 audit.
+        "/dev/shm/users.json",
+        "/run/shm/users.json",
     ])
     def test_system_temp_roots_are_refused(self, path):
         with pytest.raises(ValueError, match="temporary path"):

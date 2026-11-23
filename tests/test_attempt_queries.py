@@ -160,3 +160,47 @@ class TestMatchSemantics:
 
     def test_a_present_field_does_not_match_none(self, store):
         assert store.query_list(match={"id": None}) == []
+
+
+class TestUnsupportedMatchTypes:
+    """Types the two backends do not render identically are refused, not
+    compared. Found by the round 7 audit, which verified that nested objects,
+    arrays and scientific-notation floats each matched on the file backend and
+    returned nothing on Postgres.
+
+    Refusing rather than normalising because `match` is for scalar field
+    equality: comparing a whole JSON structure by its text is fragile even
+    when both backends agree on the text.
+    """
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        s = JsonStore(str(tmp_path / "rows.json"), default=list)
+        s.write([{"id": "a", "meta": {"tier": 1}, "tags": ["x"], "v": 1e20}])
+        return s
+
+    @pytest.mark.parametrize("value", [
+        {"tier": 1},
+        ["x"],
+        1e20,
+        0.5,
+        ("a", "b"),
+    ])
+    def test_refused_with_a_clear_message(self, store, value):
+        with pytest.raises(TypeError, match="str, int, bool or None"):
+            store.query_list(match={"meta": value})
+
+    def test_the_error_names_the_offending_type(self, store):
+        with pytest.raises(TypeError, match="dict"):
+            store.query_list(match={"meta": {"tier": 1}})
+
+    @pytest.mark.parametrize("value", ["abc", "", 5, 0, 10**18, True, False])
+    def test_supported_types_are_not_refused(self, store, value):
+        store.query_list(match={"id": value})  # must not raise
+
+    def test_none_is_still_supported(self, store):
+        assert len(store.query_list(match={"absent": None})) == 1
+
+    def test_count_list_refuses_the_same_types(self, store):
+        with pytest.raises(TypeError):
+            store.count_list(match={"meta": {"tier": 1}})

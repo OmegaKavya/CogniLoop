@@ -151,9 +151,19 @@ class PgStore:
         # Found by the round 6 audit and confirmed.
         resolved = os.path.realpath(absolute)
         temp_roots = {os.path.realpath(tempfile.gettempdir())}
-        for candidate in ("/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp"):
-            if os.path.isdir(candidate):
-                temp_roots.add(os.path.realpath(candidate))
+        # /dev/shm is a world-writable tmpfs on Linux, which is what this
+        # deploys to; gettempdir() does not return it unless TMPDIR says so.
+        # Added after the round 7 audit.
+        #
+        # These are NOT gated on the directory existing locally. Gating them
+        # meant /dev/shm was refused on the Linux host that has it and allowed
+        # on the macOS laptop that does not, so the guard behaved differently
+        # in the place it was written from the place it runs - which is the
+        # one property a guard like this must not have. Nothing legitimate
+        # lives under these prefixes on either platform.
+        for candidate in ("/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp",
+                          "/dev/shm", "/run/shm"):
+            temp_roots.add(os.path.realpath(candidate))
         if any(resolved.startswith(root + os.sep) for root in temp_roots):
             raise ValueError(
                 f"refusing to use a temporary path as a database key: {path}. "

@@ -159,3 +159,55 @@ class TestVideoTrackValidation:
                                 json={'topic_id': 'test_topic'}).status_code
                  for _ in range(5)]
         assert 429 in codes, f"expected a 429 once over the limit, got {codes}"
+
+
+class TestSemaphoreIsNotLeaked:
+    """The slot is taken before the thread exists, so a failure to start one
+    must give it back. Four leaks would disable refinement for the whole
+    process until restart, and thread creation fails on exactly the small
+    container this cap exists for. Found by the round 7 audit."""
+
+    def test_a_thread_that_cannot_start_releases_its_slot(self, monkeypatch):
+        import app as app_module
+        from backend import config
+
+        def refuse(*args, **kwargs):
+            raise RuntimeError("can't start new thread")
+
+        monkeypatch.setattr(app_module.threading, 'Thread', refuse)
+        for _ in range(config.INSIGHT_REFINE_MAX_INFLIGHT + 2):
+            app_module.refine_insights_in_background(
+                '1', 'a1', 'OS', 40, 0.4, [{'is_correct': False}])
+
+        # Every permit must still be available.
+        taken = []
+        try:
+            for _ in range(config.INSIGHT_REFINE_MAX_INFLIGHT):
+                assert app_module._insight_slots.acquire(blocking=False), \
+                    "a permit was leaked by a thread that never started"
+                taken.append(True)
+        finally:
+            for _ in taken:
+                app_module._insight_slots.release()
+
+
+class TestClientAddress:
+    """The address limiter keys on this, so the entry chosen decides whether a
+    caller can rotate the header for a fresh bucket."""
+
+    def test_uses_the_rightmost_forwarded_entry(self, client):
+        from app import _client_address
+        with client.application.test_request_context(
+                headers={'X-Forwarded-For': '1.1.1.1, 2.2.2.2, 9.9.9.9'}):
+            assert _client_address() == '9.9.9.9'
+
+    def test_a_single_entry_still_works(self, client):
+        from app import _client_address
+        with client.application.test_request_context(
+                headers={'X-Forwarded-For': '9.9.9.9'}):
+            assert _client_address() == '9.9.9.9'
+
+    def test_falls_back_to_the_peer_address(self, client):
+        from app import _client_address
+        with client.application.test_request_context():
+            assert _client_address() is not None

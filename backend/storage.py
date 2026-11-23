@@ -77,7 +77,29 @@ def match_text(value):
     """
     if isinstance(value, bool):
         return "true" if value else "false"
-    return str(value)
+    if isinstance(value, int) or isinstance(value, str):
+        # Verified to render identically on both backends, including very
+        # large integers, zero and the empty string.
+        return str(value)
+    # Everything else is refused rather than compared, because the two
+    # backends do not agree on its text and the disagreement is silent:
+    # query_list simply returns fewer rows on Postgres than on a file.
+    #
+    #   dict   Python str() uses single quotes, Postgres ->> emits JSON
+    #   list   same
+    #   float  str(1e20) is "1e+20"; Postgres renders the digits in full.
+    #          Simple values like 0.5 do agree, which is worse rather than
+    #          better - it means the failure only appears at the extremes.
+    #
+    # Found by the round 7 audit. `match` is for scalar field equality; a
+    # caller needing to match a structure should compare a field inside it,
+    # and one needing a float should pass the text it was stored as.
+    raise TypeError(
+        f"query_list match values must be str, int, bool or None, not "
+        f"{type(value).__name__}. The two storage backends do not render "
+        f"this type identically, so a match on it would silently return "
+        f"different rows depending on which backend is in use."
+    )
 
 
 def _matches(item, match):

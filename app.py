@@ -90,9 +90,18 @@ def _client_address():
     consulted. That header is attacker-controlled and is therefore used only to
     spread rate-limit buckets, never for authorisation.
     """
-    forwarded = request.headers.get('X-Forwarded-For', '')
+    forwarded = [part.strip() for part
+                 in request.headers.get('X-Forwarded-For', '').split(',')
+                 if part.strip()]
     if forwarded:
-        return forwarded.split(',')[0].strip()
+        # The RIGHTMOST entry, not the leftmost. Each proxy appends the address
+        # it received from, so everything to the left is whatever the client
+        # chose to send and the last entry is the one the trusted proxy added.
+        # Taking the leftmost let a caller rotate the header and get a fresh
+        # rate-limit bucket per request, which is exactly the caller the
+        # address limiter exists to slow down. MelodAI already did this
+        # correctly; this was the inconsistent copy.
+        return forwarded[-1]
     return request.remote_addr or 'unknown'
 
 # Remove load_json and save_json globally
@@ -843,8 +852,17 @@ def refine_insights_in_background(user_id, attempt_id, topic_name, score,
         finally:
             _insight_slots.release()
 
-    threading.Thread(target=run, daemon=True,
-                     name=f"insights-{attempt_id}").start()
+    try:
+        threading.Thread(target=run, daemon=True,
+                         name=f"insights-{attempt_id}").start()
+    except (RuntimeError, OSError) as exc:
+        # The slot is acquired before the thread exists, so a failure to start
+        # one leaks a permit: `run` never executes and its finally never fires.
+        # Four such failures would disable refinement for the whole process
+        # until restart. Thread creation does fail on a small container, which
+        # is the condition this cap exists for in the first place.
+        _insight_slots.release()
+        print(f"[Insights] could not start refinement thread for {attempt_id}: {exc}")
 
 
 from backend.adaptation.recommendation import recommender
@@ -993,7 +1011,6 @@ def quiz_submit():
         }), 429, {'Retry-After': str(quiz_submit_limiter.retry_after(str(user_id)))}
 
     data = request.json
-    topic_id = data.get('topic_id')
     responses = data.get('responses', [])
 
     # Single-use: consuming the token stops one issued quiz being replayed to
@@ -1001,6 +1018,13 @@ def quiz_submit():
     quiz = active_quiz_store.consume(data.get('quiz_token'), user_id)
     if not quiz:
         return jsonify({'success': False, 'message': 'Quiz session expired. Please refresh the page.'}), 400
+
+    # From the server's copy, for the same reason the difficulty is, below.
+    # `topic_id` keys the BKT state and labels the stored attempt, so reading
+    # it from the request body let a client credit one topic's mastery update
+    # to another, or create state under a topic that does not exist. The quiz
+    # was issued for exactly one topic and the store remembers which.
+    topic_id = quiz.get('topic_id') or data.get('topic_id')
 
     # The tier the server actually served, from the server's own copy of the
     # quiz. Reading this from the request body let the client name the
