@@ -62,18 +62,38 @@ def _mutex_for(path):
         return _mutexes[key]
 
 
-def _matches(item, match):
-    """True when every key in `match` equals the item's value, compared as text.
+def match_text(value):
+    """The text a value compares as, matching Postgres `->>` exactly.
 
-    Text comparison because the Postgres implementation uses `->>`, which
-    always yields text. Comparing 5 to "5" differently in the two backends
-    would be a difference a caller could observe, and the whole point of the
-    two classes is that a caller cannot tell them apart.
+    `->>` renders a JSON boolean as lowercase "true"/"false", while Python's
+    str(True) is "True". Comparing with str() therefore made `match={"x": True}`
+    find rows on the file backend and nothing at all on Postgres - a difference
+    a caller could observe, which the two classes exist to prevent. Found by
+    the round 6 audit and confirmed against a real database.
+
+    None is not a text value: it means "absent or JSON null" and is handled
+    separately by each backend, because `str(None)` as a comparison made the
+    file backend match EVERY row whose field was missing.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _matches(item, match):
+    """True when every key in `match` equals the item's value.
+
+    Values compare as the text Postgres `->>` would produce, so the backends
+    agree. A None in `match` means the field is absent or null.
     """
     if not match:
         return True
     for key, value in match.items():
-        if str(item.get(key)) != str(value):
+        actual = item.get(key)
+        if value is None:
+            if actual is not None:
+                return False
+        elif actual is None or match_text(actual) != match_text(value):
             return False
     return True
 

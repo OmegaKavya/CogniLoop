@@ -35,6 +35,25 @@ class TestTemporaryPathsAreRefused:
         assert str(tmp_path) in message, "must name the offending path"
 
 
+class TestEveryTempRootIsCovered:
+    """`gettempdir()` alone returns only the per-user $TMPDIR on macOS, so
+    /tmp, /private/tmp and /var/tmp walked straight past the guard. Found by
+    the round 6 audit."""
+
+    @pytest.mark.parametrize("path", [
+        "/tmp/users.json",
+        "/private/tmp/users.json",
+        "/var/tmp/users.json",
+    ])
+    def test_system_temp_roots_are_refused(self, path):
+        with pytest.raises(ValueError, match="temporary path"):
+            PgStore._key_for(path)
+
+    def test_the_per_user_tmpdir_is_refused(self):
+        with pytest.raises(ValueError, match="temporary path"):
+            PgStore._key_for(os.path.join(tempfile.gettempdir(), "users.json"))
+
+
 class TestLegitimatePathsStillWork:
     def test_project_relative_path(self):
         assert PgStore._key_for("data/users.json") == "data/users.json"

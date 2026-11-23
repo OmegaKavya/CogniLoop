@@ -117,3 +117,46 @@ class TestNonListDocuments:
         store.write({"a": 1})
         assert store.query_list(match={"user_id": "u1"}) == []
         assert store.count_list() == 0
+
+
+class TestMatchSemantics:
+    """The two backends must agree on what a match value means.
+
+    Found by the round 6 audit, confirmed against a real database, and the
+    reason these exist: `match={"flag": True}` returned rows on the file
+    backend and nothing on Postgres, because `->>` renders a JSON boolean as
+    "true" while `str(True)` is "True". `match={"x": None}` was worse - the
+    file backend matched EVERY row whose field was missing.
+
+    `tests/test_storage_postgres.py` asserts the same cases against Postgres.
+    Only together do they mean anything: either alone passes while the two
+    disagree.
+    """
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        s = JsonStore(str(tmp_path / "rows.json"), default=list)
+        s.write([
+            {"id": "a", "flag": True, "n": 5},
+            {"id": "b", "flag": False, "n": "5"},
+            {"id": "c"},
+        ])
+        return s
+
+    def test_true_matches_as_lowercase(self, store):
+        assert [r["id"] for r in store.query_list(match={"flag": True})] == ["a"]
+
+    def test_false_is_not_treated_as_absent(self, store):
+        """`False` is a value, not a missing field."""
+        assert [r["id"] for r in store.query_list(match={"flag": False})] == ["b"]
+
+    def test_none_means_absent_or_null(self, store):
+        assert [r["id"] for r in store.query_list(match={"missing": None})] == ["a", "b", "c"]
+        assert [r["id"] for r in store.query_list(match={"flag": None})] == ["c"]
+
+    def test_numbers_compare_as_text_either_way(self, store):
+        assert [r["id"] for r in store.query_list(match={"n": 5})] == ["a", "b"]
+        assert [r["id"] for r in store.query_list(match={"n": "5"})] == ["a", "b"]
+
+    def test_a_present_field_does_not_match_none(self, store):
+        assert store.query_list(match={"id": None}) == []

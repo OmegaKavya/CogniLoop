@@ -291,3 +291,45 @@ class TestCountList:
 
     def test_absent_is_zero(self, store):
         assert store.count_list(match={"user_id": "nobody"}) == 0
+
+
+class TestMatchSemanticsAgainstPostgres:
+    """The Postgres half of the contract in tests/test_attempt_queries.py.
+
+    These are the cases the round 6 audit found disagreeing. `->>` renders a
+    JSON boolean as lowercase "true", and compares against SQL NULL for an
+    absent field, so neither `str(True)` nor `= 'None'` worked. Asserting the
+    same expectations here and on JsonStore is the only way a disagreement
+    shows up as a failure rather than as a production bug.
+    """
+
+    @pytest.fixture
+    def store(self, store_factory):
+        s = store_factory("match-semantics", default=list)
+        s.write([
+            {"id": "a", "flag": True, "n": 5},
+            {"id": "b", "flag": False, "n": "5"},
+            {"id": "c"},
+        ])
+        return s
+
+    def test_true_matches_as_lowercase(self, store):
+        assert [r["id"] for r in store.query_list(match={"flag": True})] == ["a"]
+
+    def test_false_is_not_treated_as_absent(self, store):
+        assert [r["id"] for r in store.query_list(match={"flag": False})] == ["b"]
+
+    def test_none_means_absent_or_null(self, store):
+        assert [r["id"] for r in store.query_list(match={"missing": None})] == ["a", "b", "c"]
+        assert [r["id"] for r in store.query_list(match={"flag": None})] == ["c"]
+
+    def test_numbers_compare_as_text_either_way(self, store):
+        assert [r["id"] for r in store.query_list(match={"n": 5})] == ["a", "b"]
+        assert [r["id"] for r in store.query_list(match={"n": "5"})] == ["a", "b"]
+
+    def test_a_present_field_does_not_match_none(self, store):
+        assert store.query_list(match={"id": None}) == []
+
+    def test_count_list_agrees_with_query_list(self, store):
+        for m in ({"flag": True}, {"flag": False}, {"missing": None}, {"n": 5}):
+            assert store.count_list(match=m) == len(store.query_list(match=m)), m

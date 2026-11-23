@@ -29,6 +29,8 @@ import os
 import tempfile
 import threading
 
+from backend.storage import match_text
+
 _pool = None
 _pool_guard = threading.Lock()
 _schema_ready = False
@@ -144,8 +146,15 @@ class PgStore:
         # below is what made it possible, and both times it was noticed by
         # accident. Refusing is how a mistake this shape becomes a stack trace
         # on the first write instead of litter discovered later.
-        temp_root = os.path.realpath(tempfile.gettempdir())
-        if os.path.realpath(absolute).startswith(temp_root + os.sep):
+        # gettempdir() alone returns only the per-user $TMPDIR on macOS, so
+        # /tmp, /private/tmp and /var/tmp all walked straight past this guard.
+        # Found by the round 6 audit and confirmed.
+        resolved = os.path.realpath(absolute)
+        temp_roots = {os.path.realpath(tempfile.gettempdir())}
+        for candidate in ("/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp"):
+            if os.path.isdir(candidate):
+                temp_roots.add(os.path.realpath(candidate))
+        if any(resolved.startswith(root + os.sep) for root in temp_roots):
             raise ValueError(
                 f"refusing to use a temporary path as a database key: {path}. "
                 "Something is writing scratch data to the real database - most "
@@ -244,8 +253,16 @@ class PgStore:
         clauses = ["d.key = %s"]
         params = [self.key]
         for key, value in (match or {}).items():
-            clauses.append("x.item ->> %s = %s")
-            params.extend([key, str(value)])
+            if value is None:
+                # "absent or JSON null", which is what the file backend means
+                # by a None in `match`. `->> = 'None'` compared against SQL
+                # NULL and matched nothing, while the file backend matched
+                # every row missing the field.
+                clauses.append("x.item ->> %s IS NULL")
+                params.append(key)
+            else:
+                clauses.append("x.item ->> %s = %s")
+                params.extend([key, match_text(value)])
         return " AND ".join(clauses), params
 
     def query_list(self, match=None, drop_keys=()):
