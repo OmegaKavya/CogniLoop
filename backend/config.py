@@ -221,6 +221,36 @@ LOGIN_ATTEMPT_WINDOW_SECONDS = env_int("LOGIN_ATTEMPT_WINDOW_SECONDS", 300)
 REGISTER_MAX_ATTEMPTS = env_int("REGISTER_MAX_ATTEMPTS", 20)
 REGISTER_ATTEMPT_WINDOW_SECONDS = env_int("REGISTER_ATTEMPT_WINDOW_SECONDS", 3600)
 
+# The two endpoints that spend money and block a worker. Generating a quiz and
+# grading one each make a model call, and neither was limited: a signed-in
+# account could drive unbounded LLM spend and occupy the single sync worker.
+# Limits are per user and deliberately generous - a learner takes minutes over
+# a quiz, so these are unreachable by hand and only bite a script.
+QUIZ_GENERATE_MAX = env_int("QUIZ_GENERATE_MAX", 15)
+QUIZ_GENERATE_WINDOW_SECONDS = env_int("QUIZ_GENERATE_WINDOW_SECONDS", 300)
+QUIZ_SUBMIT_MAX = env_int("QUIZ_SUBMIT_MAX", 20)
+QUIZ_SUBMIT_WINDOW_SECONDS = env_int("QUIZ_SUBMIT_WINDOW_SECONDS", 300)
+
+# How many post-quiz insight refinements may be in flight at once. Each holds
+# a thread doing a network call, so without a cap one thread per submission is
+# created and a 512 MB instance dies of thread exhaustion before it dies of
+# anything interesting. Past the cap the refinement is skipped, not queued:
+# the attempt already carries usable deterministic advice, so dropping the
+# improvement is the correct degradation.
+INSIGHT_REFINE_MAX_INFLIGHT = env_int("INSIGHT_REFINE_MAX_INFLIGHT", 4)
+
+# Telemetry: the player posts progress every few seconds while a video plays,
+# so this is the highest-frequency write in the system and the limit has to
+# allow a long video. 120 per 5 minutes is one post every 2.5 seconds
+# sustained, well above what the player sends and well below a script.
+VIDEO_TRACK_MAX = env_int("VIDEO_TRACK_MAX", 120)
+VIDEO_TRACK_WINDOW_SECONDS = env_int("VIDEO_TRACK_WINDOW_SECONDS", 300)
+
+# The cohort report reads every user and every attempt. Admin-only, but an
+# admin with a reload loop is still the most expensive request in the app.
+ANALYTICS_MAX = env_int("ANALYTICS_MAX", 30)
+ANALYTICS_WINDOW_SECONDS = env_int("ANALYTICS_WINDOW_SECONDS", 300)
+
 # --- Language model providers ----------------------------------------------
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")

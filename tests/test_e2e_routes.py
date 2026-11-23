@@ -304,17 +304,23 @@ class TestQuizSubmit:
 # ── Video tracking API ────────────────────────────────────────────────────────
 
 class TestVideoTracking:
+    # `test_topic` is the only video the test_data_dir fixture seeds. These
+    # used to post 'os', which exists in production but not in the fixture,
+    # and passed only because the route accepted any string as a topic id.
+    # It now checks the topic exists, because that id becomes a key in the
+    # progress document and a label in the clustering input.
+
     def test_video_track_returns_200(self, client):
         client.post('/register', json={"email": "track@test.com", "name": "T", "password": "p"})
         r = client.post('/api/video-track', json={
-            'topic_id': 'os', 'watch_time': 120, 'completed': False
+            'topic_id': 'test_topic', 'watch_time': 120, 'completed': False
         })
         assert r.status_code == 200
 
     def test_video_track_returns_status(self, client):
         client.post('/register', json={"email": "trackstatus@test.com", "name": "T", "password": "p"})
         r = client.post('/api/video-track', json={
-            'topic_id': 'os', 'watch_time': 300, 'completed': True
+            'topic_id': 'test_topic', 'watch_time': 300, 'completed': True
         })
         body = json.loads(r.data)
         assert r.status_code == 200, f"Expected 200, got {r.status_code}"

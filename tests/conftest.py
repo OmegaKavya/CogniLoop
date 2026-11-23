@@ -191,9 +191,11 @@ def test_data_dir():
 def reset_rate_limiters():
     """Abuse limits are process-wide, so without this each test inherits the
     attempts made by every test before it."""
-    from app import login_limiter, register_limiter
-    login_limiter.clear()
-    register_limiter.clear()
+    from app import (login_limiter, register_limiter, quiz_generate_limiter,
+                     quiz_submit_limiter, video_track_limiter, analytics_limiter)
+    for limiter in (login_limiter, register_limiter, quiz_generate_limiter,
+                    quiz_submit_limiter, video_track_limiter, analytics_limiter):
+        limiter.clear()
     yield
 
 

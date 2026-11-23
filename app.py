@@ -48,6 +48,39 @@ login_limiter = SlidingWindowLimiter(
     config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
 register_limiter = SlidingWindowLimiter(
     config.REGISTER_MAX_ATTEMPTS, config.REGISTER_ATTEMPT_WINDOW_SECONDS)
+# Keyed on user id, not address: both endpoints already require a session, and
+# the cost being protected is per account.
+quiz_generate_limiter = SlidingWindowLimiter(
+    config.QUIZ_GENERATE_MAX, config.QUIZ_GENERATE_WINDOW_SECONDS)
+quiz_submit_limiter = SlidingWindowLimiter(
+    config.QUIZ_SUBMIT_MAX, config.QUIZ_SUBMIT_WINDOW_SECONDS)
+video_track_limiter = SlidingWindowLimiter(
+    config.VIDEO_TRACK_MAX, config.VIDEO_TRACK_WINDOW_SECONDS)
+analytics_limiter = SlidingWindowLimiter(
+    config.ANALYTICS_MAX, config.ANALYTICS_WINDOW_SECONDS)
+
+
+def bounded_number(value, low, high, default=0):
+    """Coerce a client-supplied number into a known range.
+
+    Telemetry arrives from the browser and is therefore attacker-controlled.
+    It is not just stored: `watch_percentage`, `skip_ratio`, `pause_count` and
+    `rewatch_count` are the feature vector the KMeans model clusters on, and
+    the cluster chooses which bandit arm serves the learner their next
+    difficulty. Unvalidated, a posted `skip_ratio` of 1e9 moves the centroids
+    and changes what every other learner is served, which makes this an
+    integrity problem rather than a tidiness one.
+
+    Anything non-numeric, infinite or NaN becomes `default` rather than
+    raising, because telemetry must never fail a learner's request.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if number != number or number in (float("inf"), float("-inf")):
+        return default
+    return max(low, min(high, number))
 
 
 def _client_address():
@@ -755,6 +788,14 @@ def export_cheat_sheet(attempt_id):
 
 from backend.adaptation.micro_pattern import mp_manager
 
+# Caps concurrent insight refinements. A plain Semaphore rather than a
+# ThreadPoolExecutor on purpose: the executor's workers are non-daemon, so the
+# interpreter joins them at exit and one hung provider call would hold up every
+# worker recycle for the length of its timeout. Daemon threads plus a counter
+# bound the concurrency without owning shutdown.
+_insight_slots = threading.Semaphore(config.INSIGHT_REFINE_MAX_INFLIGHT)
+
+
 def refine_insights_in_background(user_id, attempt_id, topic_name, score,
                                   mastery, question_results):
     """Ask the model to rewrite an attempt's advice, after the response.
@@ -780,6 +821,15 @@ def refine_insights_in_background(user_id, attempt_id, topic_name, score,
     """
     destination = QuizAttemptRepository(quiz_repo.file_path)
 
+    # Bounded, and it degrades by skipping rather than queueing. A queue would
+    # still grow a thread's worth of state per submission under load; dropping
+    # the refinement costs only a better-written paragraph, because the attempt
+    # already holds the deterministic version.
+    if not _insight_slots.acquire(blocking=False):
+        print(f"[Insights] refinement skipped for {attempt_id}: "
+              f"{config.INSIGHT_REFINE_MAX_INFLIGHT} already in flight")
+        return
+
     def run():
         try:
             insights = insights_engine.model_insights(
@@ -790,6 +840,8 @@ def refine_insights_in_background(user_id, attempt_id, topic_name, score,
             # Never surfaced to the learner: the attempt already has usable
             # advice, so a failure here is a missed improvement, not an error.
             print(f"[Insights] background refinement failed for {attempt_id}: {exc}")
+        finally:
+            _insight_slots.release()
 
     threading.Thread(target=run, daemon=True,
                      name=f"insights-{attempt_id}").start()
@@ -808,22 +860,39 @@ def video_track():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     
-    data = request.json
     user_id = session['user_id']
+
+    # The highest-frequency write in the system, and it writes two documents.
+    if not video_track_limiter.record(str(user_id)):
+        return jsonify({
+            'success': False, 'message': 'Too many updates.'
+        }), 429, {'Retry-After': str(video_track_limiter.retry_after(str(user_id)))}
+
+    data = request.json
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'message': 'Invalid payload'}), 400
+
     video_id = data.get('topic_id')
-    
+    if not isinstance(video_id, str) or not video_id:
+        return jsonify({'success': False, 'message': 'Invalid topic_id'}), 400
+    # Must name a real topic: the id becomes a key in the progress document
+    # and a label in the clustering input.
+    if not any(v.get('id') == video_id for v in video_repo.get_all_videos()):
+        return jsonify({'success': False, 'message': 'Topic not found'}), 404
+
+    watch_percentage = bounded_number(data.get('watch_percentage'), 0, 100)
     interaction_data = {
-        "pause_count": data.get('pause_count', 0),
-        "rewatch_count": data.get('rewatch_count', 0),
-        "skip_ratio": data.get('skip_ratio', 0),
-        "watch_percentage": data.get('watch_percentage', 0)
+        "pause_count": int(bounded_number(data.get('pause_count'), 0, 10000)),
+        "rewatch_count": int(bounded_number(data.get('rewatch_count'), 0, 10000)),
+        "skip_ratio": bounded_number(data.get('skip_ratio'), 0, 1),
+        "watch_percentage": watch_percentage
     }
-    
+
     success = mp_manager.log_interaction(user_id, video_id, interaction_data)
-    
+
     progress_data = {
-        "last_position": data.get('last_time', 0),
-        "watch_percentage": data.get('watch_percentage', 0),
+        "last_position": bounded_number(data.get('last_time'), 0, 86400),
+        "watch_percentage": watch_percentage,
         "timestamp": datetime.now().isoformat()
     }
     progress_repo.save_progress(user_id, video_id, progress_data)
@@ -877,6 +946,15 @@ def api_quiz_data(topic_id):
         return jsonify({'success': False, 'message': 'Topic not found'}), 404
 
     user_id = session['user_id']
+
+    # Generating a quiz is a model call. Unlimited, one account could run up
+    # the provider bill and keep the single sync worker busy indefinitely.
+    if not quiz_generate_limiter.record(str(user_id)):
+        return jsonify({
+            'success': False,
+            'message': 'Too many quizzes started. Please wait a moment.'
+        }), 429, {'Retry-After': str(quiz_generate_limiter.retry_after(str(user_id)))}
+
     study_group = session.get('study_group', 'experimental')
     user_video_progress = progress_repo.get_progress(user_id, topic_id)
     watch_time = user_video_progress.get('last_position', 0)
@@ -903,8 +981,18 @@ def quiz_submit():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     
-    data = request.json
     user_id = session['user_id']
+
+    # Grading is also a model call, and this is the endpoint that starts a
+    # background thread. The quiz token already makes replay impossible, but
+    # nothing stopped a script pipelining fresh quizzes through this route.
+    if not quiz_submit_limiter.record(str(user_id)):
+        return jsonify({
+            'success': False,
+            'message': 'Too many submissions. Please wait a moment.'
+        }), 429, {'Retry-After': str(quiz_submit_limiter.retry_after(str(user_id)))}
+
+    data = request.json
     topic_id = data.get('topic_id')
     responses = data.get('responses', [])
 
@@ -1129,6 +1217,12 @@ def research_analytics():
     # cookie.
     if not _is_admin(session['user_id']):
         return jsonify({'success': False, 'message': 'Forbidden'}), 403
+
+    # Reads every user and every attempt; the most expensive request here.
+    if not analytics_limiter.record(str(session['user_id'])):
+        return jsonify({
+            'success': False, 'message': 'Too many requests.'
+        }), 429, {'Retry-After': str(analytics_limiter.retry_after(str(session['user_id'])))}
 
     report = analytics_engine.generate_experiment_report()
     return jsonify({
