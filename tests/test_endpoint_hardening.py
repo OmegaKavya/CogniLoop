@@ -211,3 +211,49 @@ class TestClientAddress:
         from app import _client_address
         with client.application.test_request_context():
             assert _client_address() is not None
+
+
+class TestLimiterConcurrencyWarning:
+    """The limiters are in-process, so each worker enforces its own window.
+
+    That is a real correctness hole, left open on a judgement: a shared store
+    costs a round trip per limited request on a free database, to solve a
+    problem a single-worker deployment does not have. The judgement is only
+    defensible if the hole announces itself, which is what this covers.
+    """
+
+    def test_silent_at_one_worker(self, capsys, monkeypatch):
+        import app as app_module
+        monkeypatch.setenv("WEB_CONCURRENCY", "1")
+        app_module.warn_if_limits_are_multiplied()
+        assert "RateLimit" not in capsys.readouterr().out
+
+    def test_warns_and_states_the_real_numbers(self, capsys, monkeypatch):
+        import app as app_module
+        monkeypatch.setenv("WEB_CONCURRENCY", "4")
+        app_module.warn_if_limits_are_multiplied()
+        out = capsys.readouterr().out
+        assert "WEB_CONCURRENCY=4" in out
+        # Every limiter must be named, or the warning understates the problem.
+        for name in app_module.ALL_LIMITERS:
+            assert name in out, f"{name} missing from the warning"
+        # And the effective figure, not just the configured one.
+        submit = app_module.ALL_LIMITERS["quiz submission"]
+        assert str(submit.max_events * 4) in out
+
+    def test_a_non_numeric_setting_does_not_crash_startup(self, capsys, monkeypatch):
+        import app as app_module
+        monkeypatch.setenv("WEB_CONCURRENCY", "not-a-number")
+        app_module.warn_if_limits_are_multiplied()  # must not raise
+        assert "RateLimit" not in capsys.readouterr().out
+
+    def test_every_limiter_in_the_app_is_registered(self):
+        """A new limiter added without registering it would be left out of the
+        warning, which is how the warning would quietly become wrong."""
+        import re
+        import app as app_module
+        source = open("app.py").read()
+        defined = set(re.findall(r"^(\w+) = SlidingWindowLimiter\(", source, re.M))
+        registered = {id(v) for v in app_module.ALL_LIMITERS.values()}
+        missing = [n for n in defined if id(getattr(app_module, n)) not in registered]
+        assert not missing, f"limiters missing from ALL_LIMITERS: {missing}"

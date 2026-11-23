@@ -7,6 +7,7 @@ import json
 import tempfile
 import pytest
 from backend.repositories.base_repository import BaseJsonRepository
+from backend.storage import StorageCorrupted
 from backend.repositories.core_repositories import UserRepository, QuizAttemptRepository
 
 
@@ -51,12 +52,19 @@ class TestBaseRepository:
     def test_get_by_id_missing_returns_none(self, repo):
         assert repo.get_by_id("does_not_exist") is None
 
-    def test_corrupted_json_returns_empty(self, tmp_path):
+    def test_corrupted_json_refuses_rather_than_returning_empty(self, tmp_path):
+        """Was asserting that a damaged document reads as empty.
+
+        It must not. The repository's own callers then write back to it, and
+        an empty read followed by a write is how a corrupt file becomes an
+        erased one.
+        """
         f = str(tmp_path / "corrupt.json")
         with open(f, "w") as fh:
             fh.write("{{{not valid json")
         repo = BaseJsonRepository(f)
-        assert repo.get_all() == {}
+        with pytest.raises(StorageCorrupted):
+            repo.get_all()
 
     def test_file_created_if_missing(self, tmp_path):
         f = str(tmp_path / "newfile.json")

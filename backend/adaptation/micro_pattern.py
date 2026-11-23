@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from backend import config
-from backend.storage import open_store
+from backend.storage import open_store, StorageCorrupted
 import warnings
 import pandas as pd
 try:
@@ -25,6 +25,9 @@ class MicroPatternManager:
         self.storage_path = storage_path
         self.model_path = model_path
         self._store_cache = None
+        # The fitted model, held against the (mtime, size) it was read from.
+        self._cached_model = None
+        self._cached_signature = None
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
         self._ensure_storage()
 
@@ -68,6 +71,15 @@ class MicroPatternManager:
         """Most recent recorded interaction for one learner and video, or {}."""
         try:
             events = self._store.read()
+        except StorageCorrupted as exc:
+            # Degrade rather than fail: this feeds behaviour clustering, which
+            # already falls back to "General Learner", and a learner's
+            # submission must not be blocked because telemetry is unreadable.
+            # But say so - silence here is how a corrupt document goes
+            # unnoticed until something else trips over it.
+            print(f"[MicroPattern] behaviour log unreadable, clustering "
+                  f"degraded: {exc}")
+            return {}
         except Exception:
             return {}
         if not isinstance(events, list):
@@ -89,6 +101,10 @@ class MicroPatternManager:
         
         kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
         kmeans.fit(X)
+        # Invalidate, so a refit is visible to this process immediately rather
+        # than only once the file signature happens to differ.
+        self._cached_model = None
+        self._cached_signature = None
         with open(self.model_path, 'wb') as f:
             pickle.dump({
                 "model": kmeans,
@@ -97,9 +113,42 @@ class MicroPatternManager:
             }, f)
         return True
 
-    def _load_model(self):
-        if not os.path.exists(self.model_path):
+    def _model_signature(self):
+        """Identity of the file on disk, so a changed model is picked up."""
+        try:
+            stat = os.stat(self.model_path)
+        except OSError:
             return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    def _load_model(self):
+        """The fitted model, unpickled at most once per version of the file.
+
+        Two problems lived here, and both were in the request path.
+
+        The model was unpickled from disk on every single call, and
+        `predict_cluster` is called on every quiz submission. Deserialising a
+        scikit-learn estimator is not free, and nothing about it changes
+        between requests.
+
+        Worse, a version warning triggered `train_model()` *inline* - a full
+        KMeans fit over every behaviour row ever recorded, inside a learner's
+        submission, on a single synchronous worker. The one condition under
+        which the model is least trustworthy was also the condition that made
+        the slowest possible thing happen while someone waited.
+
+        Now: cached against the file's mtime and size, so a retrained model is
+        picked up without a restart, and a version mismatch refuses the model
+        rather than refitting it. Callers already fall back to "General
+        Learner", which is the correct behaviour for a model that cannot be
+        trusted. Refitting is an offline job - run `train_model()` from a
+        script, not from a request.
+        """
+        signature = self._model_signature()
+        if signature is None:
+            return None
+        if self._cached_signature == signature:
+            return self._cached_model
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", InconsistentVersionWarning)
@@ -113,12 +162,16 @@ class MicroPatternManager:
         model = loaded.get("model") if isinstance(loaded, dict) else loaded
 
         if has_version_warning:
-            if self.train_model():
-                with open(self.model_path, 'rb') as f:
-                    refreshed = pickle.load(f)
-                return refreshed.get("model") if isinstance(refreshed, dict) else refreshed
-            return None
+            print(f"[MicroPattern] {self.model_path} was fitted by a different "
+                  f"scikit-learn version and will not be used. Behaviour "
+                  f"clustering falls back to 'General Learner' until it is "
+                  f"refitted offline with train_model().")
+            model = None
 
+        # Cached either way: a model that cannot be used must not be re-read
+        # and re-rejected on every subsequent request.
+        self._cached_signature = signature
+        self._cached_model = model
         return model
 
     def predict_cluster(self, interaction_data):

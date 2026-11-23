@@ -28,12 +28,69 @@ import json
 import os
 import tempfile
 import threading
+from contextlib import contextmanager
 
 from backend.storage import match_text
 
 _pool = None
 _pool_guard = threading.Lock()
 _schema_ready = False
+
+# The connection an enclosing transaction is using, if any. Thread-local
+# because each gunicorn worker thread handles one request at a time and must
+# not see another request's open transaction.
+_current = threading.local()
+
+
+@contextmanager
+def _connection():
+    """The enclosing transaction's connection, or a fresh one that commits.
+
+    Every operation goes through here, so joining a transaction is something a
+    caller opts into once at the top rather than something each store has to
+    be told about.
+    """
+    existing = getattr(_current, "conn", None)
+    if existing is not None:
+        # Inside a transaction: use its connection and do NOT commit, so the
+        # whole set of writes lands or none of it does.
+        yield existing, False
+        return
+    with pool().connection() as conn:
+        yield conn, True
+
+
+@contextmanager
+def transaction():
+    """Make several document writes commit together, or not at all.
+
+    A quiz submission writes four documents: it consumes the issued quiz
+    token, updates the mastery estimate, updates the bandit posterior and
+    appends the attempt. Each was its own transaction, so a crash or a failed
+    write in the middle left the set inconsistent - most damagingly, a mastery
+    estimate that had moved with no attempt recorded to explain why. For a
+    study whose output is the attempt history, that is unusable data rather
+    than merely untidy data.
+
+    Nesting is allowed and joins the outer transaction, because the engines
+    call each other and none of them should have to know whether it is the
+    outermost.
+    """
+    if getattr(_current, "conn", None) is not None:
+        yield          # already inside one
+        return
+    ensure_schema()
+    with pool().connection() as conn:
+        _current.conn = conn
+        try:
+            yield
+        except BaseException:
+            conn.rollback()
+            raise
+        else:
+            conn.commit()
+        finally:
+            _current.conn = None
 
 TABLE = "documents"
 
@@ -185,14 +242,18 @@ class PgStore:
         return self._default() if callable(self._default) else dict(self._default)
 
     def read(self):
-        with pool().connection() as conn:
+        # Shares the enclosing transaction's connection when there is one, so
+        # a read inside a transaction observes that transaction's own writes.
+        # On a separate connection it would not, and an engine reading back
+        # what a previous engine just wrote would see the old value.
+        with _connection() as (conn, _owned):
             with conn.cursor() as cur:
                 cur.execute(f"SELECT data FROM {TABLE} WHERE key = %s", (self.key,))
                 row = cur.fetchone()
         return self._empty() if row is None else row[0]
 
     def write(self, data):
-        with pool().connection() as conn:
+        with _connection() as (conn, owned):
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
@@ -202,7 +263,8 @@ class PgStore:
                     """,
                     (self.key, json.dumps(data)),
                 )
-            conn.commit()
+            if owned:
+                conn.commit()
 
     def _locked_read(self, cur):
         """Read the row with a write lock held, creating it if absent.
@@ -221,7 +283,7 @@ class PgStore:
         return cur.fetchone()[0]
 
     def update(self, mutator):
-        with pool().connection() as conn:
+        with _connection() as (conn, owned):
             with conn.cursor() as cur:
                 data = self._locked_read(cur)
                 result = mutator(data)
@@ -229,11 +291,12 @@ class PgStore:
                     f"UPDATE {TABLE} SET data = %s, updated_at = now() WHERE key = %s",
                     (json.dumps(data), self.key),
                 )
-            conn.commit()
+            if owned:
+                conn.commit()
             return result
 
     def update_replacing(self, mutator, default=None):
-        with pool().connection() as conn:
+        with _connection() as (conn, owned):
             with conn.cursor() as cur:
                 data = self._locked_read(cur)
                 if default is not None and not isinstance(data, default):
@@ -243,7 +306,8 @@ class PgStore:
                     f"UPDATE {TABLE} SET data = %s, updated_at = now() WHERE key = %s",
                     (json.dumps(new_data), self.key),
                 )
-            conn.commit()
+            if owned:
+                conn.commit()
             return new_data
 
     # The same table holds the users list, the progress map and the BKT state,
@@ -302,7 +366,7 @@ class PgStore:
             FROM {self._ITEMS}
             WHERE {where}
         """
-        with pool().connection() as conn:
+        with _connection() as (conn, _owned):
             with conn.cursor() as cur:
                 cur.execute(sql, projection_params + params)
                 row = cur.fetchone()
@@ -315,17 +379,18 @@ class PgStore:
             FROM {self._ITEMS}
             WHERE {where}
         """
-        with pool().connection() as conn:
+        with _connection() as (conn, _owned):
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 row = cur.fetchone()
         return 0 if row is None else row[0]
 
     def ensure_exists(self):
-        with pool().connection() as conn:
+        with _connection() as (conn, owned):
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {TABLE} (key, data) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
                     (self.key, json.dumps(self._empty())),
                 )
-            conn.commit()
+            if owned:
+                conn.commit()

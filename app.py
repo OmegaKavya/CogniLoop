@@ -44,6 +44,7 @@ from backend.ratelimit import SlidingWindowLimiter
 from backend.repositories.core_repositories import (
     user_repo, progress_repo, quiz_repo, video_repo, QuizAttemptRepository,
     assign_study_group)
+from backend.storage import transaction
 
 login_limiter = SlidingWindowLimiter(
     config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
@@ -59,6 +60,50 @@ video_track_limiter = SlidingWindowLimiter(
     config.VIDEO_TRACK_MAX, config.VIDEO_TRACK_WINDOW_SECONDS)
 analytics_limiter = SlidingWindowLimiter(
     config.ANALYTICS_MAX, config.ANALYTICS_WINDOW_SECONDS)
+
+ALL_LIMITERS = {
+    "login": login_limiter,
+    "register": register_limiter,
+    "quiz generation": quiz_generate_limiter,
+    "quiz submission": quiz_submit_limiter,
+    "video tracking": video_track_limiter,
+    "analytics": analytics_limiter,
+}
+
+
+def warn_if_limits_are_multiplied():
+    """Say out loud when more than one worker makes every limit wrong.
+
+    These limiters hold their windows in memory, so each gunicorn worker
+    enforces its own copy and the effective limit is the configured one times
+    the worker count. At one worker - the Dockerfile's default and what this
+    deploys with - the numbers are exact. Raise WEB_CONCURRENCY and they all
+    silently loosen, with nothing in the logs to connect the change to the
+    behaviour months later.
+
+    A shared backend (Redis, or a Postgres-held window) is the real fix. It is
+    deliberately not built yet: it costs a round trip on every limited request,
+    on a free database, to solve a problem this deployment does not have. The
+    judgement is that an accurate warning is worth more today than the latency
+    - but the warning has to exist, or the judgement is just a silent hole.
+    """
+    try:
+        workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
+    except ValueError:
+        workers = 1
+    if workers <= 1:
+        return
+    print(f"[RateLimit] WARNING: WEB_CONCURRENCY={workers} and every limiter "
+          f"is in-process, so each worker enforces its own window. Effective "
+          f"limits are {workers}x what is configured:")
+    for name, limiter in ALL_LIMITERS.items():
+        print(f"[RateLimit]   {name}: configured {limiter.max_events} per "
+              f"{limiter.window_seconds}s, effective ~{limiter.max_events * workers}")
+    print("[RateLimit] Move the windows to a shared store before relying on "
+          "these numbers.")
+
+
+warn_if_limits_are_multiplied()
 
 
 def bounded_number(value, low, high, default=0):
@@ -1058,93 +1103,104 @@ def quiz_submit():
     study_group = session.get('study_group', 'experimental')
     
     is_correct_overall = score >= 70
-    new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
+    # One transaction for the four documents a submission writes: the
+    # mastery estimate, the bandit posterior, the attempt itself, and the
+    # progress these derive from. Each used to commit on its own, so a
+    # failure between them left a mastery estimate that had moved with no
+    # attempt recorded to explain why. For a study whose output IS the
+    # attempt history, that is unusable data rather than untidy data.
+    #
+    # Grading happens before this block, deliberately: it may call a model,
+    # and holding a transaction open across a network call would tie up one
+    # of four pooled connections for the length of its timeout.
+    with transaction():
+        new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
     
-    cluster = mp_manager.predict_cluster(
-        mp_manager.latest_interaction(user_id, topic_id))
+        cluster = mp_manager.predict_cluster(
+            mp_manager.latest_interaction(user_id, topic_id))
     
-    if study_group == 'experimental':
-        # Update Bandit Policy
-        bandit_adapter.update_policy(cluster, new_mastery, current_difficulty, score)
-        recommendation = recommender.get_recommendation(score, new_mastery, speed_label, cluster)
-    else:
-        # Static control group logic
-        recommendation = "Continue reviewing the material sequentially."
+        if study_group == 'experimental':
+            # Update Bandit Policy
+            bandit_adapter.update_policy(cluster, new_mastery, current_difficulty, score)
+            recommendation = recommender.get_recommendation(score, new_mastery, speed_label, cluster)
+        else:
+            # Static control group logic
+            recommendation = "Continue reviewing the material sequentially."
         
-    videos = video_repo.get_all_videos()
-    video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
+        videos = video_repo.get_all_videos()
+        video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
     
-    # Deterministic insights now; the model version is produced after the
-    # response has gone out. See refine_insights_in_background.
-    # The quiz's own per-question limit, so the diagnosis thresholds scale with
-    # the difficulty that was actually served rather than with a default.
-    question_time_limit = quiz.get('question_time_seconds') or config.DEFAULT_QUESTION_SECONDS
+        # Deterministic insights now; the model version is produced after the
+        # response has gone out. See refine_insights_in_background.
+        # The quiz's own per-question limit, so the diagnosis thresholds scale with
+        # the difficulty that was actually served rather than with a default.
+        question_time_limit = quiz.get('question_time_seconds') or config.DEFAULT_QUESTION_SECONDS
 
-    ai_insights = insights_engine.generate_insights(
-        video.get('title', topic_id),
-        score,
-        round(new_mastery, 2),
-        eval_result.get('question_results', []),
-        topic_id=topic_id,
-        use_model=False,
-        time_limit=question_time_limit
-    )
+        ai_insights = insights_engine.generate_insights(
+            video.get('title', topic_id),
+            score,
+            round(new_mastery, 2),
+            eval_result.get('question_results', []),
+            topic_id=topic_id,
+            use_model=False,
+            time_limit=question_time_limit
+        )
 
-    answer_map = {
-        str(r.get('question_id')): {
-            'selected_answer': r.get('selected_answer'),
-            'time_taken': r.get('time_taken'),
-            'used_hint': r.get('used_hint', False)
+        answer_map = {
+            str(r.get('question_id')): {
+                'selected_answer': r.get('selected_answer'),
+                'time_taken': r.get('time_taken'),
+                'used_hint': r.get('used_hint', False)
+            }
+            for r in responses
         }
-        for r in responses
-    }
-    reviewed_questions = []
-    for q_res in eval_result.get('question_results', []):
-        qid = str(q_res.get('question_id'))
-        q_data = next((q for q in quiz.get('questions', []) if str(q.get('id')) == qid), {})
-        user_data = answer_map.get(qid, {})
-        reviewed_questions.append({
-            'id': qid,
-            'text': q_data.get('text'),
-            'options': q_data.get('options', []),
-            'correct_answer': q_data.get('answer'),
-            'selected_answer': user_data.get('selected_answer'),
-            'is_correct': q_res.get('is_correct', False),
-            'feedback': q_res.get('feedback', ''),
-            'hint': q_data.get('hint', ''),
-            'used_hint': user_data.get('used_hint', False),
-            'time_taken': user_data.get('time_taken', q_res.get('time_taken', 0))
-        })
+        reviewed_questions = []
+        for q_res in eval_result.get('question_results', []):
+            qid = str(q_res.get('question_id'))
+            q_data = next((q for q in quiz.get('questions', []) if str(q.get('id')) == qid), {})
+            user_data = answer_map.get(qid, {})
+            reviewed_questions.append({
+                'id': qid,
+                'text': q_data.get('text'),
+                'options': q_data.get('options', []),
+                'correct_answer': q_data.get('answer'),
+                'selected_answer': user_data.get('selected_answer'),
+                'is_correct': q_res.get('is_correct', False),
+                'feedback': q_res.get('feedback', ''),
+                'hint': q_data.get('hint', ''),
+                'used_hint': user_data.get('used_hint', False),
+                'time_taken': user_data.get('time_taken', q_res.get('time_taken', 0))
+            })
 
-    attempt_id = f"{user_id}-{uuid.uuid4().hex[:10]}"
+        attempt_id = f"{user_id}-{uuid.uuid4().hex[:10]}"
 
     
-    attempt_log = {
-        "attempt_id": attempt_id,
-        "user_id": user_id,
-        "topic_id": topic_id,
-        "topic_name": video.get('title', topic_id),
-        "timestamp": datetime.now().isoformat(),
-        "score": score,
-        "avg_time": avg_time,
-        "total_time": eval_result.get('total_time', 0),
-        "adaptation": adaptation,
-        "mastery": new_mastery,
-        "behavior_cluster": cluster,
-        "recommendation": recommendation,
-        "quiz_meta": {
-            "difficulty": quiz.get('difficulty', current_difficulty),
-            "num_questions": len(quiz.get('questions', [])),
-            # The key written by build_quiz_payload is question_time_seconds.
-            # Reading 'timer_seconds' meant this logged 0 on every attempt.
-            "timer_seconds": quiz.get('question_time_seconds', 0),
-            "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
-        },
-        "question_results": reviewed_questions,
-        "ai_insights": ai_insights
-    }
+        attempt_log = {
+            "attempt_id": attempt_id,
+            "user_id": user_id,
+            "topic_id": topic_id,
+            "topic_name": video.get('title', topic_id),
+            "timestamp": datetime.now().isoformat(),
+            "score": score,
+            "avg_time": avg_time,
+            "total_time": eval_result.get('total_time', 0),
+            "adaptation": adaptation,
+            "mastery": new_mastery,
+            "behavior_cluster": cluster,
+            "recommendation": recommendation,
+            "quiz_meta": {
+                "difficulty": quiz.get('difficulty', current_difficulty),
+                "num_questions": len(quiz.get('questions', [])),
+                # The key written by build_quiz_payload is question_time_seconds.
+                # Reading 'timer_seconds' meant this logged 0 on every attempt.
+                "timer_seconds": quiz.get('question_time_seconds', 0),
+                "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
+            },
+            "question_results": reviewed_questions,
+            "ai_insights": ai_insights
+        }
     
-    quiz_repo.add_attempt(attempt_log)
+        quiz_repo.add_attempt(attempt_log)
 
     refine_insights_in_background(
         user_id, attempt_id, video.get('title', topic_id),

@@ -333,3 +333,75 @@ class TestMatchSemanticsAgainstPostgres:
     def test_count_list_agrees_with_query_list(self, store):
         for m in ({"flag": True}, {"flag": False}, {"missing": None}, {"n": 5}):
             assert store.count_list(match=m) == len(store.query_list(match=m)), m
+
+
+class TestTransaction:
+    """Several documents committing together, or not at all.
+
+    A quiz submission writes four documents: it consumes the issued token,
+    updates the mastery estimate, updates the bandit posterior and appends the
+    attempt. Each committed on its own, so a failure between them left a
+    mastery estimate that had moved with no attempt recorded to explain why.
+    For a study whose output IS the attempt history, that is unusable data
+    rather than untidy data.
+    """
+
+    @pytest.fixture
+    def two(self, store_factory):
+        a = store_factory("tx-a", default=list)
+        b = store_factory("tx-b", default=list)
+        a.write([])
+        b.write([])
+        return a, b
+
+    def test_both_documents_commit_together(self, two):
+        a, b = two
+        from backend.storage_pg import transaction
+        with transaction():
+            a.update_replacing(lambda r: r + [{"x": 1}], default=list)
+            b.update_replacing(lambda r: r + [{"y": 2}], default=list)
+        assert a.read() == [{"x": 1}]
+        assert b.read() == [{"y": 2}]
+
+    def test_a_failure_rolls_back_the_earlier_write(self, two):
+        """The case the whole thing exists for: the first write must not
+        survive a failure in the second."""
+        a, b = two
+        from backend.storage_pg import transaction
+        with pytest.raises(RuntimeError):
+            with transaction():
+                a.update_replacing(lambda r: r + [{"x": 1}], default=list)
+                b.update_replacing(lambda r: r + [{"y": 2}], default=list)
+                raise RuntimeError("failure between writes")
+        assert a.read() == [], "the first write survived a rolled-back transaction"
+        assert b.read() == []
+
+    def test_a_read_inside_sees_the_transactions_own_writes(self, two):
+        """Engines read back what a previous engine just wrote. On a separate
+        connection they would see the pre-transaction value."""
+        a, _ = two
+        from backend.storage_pg import transaction
+        with transaction():
+            a.update_replacing(lambda r: r + [{"x": 1}], default=list)
+            assert a.read() == [{"x": 1}]
+
+    def test_nesting_joins_the_outer_transaction(self, two):
+        """The engines call each other; none should need to know whether it is
+        outermost. A nested block must not commit early."""
+        a, b = two
+        from backend.storage_pg import transaction
+        with pytest.raises(RuntimeError):
+            with transaction():
+                a.update_replacing(lambda r: r + [{"x": 1}], default=list)
+                with transaction():
+                    b.update_replacing(lambda r: r + [{"y": 2}], default=list)
+                raise RuntimeError("after the inner block closed")
+        assert a.read() == []
+        assert b.read() == [], "an inner block committed independently"
+
+    def test_writes_outside_a_transaction_still_commit(self, two):
+        """The default path must be unchanged for every caller that does not
+        opt in."""
+        a, _ = two
+        a.update_replacing(lambda r: r + [{"x": 1}], default=list)
+        assert a.read() == [{"x": 1}]

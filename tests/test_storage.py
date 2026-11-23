@@ -19,7 +19,9 @@ from backend.repositories.core_repositories import (
     UserProgressRepository,
     UserRepository,
 )
-from backend.storage import JsonStore, open_store
+import pytest
+
+from backend.storage import JsonStore, StorageCorrupted, open_store
 
 
 def run_concurrently(fn, n):
@@ -60,13 +62,41 @@ class TestJsonStore:
         leftovers = [p for p in os.listdir(tmp_path) if ".tmp" in p]
         assert leftovers == []
 
-    def test_corrupt_file_reads_as_empty_rather_than_raising(self, tmp_path):
+    def test_corrupt_file_raises_rather_than_reading_as_empty(self, tmp_path):
+        """Replaces a test that asserted the opposite.
+
+        Reading a damaged file as empty is not a graceful fallback here: the
+        next `update` reads that emptiness, the mutator adds one row to it,
+        and the result is written back over everything the file held. The file
+        is not recovered, it is finished off, and nothing says so.
+        """
         path = tmp_path / "corrupt.json"
         path.write_text("{ this is not json")
-        assert JsonStore(str(path)).read() == {}
+        with pytest.raises(StorageCorrupted):
+            JsonStore(str(path)).read()
+
+    def test_a_failed_read_does_not_destroy_the_file(self, tmp_path):
+        """The property that matters: the write never happens."""
+        path = tmp_path / "corrupt.json"
+        path.write_text('{"half written": ')
+        store = JsonStore(str(path))
+        with pytest.raises(StorageCorrupted):
+            store.update(lambda d: d.__setitem__("new", 1))
+        assert path.read_text() == '{"half written": '
 
     def test_missing_file_reads_as_empty(self, tmp_path):
         assert JsonStore(str(tmp_path / "absent.json")).read() == {}
+
+    def test_zero_byte_file_reads_as_empty(self, tmp_path):
+        """"Created but not yet written" is not damage. It is what touch, a
+        fresh NamedTemporaryFile and an interrupted create all leave, and
+        treating it as corruption turns ordinary first-run conditions into an
+        error. Only a file with CONTENT that does not parse is evidence."""
+        path = tmp_path / "empty.json"
+        path.write_text("")
+        assert JsonStore(str(path)).read() == {}
+        path.write_text("   \n  ")
+        assert JsonStore(str(path)).read() == {}
 
     def test_update_returns_mutator_result(self, tmp_path):
         store = JsonStore(str(tmp_path / "r.json"))

@@ -126,6 +126,17 @@ def _without(item, drop_keys):
     return {k: v for k, v in item.items() if k not in drop_keys}
 
 
+class StorageCorrupted(RuntimeError):
+    """A document exists but cannot be read.
+
+    Deliberately not a subclass of anything the application already catches.
+    Several call sites wrap storage reads in `except Exception` and fall back
+    to a default, which is correct for a missing file and catastrophic for a
+    corrupt one; this being its own type makes those sites easy to find and
+    reason about.
+    """
+
+
 class JsonStore:
     """A JSON document on disk that can be read and updated safely.
 
@@ -162,11 +173,53 @@ class JsonStore:
                     fcntl.flock(handle, fcntl.LOCK_UN)
 
     def _read_unlocked(self):
+        """Parse the document, distinguishing "absent" from "unreadable".
+
+        These were the same case, and both returned an empty document. Absent
+        is expected - it is how every file starts. Unreadable is not, and
+        treating it as empty is how a corrupt file becomes a deleted one:
+        `update` reads empty, the mutator adds a single row to that emptiness,
+        and the result is written back over everything that was there. The
+        file is not recovered, it is finished off, and nothing in the logs
+        says so.
+
+        A truncated write, a disk that filled, a half-finished restore and a
+        permissions change all land here. None of them mean "no data", so none
+        of them may be answered with an empty document.
+
+        Raising instead means a read fails loudly and, critically, that the
+        write which would have followed never happens. The data stays on disk
+        for whoever comes to look at it.
+        """
         try:
             with open(self.path, "r") as handle:
-                data = json.load(handle)
-        except (OSError, ValueError):
+                raw = handle.read()
+        except FileNotFoundError:
+            # The expected case: nothing has been written yet.
             return self._empty()
+        except OSError as exc:
+            raise StorageCorrupted(
+                f"{self.path} exists but could not be read ({exc}). Refusing "
+                f"to treat an unreadable document as an empty one."
+            ) from exc
+
+        # A zero-byte file also means "nothing yet", not "damaged". It is what
+        # `touch`, a freshly created temporary file, and an interrupted create
+        # all leave behind, and refusing to read it would turn ordinary
+        # first-run conditions into an error. Only a file with CONTENT that
+        # does not parse is evidence of damage.
+        if not raw.strip():
+            return self._empty()
+
+        try:
+            data = json.loads(raw)
+        except ValueError as exc:
+            raise StorageCorrupted(
+                f"{self.path} exists but does not contain valid JSON ({exc}). "
+                f"Refusing to read it as empty, because the next write would "
+                f"then replace its contents. Inspect or restore the file; a "
+                f"copy of the last good state may be in your backups."
+            ) from exc
         return data
 
     def _write_unlocked(self, data):
@@ -245,6 +298,33 @@ class JsonStore:
         with self._locked(exclusive=True):
             if not os.path.exists(self.path):
                 self._write_unlocked(self._empty())
+
+
+@contextmanager
+def transaction():
+    """Group several document writes so they commit together, or not at all.
+
+    Against Postgres this is a real transaction: every store operation inside
+    it uses one connection and one commit, so a submission either records all
+    of its four documents or none of them.
+
+    Against the file backend it is a NO-OP, and that is a deliberate,
+    documented limitation rather than an oversight. Making it real would mean
+    holding every file lock the block might touch, in a fixed order, decided
+    before the block runs - and the set is not known in advance because the
+    engines decide what to write as they go. The file backend is local
+    development and the test suite; production is Postgres, which is where the
+    guarantee is needed and where it exists.
+
+    Callers must not assume atomicity when DATABASE_URL is unset.
+    """
+    if os.environ.get("DATABASE_URL", "").strip():
+        from backend.storage_pg import transaction as pg_transaction
+
+        with pg_transaction():
+            yield
+        return
+    yield
 
 
 def open_store(path, default=None, indent=2):
