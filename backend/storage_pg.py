@@ -26,6 +26,7 @@ unset, nothing here is imported or required.
 """
 import json
 import os
+import tempfile
 import threading
 
 _pool = None
@@ -129,9 +130,36 @@ class PgStore:
     @staticmethod
     def _key_for(path):
         absolute = os.path.abspath(path)
+
+        # A document under the system temp directory is always a mistake here.
+        # Nothing durable belongs in /tmp - that is the ephemeral-disk problem
+        # this class exists to solve - so such a path means something that
+        # believed it was writing to a scratch file has been handed a real
+        # database instead.
+        #
+        # This is not hypothetical. Twice in one day the test suite reached the
+        # production database and created documents keyed by paths like
+        # `/private/var/folders/.../pytest-of-kaavya/pytest-28/test_x0/users.json`,
+        # 90 of them in total. Both times the silent absolute-path fallback
+        # below is what made it possible, and both times it was noticed by
+        # accident. Refusing is how a mistake this shape becomes a stack trace
+        # on the first write instead of litter discovered later.
+        temp_root = os.path.realpath(tempfile.gettempdir())
+        if os.path.realpath(absolute).startswith(temp_root + os.sep):
+            raise ValueError(
+                f"refusing to use a temporary path as a database key: {path}. "
+                "Something is writing scratch data to the real database - most "
+                "likely a test or script running with DATABASE_URL set. Unset "
+                "it, or point the caller at a path inside the project."
+            )
+
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         if absolute.startswith(root + os.sep):
             return os.path.relpath(absolute, root).replace(os.sep, "/")
+        # An absolute path outside the project is allowed, because the data
+        # paths in config.py are env-overridable and a deployment may put them
+        # somewhere deliberate. It is only the temp case above that is never
+        # legitimate.
         return absolute.replace(os.sep, "/")
 
     def _empty(self):

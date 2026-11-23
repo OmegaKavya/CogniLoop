@@ -67,7 +67,14 @@ build/
 *.egg-info/
 
 # --- Environment Variables ---
+# Secrets. `.env` alone matched only that exact name, so a sibling such as
+# `.env.bak_181703` or `.env.local` was tracked and would have been committed
+# by `git add -A`. One such backup was created and caught before any commit on
+# 23 Nov 2026; this makes the whole family ignored by default.
 .env
+.env.*
+# The template carries placeholders, not values, and is meant to be committed.
+!.env.template
 
 # --- Local LLM & Temporary Storage ---
 ollama_models/

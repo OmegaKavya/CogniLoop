@@ -25,20 +25,36 @@ import os
 # explicit and stays confined to that file.
 # ---------------------------------------------------------------------------
 def _capture_database_url():
-    url = os.environ.get("DATABASE_URL", "").strip()
-    if not url:
-        env_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-        try:
-            with open(env_file) as handle:
-                for line in handle:
-                    line = line.strip()
-                    if line.startswith("DATABASE_URL") and "=" in line:
-                        url = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        break
-        except OSError:
-            pass
-    return url
+    """Find a Postgres URL for the opt-in integration tests.
+
+    DATABASE_URL_TEST is preferred and is where the credential lives in .env.
+    The name matters: `open_store()` switches on DATABASE_URL, so storing it
+    under that name in .env would mean a plain `python3 app.py` silently read
+    and wrote the live database instead of local JSON files. DATABASE_URL is
+    still honoured from the shell, for the case where somebody really does
+    want to point a run at a database.
+    """
+    for name in ("DATABASE_URL_TEST", "DATABASE_URL"):
+        url = os.environ.get(name, "").strip()
+        if url:
+            return url
+
+    env_file = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    found = {}
+    try:
+        with open(env_file) as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                if key in ("DATABASE_URL_TEST", "DATABASE_URL"):
+                    found[key] = value.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return found.get("DATABASE_URL_TEST") or found.get("DATABASE_URL") or ""
 
 
 os.environ["_PG_TEST_URL"] = _capture_database_url()
@@ -98,9 +114,15 @@ def guard_production_data():
             from backend.storage_pg import pool, TABLE
             with pool().connection() as conn:
                 with conn.cursor() as cur:
+                    # Anything the application did not write. The app only
+                    # ever addresses `data/...`, so this catches an absolute
+                    # temp path AND a `tests/_pg_*` key that a crashed
+                    # integration test failed to clean up. The earlier version
+                    # matched only paths starting with `/`, which would have
+                    # let the second case through.
                     cur.execute(
-                        f"SELECT key FROM {TABLE} WHERE key LIKE %s OR key LIKE %s",
-                        ("/%", "%/pytest-of-%"))
+                        f"SELECT key FROM {TABLE} WHERE key NOT LIKE %s",
+                        ("data/%",))
                     return {row[0] for row in cur.fetchall()}
         except Exception as exc:  # unreachable database is not a test failure
             print(f"[guard] could not check Postgres for stray keys: {exc}")

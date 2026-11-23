@@ -218,16 +218,23 @@ class TestStoreSelection:
         store = open_store(str(tmp_path / "b.json"))
         assert isinstance(store, JsonStore)
 
-    def test_selects_postgres_when_a_database_url_is_present(self, tmp_path, monkeypatch):
+    def test_selects_postgres_when_a_database_url_is_present(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@example.invalid/db")
         import backend.storage_pg as storage_pg
 
         # Constructing a PgStore creates the table, so the schema call is
         # stubbed; the assertion is about which class was chosen, and a test
         # that needed a live database would not run in CI.
+        #
+        # A project-relative path rather than tmp_path, because PgStore refuses
+        # to key a document by a temporary path - see
+        # tests/test_pg_key_safety.py for why. Only the choice of class is
+        # under test here, so the path is incidental; using tmp_path for it
+        # would be asking the store to do the one thing it must not.
         monkeypatch.setattr(storage_pg, "ensure_schema", lambda: None)
-        store = open_store(str(tmp_path / "c.json"))
+        store = open_store("data/_selection_probe.json")
         assert isinstance(store, storage_pg.PgStore)
+        assert store.key == "data/_selection_probe.json"
 
     def test_postgres_key_is_the_path_relative_to_the_repository(self, monkeypatch):
         import backend.storage_pg as storage_pg
