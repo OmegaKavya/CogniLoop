@@ -62,6 +62,28 @@ def _mutex_for(path):
         return _mutexes[key]
 
 
+def _matches(item, match):
+    """True when every key in `match` equals the item's value, compared as text.
+
+    Text comparison because the Postgres implementation uses `->>`, which
+    always yields text. Comparing 5 to "5" differently in the two backends
+    would be a difference a caller could observe, and the whole point of the
+    two classes is that a caller cannot tell them apart.
+    """
+    if not match:
+        return True
+    for key, value in match.items():
+        if str(item.get(key)) != str(value):
+            return False
+    return True
+
+
+def _without(item, drop_keys):
+    if not drop_keys:
+        return item
+    return {k: v for k, v in item.items() if k not in drop_keys}
+
+
 class JsonStore:
     """A JSON document on disk that can be read and updated safely.
 
@@ -148,6 +170,34 @@ class JsonStore:
             new_data = mutator(data)
             self._write_unlocked(new_data)
             return new_data
+
+    def query_list(self, match=None, drop_keys=()):
+        """Items of a list-shaped document, filtered and projected.
+
+        Exists so that callers who need one user's rows, or rows without their
+        heaviest field, do not have to pull the whole document and discard most
+        of it. Here that saving is only in memory, because the file has to be
+        read either way; against Postgres the same call filters and projects
+        inside the database, so the discarded part never crosses the network.
+        That is the case this method is for, and the reason the signature is
+        shaped around what SQL can do rather than around a Python predicate.
+
+        Document order is preserved: callers treat the last element as the most
+        recent attempt.
+        """
+        data = self.read()
+        if not isinstance(data, list):
+            return []
+        return [_without(item, drop_keys) for item in data
+                if isinstance(item, dict) and _matches(item, match)]
+
+    def count_list(self, match=None):
+        """How many items match, without materialising them."""
+        data = self.read()
+        if not isinstance(data, list):
+            return 0
+        return sum(1 for item in data
+                   if isinstance(item, dict) and _matches(item, match))
 
     def ensure_exists(self):
         with self._locked(exclusive=True):

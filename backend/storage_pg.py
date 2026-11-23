@@ -199,6 +199,73 @@ class PgStore:
             conn.commit()
             return new_data
 
+    # The same table holds the users list, the progress map and the BKT state,
+    # and `jsonb_array_elements` raises on anything that is not an array. The
+    # guard is inside the function's argument rather than in the WHERE clause
+    # on purpose: a set-returning function in the FROM list is not ordered
+    # against WHERE predicates, so `WHERE jsonb_typeof(d.data) = 'array'` would
+    # not reliably stop the function being evaluated on a map-shaped row. As an
+    # argument it always runs first, and a map-shaped document yields no rows,
+    # which is what JsonStore returns for the same call.
+    _ITEMS = (f"{TABLE} d, jsonb_array_elements("
+              "CASE WHEN jsonb_typeof(d.data) = 'array' THEN d.data "
+              "ELSE '[]'::jsonb END) WITH ORDINALITY AS x(item, ord)")
+
+    def _list_where(self, match):
+        """SQL fragment and parameters selecting this document's array items."""
+        clauses = ["d.key = %s"]
+        params = [self.key]
+        for key, value in (match or {}).items():
+            clauses.append("x.item ->> %s = %s")
+            params.extend([key, str(value)])
+        return " AND ".join(clauses), params
+
+    def query_list(self, match=None, drop_keys=()):
+        """Filter and project inside the database.
+
+        This is the method the whole class exists to make worthwhile. Reading
+        the attempts document to show one learner their dashboard previously
+        transferred every attempt by every learner, each carrying the full text
+        of every question they were asked. Here the WHERE clause and the key
+        removal both run server side, so what crosses the network is the rows
+        that were asked for, without the field that is not being displayed.
+
+        WITH ORDINALITY plus ORDER BY preserves document order. jsonb_agg makes
+        no ordering promise on its own, and callers read the last element as
+        the most recent attempt, so losing the order would quietly change which
+        attempt the quiz generator treats as current.
+        """
+        where, params = self._list_where(match)
+        projection = "x.item"
+        projection_params = []
+        if drop_keys:
+            # jsonb - text[] removes every named key in one operation.
+            projection = "(x.item - %s::text[])"
+            projection_params = [list(drop_keys)]
+        sql = f"""
+            SELECT coalesce(jsonb_agg({projection} ORDER BY x.ord), '[]'::jsonb)
+            FROM {self._ITEMS}
+            WHERE {where}
+        """
+        with pool().connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, projection_params + params)
+                row = cur.fetchone()
+        return [] if row is None else row[0]
+
+    def count_list(self, match=None):
+        where, params = self._list_where(match)
+        sql = f"""
+            SELECT count(*)
+            FROM {self._ITEMS}
+            WHERE {where}
+        """
+        with pool().connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                row = cur.fetchone()
+        return 0 if row is None else row[0]
+
     def ensure_exists(self):
         with pool().connection() as conn:
             with conn.cursor() as cur:

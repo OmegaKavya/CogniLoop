@@ -19,14 +19,20 @@ class AnalyticsEngine:
             "experimental": {"nlg": [], "scores": [], "engagement": []}
         }
         
+        # Read once and group, rather than once per registered user. The old
+        # loop called get_user_attempts inside it, so the cost of this endpoint
+        # was the whole attempts document times the number of accounts. Scores
+        # are all it reads, so the per-question results are left behind too.
+        by_user = {}
+        for attempt in quiz_repo.all_attempts(include_responses=False):
+            by_user.setdefault(str(attempt.get('user_id')), []).append(attempt)
+
         for user in users:
             uid = user.get('id')
             group = user.get('study_group', 'experimental')
-            
-            # Simulated Pre/Post data fetch
-            # In a full implementation, these would be dedicated DB fields.
-            # Here we look at their first and last attempt overall
-            attempts = quiz_repo.get_user_attempts(uid)
+
+            # Pre/post is approximated by the first and last attempt overall.
+            attempts = by_user.get(str(uid), [])
             if len(attempts) >= 2:
                 pre_test = attempts[0].get('score', 0)
                 post_test = attempts[-1].get('score', 0)

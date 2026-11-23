@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import os
 import random
 import secrets
+import threading
 from datetime import datetime, timedelta
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
@@ -40,7 +41,8 @@ app.config.update(
 )
 
 from backend.ratelimit import SlidingWindowLimiter
-from backend.repositories.core_repositories import user_repo, progress_repo, quiz_repo, video_repo
+from backend.repositories.core_repositories import (
+    user_repo, progress_repo, quiz_repo, video_repo, QuizAttemptRepository)
 
 login_limiter = SlidingWindowLimiter(
     config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
@@ -239,7 +241,10 @@ def build_topic_submodules(video):
 
 def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental'):
     current_mastery = bkt_engine.get_mastery(user_id, topic_id)
-    user_topic_attempts = [a for a in quiz_repo.get_user_attempts(user_id) if a['topic_id'] == topic_id]
+    # Filtered by topic in the store: this is the one caller that needs the
+    # per-question text, so narrowing it here keeps the heaviest read as
+    # small as it can be.
+    user_topic_attempts = quiz_repo.get_user_attempts(user_id, topic_id=topic_id)
     if user_topic_attempts:
         last_attempt = user_topic_attempts[-1]
         current_cluster = last_attempt.get('behavior_cluster', 'General Learner')
@@ -566,7 +571,9 @@ def dashboard():
         video_p = user_progress.get(video['id'], {})
         video['progress'] = video_p.get('watch_percentage', 0)
     
-    user_attempts = quiz_repo.get_user_attempts(user_id)
+    # Without question_results: this page shows scores, mastery and
+    # insight summaries, never the questions themselves.
+    user_attempts = quiz_repo.get_user_attempts(user_id, include_responses=False)
     
     user_attempts.sort(key=lambda x: x['timestamp'])
     
@@ -678,7 +685,9 @@ def progress_page():
         return redirect(url_for('login'))
     
     user_id = session['user_id']
-    user_attempts = quiz_repo.get_user_attempts(user_id)
+    # Without question_results: this page shows scores, mastery and
+    # insight summaries, never the questions themselves.
+    user_attempts = quiz_repo.get_user_attempts(user_id, include_responses=False)
     videos = video_repo.get_all_videos()
     
     topic_map = {v['id']: v['title'] for v in videos}
@@ -725,11 +734,9 @@ def export_cheat_sheet(attempt_id):
         return redirect(url_for('login'))
 
     user_id = session['user_id']
-    user_attempts = quiz_repo.get_user_attempts(user_id)
-    attempt = next((a for a in user_attempts if a.get('attempt_id') == attempt_id), None)
-
-    if not attempt and user_attempts:
-        attempt = user_attempts[-1]
+    # One attempt by id, scoped to its owner, rather than every attempt the
+    # learner has ever made so that one of them can be picked out in Python.
+    attempt = quiz_repo.get_attempt(user_id, attempt_id) or quiz_repo.latest_attempt(user_id)
 
     if not attempt:
         return redirect(url_for('dashboard'))
@@ -747,6 +754,47 @@ def export_cheat_sheet(attempt_id):
                          ai_insights=ai_insights)
 
 from backend.adaptation.micro_pattern import mp_manager
+
+def refine_insights_in_background(user_id, attempt_id, topic_name, score,
+                                  mastery, question_results):
+    """Ask the model to rewrite an attempt's advice, after the response.
+
+    Why this is not in the request: three providers are tried in turn, each
+    with its own timeout, so an unreachable service could hold a submission for
+    minutes. Nothing the learner is shown depends on it - the score, the
+    mastery estimate, the behaviour cluster and the next difficulty are all
+    computed locally, and the deterministic advice stored with the attempt is
+    real content rather than a placeholder. The model only ever replaces that
+    text with a better-written version, which appears on the review page the
+    next time it is opened.
+
+    A daemon thread, so a worker shutting down does not wait on it. If the
+    process dies first the attempt simply keeps the deterministic advice, which
+    is why this writes nothing until it has a result worth writing.
+
+    The destination is bound here, before the thread starts, rather than read
+    off the singleton when the write happens. The repository resolves its store
+    from `file_path` on every access, so a thread that outlives the request
+    would otherwise write wherever that attribute points by then, which is not
+    necessarily where the attempt it is updating was stored.
+    """
+    destination = QuizAttemptRepository(quiz_repo.file_path)
+
+    def run():
+        try:
+            insights = insights_engine.model_insights(
+                topic_name, score, mastery, question_results)
+            if insights:
+                destination.set_insights(user_id, attempt_id, insights)
+        except Exception as exc:
+            # Never surfaced to the learner: the attempt already has usable
+            # advice, so a failure here is a missed improvement, not an error.
+            print(f"[Insights] background refinement failed for {attempt_id}: {exc}")
+
+    threading.Thread(target=run, daemon=True,
+                     name=f"insights-{attempt_id}").start()
+
+
 from backend.adaptation.recommendation import recommender
 from backend.quiz.quiz_generator import quiz_gen
 from backend.quiz.quiz_evaluator import evaluator
@@ -906,12 +954,15 @@ def quiz_submit():
     videos = video_repo.get_all_videos()
     video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
     
+    # Deterministic insights now; the model version is produced after the
+    # response has gone out. See refine_insights_in_background.
     ai_insights = insights_engine.generate_insights(
         video.get('title', topic_id),
         score,
         round(new_mastery, 2),
         eval_result.get('question_results', []),
-        topic_id=topic_id
+        topic_id=topic_id,
+        use_model=False
     )
 
     answer_map = {
@@ -969,6 +1020,10 @@ def quiz_submit():
     }
     
     quiz_repo.add_attempt(attempt_log)
+
+    refine_insights_in_background(
+        user_id, attempt_id, video.get('title', topic_id),
+        score, round(new_mastery, 2), reviewed_questions)
     
     # What the policy will serve next, and the reason. The system adapts
     # silently otherwise: a learner has no way to tell that difficulty is being
@@ -976,8 +1031,9 @@ def quiz_submit():
     # different from a static quiz app.
     if study_group == 'experimental':
         next_difficulty = bandit_adapter.get_action(cluster, new_mastery)
-        topic_attempts = len([a for a in quiz_repo.get_user_attempts(user_id)
-                              if a.get('topic_id') == topic_id])
+        # Counted in the store. The attempt just written is included, which is
+        # what the message below means by "attempts on this topic".
+        topic_attempts = quiz_repo.count_user_attempts(user_id, topic_id=topic_id)
 
         # Explain the mechanism, not a story about the learner.
         #
@@ -1027,7 +1083,9 @@ def quiz_review_list():
         return redirect(url_for('login'))
 
     user_id = session['user_id']
-    user_attempts = quiz_repo.get_user_attempts(user_id)
+    # Without question_results: this page shows scores, mastery and
+    # insight summaries, never the questions themselves.
+    user_attempts = quiz_repo.get_user_attempts(user_id, include_responses=False)
     videos = video_repo.get_all_videos()
     topic_map = {v['id']: v['title'] for v in videos}
     review_rows = build_review_rows(user_attempts, topic_map)
@@ -1041,12 +1099,14 @@ def quiz_review_page(attempt_id):
         return redirect(url_for('login'))
 
     user_id = session['user_id']
-    user_attempts = quiz_repo.get_user_attempts(user_id)
+    # The sidebar lists every attempt but renders only summary fields; the
+    # one attempt actually being read is fetched whole, by id.
+    user_attempts = quiz_repo.get_user_attempts(user_id, include_responses=False)
     videos = video_repo.get_all_videos()
     topic_map = {v['id']: v['title'] for v in videos}
 
     review_rows = build_review_rows(user_attempts, topic_map)
-    selected_attempt = next((a for a in user_attempts if a.get('attempt_id') == attempt_id), None)
+    selected_attempt = quiz_repo.get_attempt(user_id, attempt_id)
 
     if not selected_attempt:
         return redirect(url_for('quiz_review_list'))

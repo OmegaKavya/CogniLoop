@@ -157,7 +157,21 @@ class QuizInsightsEngine:
             "pace_advice": pace_advice
         }
 
-    def generate_insights(self, topic_name, score, mastery, question_results, topic_id=""):
+    def generate_insights(self, topic_name, score, mastery, question_results,
+                          topic_id="", use_model=True):
+        """Insights for an attempt.
+
+        `use_model=False` returns the deterministic version without touching
+        the network. The submit handler uses it so that a learner's result is
+        not held behind a model call: scoring, mastery and the next difficulty
+        are all computed locally and the model only ever rewrites the advice
+        text. With three providers tried in turn at their own timeouts, a
+        submission could otherwise wait minutes on a service that was down, for
+        prose the learner has not scrolled to yet.
+
+        The model version is produced afterwards, off the request, by
+        `model_insights`, and written over this one.
+        """
         incorrect = [q for q in question_results if not q.get("is_correct")]
         diagnoses = self._compute_diagnoses(question_results)
 
@@ -178,6 +192,33 @@ class QuizInsightsEngine:
                 "diagnoses": diagnoses
             }
 
+        if use_model:
+            parsed = self._model_attempt(topic_name, score, mastery, incorrect)
+            if parsed:
+                parsed["diagnoses"] = diagnoses
+                return parsed
+
+        return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
+
+    def model_insights(self, topic_name, score, mastery, question_results):
+        """The model-written version, or None if it is unavailable or failed.
+
+        Separate from `generate_insights` so it can run after the response has
+        gone out. Returns None rather than a fallback, because the caller
+        already stored a fallback and should leave it alone unless there is
+        something better to put there.
+        """
+        incorrect = [q for q in question_results if not q.get("is_correct")]
+        if not incorrect:
+            return None
+        parsed = self._model_attempt(topic_name, score, mastery, incorrect)
+        if not parsed:
+            return None
+        parsed["diagnoses"] = self._compute_diagnoses(question_results)
+        return parsed
+
+    def _model_attempt(self, topic_name, score, mastery, incorrect):
+        """Ask the model to rewrite the advice. None on any failure."""
         if self.client.available:
             try:
                 prompt = f"""You are an expert CS learning coach. A student scored {score}% on a {topic_name} quiz (mastery: {mastery:.0%}).
@@ -194,12 +235,10 @@ Return ONLY JSON:
                     temperature=0.4,
                 )
                 if parsed and parsed.get("focus_concepts") and parsed.get("summary"):
-                    parsed["diagnoses"] = diagnoses
                     return parsed
             except Exception as e:
                 print(f"[Insights] model error: {e}")
-
-        return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
+        return None
 
 
 insights_engine = QuizInsightsEngine()

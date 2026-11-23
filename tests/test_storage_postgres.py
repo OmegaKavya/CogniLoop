@@ -177,3 +177,93 @@ class TestDurability:
                 storage_pg._pool.close()
             storage_pg._pool = old
             storage_pg._schema_ready = True
+
+
+class TestQueryList:
+    """The filtering and projection that make the Postgres backend affordable.
+
+    On the file backend `query_list` only saves memory, because the file is
+    read either way. Here it is the difference between transferring every
+    learner's attempts, with the full text of every question, and transferring
+    the handful of summary rows a page displays. These assert the same
+    behaviour `tests/test_attempt_queries.py` asserts of JsonStore.
+    """
+
+    @staticmethod
+    def _rows():
+        return [
+            {"attempt_id": "a1", "user_id": "u1", "topic_id": "os", "question_results": [{"text": "q"}]},
+            {"attempt_id": "a2", "user_id": "u2", "topic_id": "os", "question_results": [{"text": "q"}]},
+            {"attempt_id": "a3", "user_id": "u1", "topic_id": "dbms", "question_results": [{"text": "q"}]},
+            {"attempt_id": "a4", "user_id": "u1", "topic_id": "os", "question_results": [{"text": "q"}]},
+        ]
+
+    @pytest.fixture
+    def store(self, store_factory):
+        s = store_factory("attempts", default=list)
+        s.write(self._rows())
+        return s
+
+    def test_filters_by_one_key(self, store):
+        rows = store.query_list(match={"user_id": "u1"})
+        assert [r["attempt_id"] for r in rows] == ["a1", "a3", "a4"]
+
+    def test_filters_by_several_keys(self, store):
+        rows = store.query_list(match={"user_id": "u1", "topic_id": "os"})
+        assert [r["attempt_id"] for r in rows] == ["a1", "a4"]
+
+    def test_preserves_document_order(self, store):
+        """jsonb_agg makes no ordering promise on its own. Callers read the
+        last element as the most recent attempt, so WITH ORDINALITY and the
+        ORDER BY inside the aggregate are load-bearing, not decoration."""
+        assert [r["attempt_id"] for r in store.query_list()] == ["a1", "a2", "a3", "a4"]
+
+    def test_drops_named_keys(self, store):
+        rows = store.query_list(match={"user_id": "u1"}, drop_keys=("question_results",))
+        assert rows and all("question_results" not in r for r in rows)
+        assert all("topic_id" in r for r in rows)
+
+    def test_projection_does_not_change_what_is_stored(self, store):
+        store.query_list(drop_keys=("question_results",))
+        assert all("question_results" in r for r in store.read())
+
+    def test_matches_are_compared_as_text(self, store_factory):
+        """`->>` yields text, so an integer user_id in the document must still
+        match the string the session holds, exactly as JsonStore does."""
+        s = store_factory("typed", default=list)
+        s.write([{"user_id": 7, "attempt_id": "a1"}])
+        assert len(s.query_list(match={"user_id": "7"})) == 1
+        assert len(s.query_list(match={"user_id": 7})) == 1
+
+    def test_no_match_is_empty(self, store):
+        assert store.query_list(match={"user_id": "nobody"}) == []
+
+    def test_absent_document_is_empty(self, store_factory):
+        assert store_factory("never-written", default=list).query_list() == []
+
+    def test_map_shaped_document_yields_nothing(self, store_factory):
+        """jsonb_array_elements raises on a non-array. The same table holds the
+        users list, the progress map and the BKT state, so a map-shaped
+        document must return empty rather than erroring."""
+        s = store_factory("map", default=dict)
+        s.write({"a": 1})
+        assert s.query_list(match={"user_id": "u1"}) == []
+        assert s.count_list() == 0
+
+
+class TestCountList:
+    @pytest.fixture
+    def store(self, store_factory):
+        s = store_factory("counts", default=list)
+        s.write(TestQueryList._rows())
+        return s
+
+    def test_counts_matches(self, store):
+        assert store.count_list(match={"user_id": "u1"}) == 3
+        assert store.count_list(match={"user_id": "u1", "topic_id": "os"}) == 2
+
+    def test_counts_everything_with_no_match(self, store):
+        assert store.count_list() == 4
+
+    def test_absent_is_zero(self, store):
+        assert store.count_list(match={"user_id": "nobody"}) == 0

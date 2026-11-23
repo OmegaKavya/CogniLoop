@@ -94,11 +94,56 @@ class QuizAttemptRepository(BaseJsonRepository):
     def __init__(self, file_path=None):
         super().__init__(file_path or config.QUIZ_ATTEMPTS_PATH)
 
-    def get_user_attempts(self, user_id):
-        attempts = self.get_all()
-        if not isinstance(attempts, list):
-            return []
-        return [a for a in attempts if str(a.get("user_id")) == str(user_id)]
+    # The attempts document is the one that grows without bound: every learner
+    # appends to the same array, and each entry carries the full text, options
+    # and per-question feedback of the quiz that produced it. Reading it whole
+    # to render one dashboard was fine against a local file and is not fine
+    # against a database on another host.
+    #
+    # `RESPONSE_KEYS` names the heavy part. Only three places need it: the quiz
+    # generator, which avoids repeating recent questions, and the two pages
+    # that display a single attempt. Every other caller shows scores, mastery
+    # and timestamps, so it asks for the rows without it.
+    RESPONSE_KEYS = ("question_results",)
+
+    def get_user_attempts(self, user_id, topic_id=None, include_responses=True):
+        match = {"user_id": user_id}
+        if topic_id is not None:
+            match["topic_id"] = topic_id
+        drop = () if include_responses else self.RESPONSE_KEYS
+        return self._store.query_list(match=match, drop_keys=drop)
+
+    def count_user_attempts(self, user_id, topic_id=None):
+        """Only the number, so the rows themselves are never fetched."""
+        match = {"user_id": user_id}
+        if topic_id is not None:
+            match["topic_id"] = topic_id
+        return self._store.count_list(match=match)
+
+    def get_attempt(self, user_id, attempt_id):
+        """One attempt, complete, scoped to its owner.
+
+        Scoped to the owner rather than looked up by id alone: attempt ids are
+        handed out in URLs, and a bare id lookup would let a signed-in learner
+        read somebody else's answers by changing the path.
+        """
+        rows = self._store.query_list(
+            match={"user_id": user_id, "attempt_id": attempt_id})
+        return rows[-1] if rows else None
+
+    def latest_attempt(self, user_id):
+        rows = self.get_user_attempts(user_id)
+        return rows[-1] if rows else None
+
+    def all_attempts(self, include_responses=True):
+        """Every attempt, for the research analytics endpoint.
+
+        That endpoint used to call get_user_attempts once per registered user,
+        which read the whole document once per user. It reads it once instead
+        and groups in memory.
+        """
+        drop = () if include_responses else self.RESPONSE_KEYS
+        return self._store.query_list(drop_keys=drop)
 
     def add_attempt(self, attempt_data):
         def mutate(attempts):
@@ -106,6 +151,30 @@ class QuizAttemptRepository(BaseJsonRepository):
             return attempts
 
         self._store.update_replacing(mutate, default=list)
+
+    def set_insights(self, user_id, attempt_id, insights):
+        """Replace one attempt's ai_insights, under the document lock.
+
+        Written after the response has been sent, by the thread that produced
+        the model version. It runs inside update_replacing for the usual
+        reason: another learner may be appending an attempt at the same moment,
+        and a read-then-write would drop whichever of the two landed first.
+
+        Returns True if the attempt was found.
+        """
+        found = {"ok": False}
+
+        def mutate(attempts):
+            for attempt in attempts:
+                if (str(attempt.get("user_id")) == str(user_id)
+                        and attempt.get("attempt_id") == attempt_id):
+                    attempt["ai_insights"] = insights
+                    found["ok"] = True
+                    break
+            return attempts
+
+        self._store.update_replacing(mutate, default=list)
+        return found["ok"]
 
 
 class VideoRepository(BaseJsonRepository):

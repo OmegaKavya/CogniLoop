@@ -62,16 +62,17 @@ class TestExperimentReport:
             {"id": "u1", "study_group": "control"},
             {"id": "u2", "study_group": "experimental"},
         ]
-        mock_attempts_u1 = [{"score": 40}, {"score": 80}]
-        mock_attempts_u2 = [{"score": 20}, {"score": 90}]
-
-        def get_attempts(uid):
-            return mock_attempts_u1 if uid == "u1" else mock_attempts_u2
+        # One read of every attempt, grouped by user_id, which is what the
+        # engine now does instead of a per-user call.
+        all_attempts = [
+            {"user_id": "u1", "score": 40}, {"user_id": "u1", "score": 80},
+            {"user_id": "u2", "score": 20}, {"user_id": "u2", "score": 90},
+        ]
 
         with patch('backend.analytics.metrics.user_repo') as mu, \
              patch('backend.analytics.metrics.quiz_repo') as mq:
             mu.get_all.return_value = mock_users
-            mq.get_user_attempts.side_effect = get_attempts
+            mq.all_attempts.return_value = all_attempts
             report = engine.generate_experiment_report()
 
         assert report["control"]["user_count"] == 1
@@ -84,17 +85,16 @@ class TestExperimentReport:
             {"id": f"u{i}", "study_group": "control" if i < 5 else "experimental"}
             for i in range(10)
         ]
-        attempts_low = [{"score": 30}, {"score": 50}]
-        attempts_high = [{"score": 20}, {"score": 95}]
-
-        def get_attempts(uid):
-            uid_num = int(uid[1:])
-            return attempts_low if uid_num < 5 else attempts_high
+        all_attempts = []
+        for i in range(10):
+            scores = (30, 50) if i < 5 else (20, 95)
+            all_attempts += [{"user_id": f"u{i}", "score": scores[0]},
+                             {"user_id": f"u{i}", "score": scores[1]}]
 
         with patch('backend.analytics.metrics.user_repo') as mu, \
              patch('backend.analytics.metrics.quiz_repo') as mq:
             mu.get_all.return_value = mock_users
-            mq.get_user_attempts.side_effect = get_attempts
+            mq.all_attempts.return_value = all_attempts
             report = engine.generate_experiment_report()
 
         assert "statistical_significance" in report
@@ -105,6 +105,6 @@ class TestExperimentReport:
         with patch('backend.analytics.metrics.user_repo') as mu, \
              patch('backend.analytics.metrics.quiz_repo') as mq:
             mu.get_all.return_value = mock_users
-            mq.get_user_attempts.return_value = [{"score": 70}]  # Only 1 attempt
+            mq.all_attempts.return_value = [{"user_id": "u1", "score": 70}]
             report = engine.generate_experiment_report()
         assert report["control"]["user_count"] == 0

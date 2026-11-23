@@ -55,6 +55,7 @@ flowchart LR
 - `backend/quiz/quiz_generator.py`: Executes 3-tier adaptive generation (Groq -> Ollama -> Curated Static). Enforces strict conceptual focus and duplicate question suppression.
 - `backend/quiz/rag_retriever.py`: Vectorizes lecture transcripts into sentence embeddings within `ChromaDB`, grounding LLM prompt assembly to eliminate factual hallucinations.
 - `backend/quiz/quiz_insights.py`: Generates post-quiz diagnostic analyses, distinguishing between rushed guessing ($<5$ seconds) and deep conceptual confusion ($>25$ seconds), while presenting our roadmap for expert-curated textbook study modules.
+  - **The model call runs after the response, not inside it.** Submission stores the deterministic analysis and returns; a daemon thread then asks the model to rewrite the advice text and writes the result over the stored attempt, under the document lock. Nothing the learner is shown depends on it, since the score, the mastery update, the behaviour cluster and the next difficulty are all computed locally, and the deterministic version is usable content rather than a placeholder. Grading is the other model call in that handler and stays synchronous, because the response is the score.
 - `backend/analytics/metrics.py`: Computes cohort statistical significance and Normalized Learning Gains ($\text{NLG} = \frac{\text{Post} - \text{Pre}}{100 - \text{Pre}}$).
 
 ### Repository & Persistence Layer (`backend/repositories/` & `data/`)
@@ -66,6 +67,24 @@ flowchart LR
 This was not a preference. Render's free tier has an ephemeral filesystem and `render.yaml` declares no disk, so every deploy, restart and idle spin-down destroyed every account, mastery estimate and attempt history. Measured, not assumed: an account registered at 15:01 could not log in at 16:05 the same day.
 
 `PgStore` keeps the file path as the document key, so `data/users.json` addresses the same document in either backend and the migration script, the backups and the call sites all name things the same way. `update()` holds `SELECT ... FOR UPDATE` across the read-modify-write, which is the cross-machine equivalent of the advisory lock it replaces. That makes this the first version that would survive running more than one instance, which the file backend never could.
+
+**Reads are filtered and projected in the store, not in Python.** Moving to a
+database turned a previously harmless habit into a real cost: reading a whole
+document to use part of it is free against a local file and is network
+transfer against a host elsewhere. The attempts document is the one that grows
+without bound, since every learner appends to the same array and every entry
+carries the full text, options and per-question feedback of the quiz that
+produced it, so rendering one learner's dashboard was transferring every
+attempt by every learner.
+
+`query_list(match, drop_keys)` and `count_list(match)` push the filter and the
+key removal into SQL. `JsonStore` implements the same two methods against the
+parsed document, so callers cannot tell the backends apart; matches compare as
+text on both, because Postgres `->>` always yields text and a silent
+string-versus-integer disagreement would only appear in production. Document
+order is preserved through `WITH ORDINALITY`, since callers read the last
+element as the most recent attempt.
+
 - Locks are advisory and per-file, so they coordinate processes on one host. They do not coordinate across hosts.
 
 ---
@@ -92,7 +111,7 @@ This was not a preference. Render's free tier has an ephemeral filesystem and `r
 
 ## 4. Quality Assurance & Verification
 
-CogniLoop features an automated verification suite of **376 unit and integration tests** executing via `pytest`:
+CogniLoop features an automated verification suite of **419 unit and integration tests** executing via `pytest`:
 - **Mathematical Validation**: Confirms precision in Bayesian probability equations and Beta distribution convergence in Thompson Sampling.
 - **Concurrency Testing**: Drives concurrent writes against every persisted store and asserts that no record is lost and no file is left unparseable, which earlier implementations failed.
 - **Resilience Testing**: Exercises provider selection and fallback for quiz generation, grading and insights with no provider configured, with one unreachable, and under rate limiting.
