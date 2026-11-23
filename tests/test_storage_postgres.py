@@ -22,14 +22,38 @@ import uuid
 
 import pytest
 
+# conftest blanks DATABASE_URL before the application is imported, so the rest
+# of the suite cannot reach a real database by accident. This module is the
+# opt-in and puts the URL back - but ONLY while its own tests are running.
+#
+# The obvious version of this, assigning os.environ at module level, is wrong
+# and was briefly shipped. Module bodies execute during COLLECTION, before any
+# test runs, so it restored the variable for the entire session and every
+# later test went back to writing into the real database. It repolluted the
+# production database with 51 documents on 23 Nov 2026, which is the same
+# defect the conftest change exists to prevent. A fixture is what confines it
+# to this module, because fixtures run at test time, not collection time.
+_PG_URL = os.environ.get("_PG_TEST_URL", "").strip()
+
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("DATABASE_URL", "").strip(),
+    not _PG_URL,
     reason="DATABASE_URL is not set; Postgres integration tests are opt-in",
 )
 
 
 @pytest.fixture
-def store_factory():
+def pg_env():
+    """Expose DATABASE_URL for one test, then take it away again."""
+    previous = os.environ.get("DATABASE_URL", "")
+    os.environ["DATABASE_URL"] = _PG_URL
+    try:
+        yield _PG_URL
+    finally:
+        os.environ["DATABASE_URL"] = previous
+
+
+@pytest.fixture
+def store_factory(pg_env):
     """Hand out stores under a unique key prefix, and clean up after."""
     from backend.storage_pg import PgStore, TABLE, pool
 

@@ -1,5 +1,50 @@
-import pytest
 import os
+
+# ---------------------------------------------------------------------------
+# Force the file backend before anything imports the application.
+#
+# This is not tidiness. `app.py` calls load_dotenv on import, and importing it
+# constructs the repository singletons, whose `ensure_exists()` writes through
+# `open_store()`. So with DATABASE_URL readable - from the environment OR from
+# .env - merely importing the app points the entire suite at the production
+# database, and every test that redirects a repository to a tmp_path writes a
+# document there keyed by that temporary path.
+#
+# That already happened. 39 documents keyed by paths like
+# `/private/var/folders/.../pytest-of-kaavya/pytest-7/...` were found in the
+# production database, written on 21 Nov 2026 between 12:33 and 13:02 UTC.
+# Nothing reported it: the guard below watches the `data/` DIRECTORY on disk
+# and is structurally blind to writes that go to Postgres instead.
+#
+# Setting the variable to empty rather than deleting it matters, because
+# load_dotenv does not overwrite a key already present in os.environ. Deleting
+# it would simply let .env put it back.
+#
+# `tests/test_storage_postgres.py` is the one module that wants a database. It
+# restores the URL from _PG_TEST_URL at its own import, so opting in stays
+# explicit and stays confined to that file.
+# ---------------------------------------------------------------------------
+def _capture_database_url():
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        env_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+        try:
+            with open(env_file) as handle:
+                for line in handle:
+                    line = line.strip()
+                    if line.startswith("DATABASE_URL") and "=" in line:
+                        url = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        break
+        except OSError:
+            pass
+    return url
+
+
+os.environ["_PG_TEST_URL"] = _capture_database_url()
+os.environ["DATABASE_URL"] = ""
+
+import pytest
 import json
 import tempfile
 from unittest.mock import patch
@@ -34,7 +79,37 @@ def guard_production_data():
             if name.endswith('.json')
         }
 
+    def stray_keys():
+        """Documents in the database keyed by anything but `data/...`.
+
+        The application only ever writes `data/...`, so an absolute path is a
+        test that reached a real database. Returns None if there is no
+        database to ask, which is the normal case.
+        """
+        # _PG_TEST_URL, not DATABASE_URL: the latter is deliberately blank for
+        # almost the whole session, so reading it here would make this check
+        # silently do nothing in exactly the runs that need it.
+        url = os.environ.get("_PG_TEST_URL", "").strip()
+        if not url:
+            return None
+        previous = os.environ.get("DATABASE_URL", "")
+        os.environ["DATABASE_URL"] = url
+        try:
+            from backend.storage_pg import pool, TABLE
+            with pool().connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"SELECT key FROM {TABLE} WHERE key LIKE %s OR key LIKE %s",
+                        ("/%", "%/pytest-of-%"))
+                    return {row[0] for row in cur.fetchall()}
+        except Exception as exc:  # unreachable database is not a test failure
+            print(f"[guard] could not check Postgres for stray keys: {exc}")
+            return None
+        finally:
+            os.environ["DATABASE_URL"] = previous
+
     before = snapshot()
+    strays_before = stray_keys()
     yield
     after = snapshot()
     touched = sorted(
@@ -44,6 +119,30 @@ def guard_production_data():
     assert not touched, (
         "tests wrote to production data files: " + ", ".join(touched) +
         " -- patch the owning singleton's path in the fixtures"
+    )
+
+    # The check above reads the filesystem, so it is structurally blind to a
+    # suite that was pointed at Postgres instead. Check the other half.
+    #
+    # Only keys this run ADDED are a failure. Keys that were already there are
+    # somebody else's mess - reported, because they should be cleaned up, but
+    # not a reason to fail a run that did nothing wrong. Conflating the two
+    # makes the guard fire forever until the database is tidied, and a check
+    # that always fails is a check people learn to ignore.
+    strays_after = stray_keys()
+    if strays_before is None or strays_after is None:
+        return
+    if strays_before:
+        print(f"\n[guard] NOTE: {len(strays_before)} pre-existing document(s) in "
+              f"the database are keyed by local paths, left by an earlier run. "
+              f"They are not this run's doing. Clean up with:\n"
+              f"[guard]   DELETE FROM documents WHERE key LIKE '/%';")
+    added = sorted(strays_after - strays_before)
+    assert not added, (
+        f"this run wrote {len(added)} document(s) to the database keyed by "
+        "local paths, e.g. " + added[0] + " -- the suite reached a real "
+        "database. DATABASE_URL should be blank for every module except "
+        "tests/test_storage_postgres.py; see the note at the top of this file."
     )
 
 
