@@ -42,7 +42,8 @@ app.config.update(
 
 from backend.ratelimit import SlidingWindowLimiter
 from backend.repositories.core_repositories import (
-    user_repo, progress_repo, quiz_repo, video_repo, QuizAttemptRepository)
+    user_repo, progress_repo, quiz_repo, video_repo, QuizAttemptRepository,
+    assign_study_group)
 
 login_limiter = SlidingWindowLimiter(
     config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
@@ -574,13 +575,17 @@ def register():
                 'message': 'Too many sign-ups from this address. Please try again later.'
             }), 429, {'Retry-After': str(register_limiter.retry_after(address_key))}
 
-        def build_user(new_id):
+        def build_user(new_id, existing_users):
             return {
                 'id': new_id,
                 'name': name,
                 'email': email,
                 'password': hash_password(password),
-                'study_group': random.choice(['control', 'experimental']),
+                # Fills whichever cohort is smaller, inside the lock that
+                # allocates the id. random.choice per registration lands 7-3 or
+                # worse in 34.7% of runs at ten participants, which is the size
+                # this is actually run at.
+                'study_group': assign_study_group(existing_users),
                 'created_at': datetime.now().isoformat()
             }
 
@@ -697,6 +702,9 @@ def dashboard():
         _node("ds", "Data Structures", None),
         _node("dbms", "DBMS", "ds"),
         _node("cn", "Computer Networks", "os"),
+        # No prerequisite and no lecture: this one exists so someone without a
+        # computer science background can use the system at all.
+        _node("qa", "Quantitative Aptitude", None),
     ]
 
     return render_template('dashboard.html', 
@@ -806,7 +814,7 @@ _insight_slots = threading.Semaphore(config.INSIGHT_REFINE_MAX_INFLIGHT)
 
 
 def refine_insights_in_background(user_id, attempt_id, topic_name, score,
-                                  mastery, question_results):
+                                  mastery, question_results, time_limit=None):
     """Ask the model to rewrite an attempt's advice, after the response.
 
     Why this is not in the request: three providers are tried in turn, each
@@ -842,7 +850,7 @@ def refine_insights_in_background(user_id, attempt_id, topic_name, score,
     def run():
         try:
             insights = insights_engine.model_insights(
-                topic_name, score, mastery, question_results)
+                topic_name, score, mastery, question_results, time_limit)
             if insights:
                 destination.set_insights(user_id, attempt_id, insights)
         except Exception as exc:
@@ -1068,13 +1076,18 @@ def quiz_submit():
     
     # Deterministic insights now; the model version is produced after the
     # response has gone out. See refine_insights_in_background.
+    # The quiz's own per-question limit, so the diagnosis thresholds scale with
+    # the difficulty that was actually served rather than with a default.
+    question_time_limit = quiz.get('question_time_seconds') or config.DEFAULT_QUESTION_SECONDS
+
     ai_insights = insights_engine.generate_insights(
         video.get('title', topic_id),
         score,
         round(new_mastery, 2),
         eval_result.get('question_results', []),
         topic_id=topic_id,
-        use_model=False
+        use_model=False,
+        time_limit=question_time_limit
     )
 
     answer_map = {
@@ -1135,7 +1148,8 @@ def quiz_submit():
 
     refine_insights_in_background(
         user_id, attempt_id, video.get('title', topic_id),
-        score, round(new_mastery, 2), reviewed_questions)
+        score, round(new_mastery, 2), reviewed_questions,
+        time_limit=question_time_limit)
     
     # What the policy will serve next, and the reason. The system adapts
     # silently otherwise: a learner has no way to tell that difficulty is being

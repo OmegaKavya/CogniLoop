@@ -251,6 +251,24 @@ VIDEO_TRACK_WINDOW_SECONDS = env_int("VIDEO_TRACK_WINDOW_SECONDS", 300)
 ANALYTICS_MAX = env_int("ANALYTICS_MAX", 30)
 ANALYTICS_WINDOW_SECONDS = env_int("ANALYTICS_WINDOW_SECONDS", 300)
 
+# --- Response-time diagnosis -----------------------------------------------
+# Expressed as fractions of the question's own time limit, not as seconds.
+#
+# They were absolute before: a wrong answer counted as "confused" above 25
+# seconds. The per-question limit is 10 to 15 seconds and the client reports
+# the limit itself when a question times out, so `time_taken` can never exceed
+# about 15 and that branch never fired. Every wrong answer slower than five
+# seconds was labelled a misconception, and one of the three diagnoses was
+# dead code in production for the whole life of the feature.
+#
+# Fractions also make the diagnosis mean the same thing at every difficulty,
+# which seconds did not: five seconds is half of an easy question's budget and
+# a third of a hard one's.
+DIAGNOSIS_LUCKY_GUESS_FRACTION = env_float("DIAGNOSIS_LUCKY_GUESS_FRACTION", 0.20)
+DIAGNOSIS_GUESSED_FRACTION = env_float("DIAGNOSIS_GUESSED_FRACTION", 0.40)
+DIAGNOSIS_CONFUSED_FRACTION = env_float("DIAGNOSIS_CONFUSED_FRACTION", 0.85)
+DEFAULT_QUESTION_SECONDS = env_int("DEFAULT_QUESTION_SECONDS", 12)
+
 # --- Language model providers ----------------------------------------------
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")

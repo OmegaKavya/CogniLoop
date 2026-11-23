@@ -1,5 +1,6 @@
 import json
 import re
+from backend import config
 
 from backend.llm import LLMClient, llm_client
 from utils.constants import STATIC_CHEAT_SHEETS
@@ -21,18 +22,42 @@ class QuizInsightsEngine:
         else:
             self.client = llm_client
 
-    def _diagnose_question(self, q):
-        """Return a time-based learning signal for each answer."""
+    def _diagnose_question(self, q, time_limit=None):
+        """Return a time-based learning signal for one answer.
+
+        Thresholds are fractions of the question's own time limit, not fixed
+        seconds. With fixed seconds the "confused" branch required more than 25
+        seconds on a question the client cuts off at 10 to 15, so it never once
+        fired; every wrong answer slower than five seconds became a
+        misconception. Fractions also make a diagnosis mean the same thing on
+        an easy question and a hard one, which differ by 50% in budget.
+
+        "Confused" now means the learner spent most of the time available and
+        still got it wrong, which is the signal that was intended.
+        """
+        limit = time_limit or config.DEFAULT_QUESTION_SECONDS
+        try:
+            limit = float(limit)
+        except (TypeError, ValueError):
+            limit = float(config.DEFAULT_QUESTION_SECONDS)
+        if limit <= 0:
+            limit = float(config.DEFAULT_QUESTION_SECONDS)
+
         time_taken = q.get("time_taken", 0) or 0
+        try:
+            time_taken = float(time_taken)
+        except (TypeError, ValueError):
+            time_taken = 0.0
+
         is_correct = q.get("is_correct", False)
         if is_correct:
-            if time_taken < 2.5:
+            if time_taken < config.DIAGNOSIS_LUCKY_GUESS_FRACTION * limit:
                 return "lucky_guess"  # correct but suspiciously fast
             return None
-        if time_taken < 5:
+        if time_taken < config.DIAGNOSIS_GUESSED_FRACTION * limit:
             return "guessed"       # answered too fast - likely random
-        elif time_taken > 25:
-            return "confused"      # took long and still wrong - genuine gap
+        elif time_taken >= config.DIAGNOSIS_CONFUSED_FRACTION * limit:
+            return "confused"      # used the time and still wrong - genuine gap
         else:
             return "misconception" # moderate time - likely a specific misconception
 
@@ -130,9 +155,9 @@ class QuizInsightsEngine:
             }
         }
 
-    def _compute_diagnoses(self, question_results):
+    def _compute_diagnoses(self, question_results, time_limit=None):
         """Compute time-based diagnoses across ALL questions (correct and incorrect)."""
-        all_diagnoses = [self._diagnose_question(q) for q in question_results]
+        all_diagnoses = [self._diagnose_question(q, time_limit) for q in question_results]
         incorrect_diagnoses = [d for d, q in zip(all_diagnoses, question_results) if not q.get("is_correct") and d]
         lucky_guesses = all_diagnoses.count("lucky_guess")
         guessed = incorrect_diagnoses.count("guessed")
@@ -158,7 +183,7 @@ class QuizInsightsEngine:
         }
 
     def generate_insights(self, topic_name, score, mastery, question_results,
-                          topic_id="", use_model=True):
+                          topic_id="", use_model=True, time_limit=None):
         """Insights for an attempt.
 
         `use_model=False` returns the deterministic version without touching
@@ -173,7 +198,7 @@ class QuizInsightsEngine:
         `model_insights`, and written over this one.
         """
         incorrect = [q for q in question_results if not q.get("is_correct")]
-        diagnoses = self._compute_diagnoses(question_results)
+        diagnoses = self._compute_diagnoses(question_results, time_limit)
 
         if not incorrect:
             return {
@@ -200,7 +225,8 @@ class QuizInsightsEngine:
 
         return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
 
-    def model_insights(self, topic_name, score, mastery, question_results):
+    def model_insights(self, topic_name, score, mastery, question_results,
+                       time_limit=None):
         """The model-written version, or None if it is unavailable or failed.
 
         Separate from `generate_insights` so it can run after the response has
@@ -214,7 +240,7 @@ class QuizInsightsEngine:
         parsed = self._model_attempt(topic_name, score, mastery, incorrect)
         if not parsed:
             return None
-        parsed["diagnoses"] = self._compute_diagnoses(question_results)
+        parsed["diagnoses"] = self._compute_diagnoses(question_results, time_limit)
         return parsed
 
     def _model_attempt(self, topic_name, score, mastery, incorrect):

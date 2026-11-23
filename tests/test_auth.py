@@ -64,7 +64,7 @@ class TestPasswordVerification:
 
 class TestAccountCreation:
     def _build(self, email):
-        return lambda new_id: {"id": new_id, "email": email, "name": "U"}
+        return lambda new_id, users: {"id": new_id, "email": email, "name": "U"}
 
     def test_concurrent_registrations_do_not_overwrite_each_other(self, tmp_path):
         repo = UserRepository(str(tmp_path / "users.json"))

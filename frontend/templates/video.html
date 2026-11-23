@@ -269,9 +269,30 @@
             </p>
           </section>
 
+          {% if video.video_id %}
           <div class="video-player-container">
             <div id="player"></div>
           </div>
+          {% else %}
+          <!-- A topic with no lecture to ground it in. Quantitative Aptitude
+               is the first: it exists so people without a computer science
+               background can take part, and there is no NPTEL video for it.
+               Rendering the player anyway left an empty black box and a
+               YouTube API error, which reads as broken. -->
+          <div class="video-player-container" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:32px;">
+            <div>
+              <h3 style="margin-bottom:8px">No lecture for this topic</h3>
+              <p style="opacity:0.8;margin-bottom:16px">
+                {{ video.title }} is practice-only. Go straight to the quiz -
+                the questions are generated for you and adapt as you answer.
+              </p>
+              <a href="{{ url_for('quiz_page', topic_id=video.id) }}"
+                 class="btn btn-primary" style="width:auto" onclick="showLoading()">
+                Start the quiz
+              </a>
+            </div>
+          </div>
+          {% endif %}
 
           <div class="behavior-log">
             <h3 style="margin-bottom: 10px">Contextual Behavior Tracking</h3>
@@ -577,6 +598,12 @@
       }
 
       function onYouTubeIframeAPIReady() {
+          // A topic with no lecture has no element to attach to and no id to
+          // play; constructing the player anyway throws inside the YouTube API.
+          if (!submodules.length || !submodules[0].video_id
+              || !document.getElementById('player')) {
+              return;
+          }
           player = new YT.Player('player', {
               height: '100%',
               width: '100%',

@@ -8,6 +8,8 @@ Tests for the improved QuizInsightsEngine:
 import json
 from unittest.mock import patch, MagicMock
 import pytest
+
+from backend import config
 from backend.quiz.quiz_insights import QuizInsightsEngine
 
 
@@ -31,36 +33,75 @@ def _qr(is_correct, time_taken, text="What is a process?", selected="B", correct
 # ── Time-based diagnosis ────────────────────────────────────────────────────
 
 class TestDiagnosis:
-    def test_fast_wrong_is_guessed(self):
-        e = _engine()
-        q = _qr(is_correct=False, time_taken=3.0)
-        assert e._diagnose_question(q) == "guessed"
+    """Thresholds are fractions of the question's own time limit.
 
-    def test_slow_wrong_is_confused(self):
-        e = _engine()
-        q = _qr(is_correct=False, time_taken=30.0)
-        assert e._diagnose_question(q) == "confused"
+    They used to be fixed seconds, and "confused" required more than 25 of
+    them on a question the client cuts off at 10 to 15. It could not fire. The
+    old test asserted it did, using time_taken=30.0 - a value the system is
+    incapable of producing - so the test passed while the feature was dead.
+    Every case below uses a time the client could actually report.
+    """
+
+    LIMIT = 12  # a medium question's budget
+
+    def test_fast_wrong_is_guessed(self):
+        assert _engine()._diagnose_question(
+            _qr(is_correct=False, time_taken=3.0), self.LIMIT) == "guessed"
+
+    def test_using_most_of_the_time_and_still_wrong_is_confused(self):
+        """Reachable: 10.5s of a 12s budget is a time the client reports."""
+        assert _engine()._diagnose_question(
+            _qr(is_correct=False, time_taken=10.5), self.LIMIT) == "confused"
+
+    def test_a_timed_out_question_is_confused(self):
+        """On auto-advance the client reports the limit itself."""
+        assert _engine()._diagnose_question(
+            _qr(is_correct=False, time_taken=self.LIMIT), self.LIMIT) == "confused"
 
     def test_medium_wrong_is_misconception(self):
-        e = _engine()
-        q = _qr(is_correct=False, time_taken=12.0)
-        assert e._diagnose_question(q) == "misconception"
+        assert _engine()._diagnose_question(
+            _qr(is_correct=False, time_taken=7.0), self.LIMIT) == "misconception"
 
     def test_correct_returns_none(self):
-        e = _engine()
-        q = _qr(is_correct=True, time_taken=8.0)
-        assert e._diagnose_question(q) is None
+        assert _engine()._diagnose_question(
+            _qr(is_correct=True, time_taken=8.0), self.LIMIT) is None
 
-    def test_boundary_exactly_5s_is_misconception(self):
-        e = _engine()
-        q = _qr(is_correct=False, time_taken=5.0)
-        # >= 5 and <= 25 → misconception
-        assert e._diagnose_question(q) == "misconception"
+    def test_fast_correct_is_a_lucky_guess(self):
+        assert _engine()._diagnose_question(
+            _qr(is_correct=True, time_taken=1.0), self.LIMIT) == "lucky_guess"
 
-    def test_boundary_exactly_25s_is_misconception(self):
+    def test_every_diagnosis_is_reachable_within_the_real_time_budget(self):
+        """The regression test for the actual bug: with times the client can
+        produce, all four outcomes must occur. The old absolute thresholds
+        could only ever yield three."""
         e = _engine()
-        q = _qr(is_correct=False, time_taken=25.0)
-        assert e._diagnose_question(q) == "misconception"
+        seen = {e._diagnose_question(_qr(is_correct=c, time_taken=t), self.LIMIT)
+                for c, t in [(True, 1.0), (True, 8.0), (False, 2.0),
+                             (False, 7.0), (False, self.LIMIT)]}
+        assert seen == {"lucky_guess", None, "guessed", "misconception", "confused"}
+
+    def test_thresholds_scale_with_difficulty(self):
+        """The same 9 seconds is a misconception on an easy question and
+        confusion on a hard one, because the budgets differ."""
+        e = _engine()
+        q = _qr(is_correct=False, time_taken=9.0)
+        assert e._diagnose_question(q, 15) == "misconception"
+        assert e._diagnose_question(q, 10) == "confused"
+
+    def test_a_missing_limit_falls_back_to_the_default(self):
+        assert _engine()._diagnose_question(
+            _qr(is_correct=False, time_taken=1.0)) == "guessed"
+
+    def test_the_boundary_sits_just_below_the_confused_fraction(self):
+        """Replaces a test that asserted 25.0 seconds was a misconception.
+        The client cannot report 25 seconds, so that assertion described
+        behaviour no learner could ever trigger."""
+        e = _engine()
+        just_under = config.DIAGNOSIS_CONFUSED_FRACTION * self.LIMIT - 0.1
+        assert e._diagnose_question(
+            _qr(is_correct=False, time_taken=just_under), self.LIMIT) == "misconception"
+        assert e._diagnose_question(
+            _qr(is_correct=False, time_taken=just_under + 0.2), self.LIMIT) == "confused"
 
     def test_zero_time_is_guessed(self):
         e = _engine()
@@ -226,13 +267,25 @@ class TestSubmoduleDefinitions:
                     f"{topic}/{mod['title']}: window is {length // 60}m, "
                     f"too long for a single submodule")
 
-    def test_exam_angles_contain_gate_tip(self):
+    def test_exam_angles_name_an_exam_context(self):
+        """Every exam angle must tie the module to a real exam setting.
+
+        This asserted "GATE" or "Tip", case-sensitively. GATE is a computer
+        science exam, and Quantitative Aptitude - added so people without a CS
+        background can take part - is a placement-test subject, not a GATE one.
+        Its angles say "Placement tip", which is the same kind of guidance in
+        the right exam context, and the old assertion rejected it on the case
+        of one letter. Matching case-insensitively against either context is
+        what the check was always trying to express.
+        """
         from utils.constants import SUBMODULE_DEFINITIONS
         for topic, mods in SUBMODULE_DEFINITIONS.items():
             for mod in mods:
                 if mod["exam_angle"]:
-                    assert "GATE" in mod["exam_angle"] or "Tip" in mod["exam_angle"], \
-                        f"Exam angle for '{topic}' module '{mod['title']}' doesn't mention GATE"
+                    angle = mod["exam_angle"].lower()
+                    assert any(word in angle for word in ("gate", "placement", "tip")), \
+                        (f"Exam angle for '{topic}' module '{mod['title']}' names no "
+                         f"exam context: {mod['exam_angle'][:60]}")
 
 
 # ── build_topic_submodules integration ──────────────────────────────────────

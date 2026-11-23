@@ -1,4 +1,30 @@
 STATIC_CHEAT_SHEETS = {
+    # Practice-only topic, added for the pilot so people without a computer
+    # science background can take part. Everything here is answerable inside
+    # the 10-15 second question timer, which is what rules out the
+    # multi-minute problems this subject usually means.
+    'qa': {
+        'title': 'Quantitative Aptitude Rapid Revision',
+        'estimated_minutes': 4,
+        'core': [
+            'Percentage change: new minus old, over old, times 100.',
+            'Ratios share a total: split it in the ratio\'s parts, not evenly.',
+            'Average = total divided by count; adding a value above the average raises it.',
+            'Speed = distance over time; keep units consistent before dividing.',
+            'Simple interest is linear; compound interest is not.'
+        ],
+        'pitfalls': [
+            'A 20% rise then a 20% fall does not return to the original number.',
+            'Averaging two speeds is wrong unless the times are equal.',
+            'Percentage OF a number and percentage MORE THAN a number differ.',
+            'Ratio 2:3 means five parts in total, not two or three.'
+        ],
+        'drills': [
+            'Take 15% of a number in your head by halving 10% and adding it.',
+            'Convert three fractions to percentages without writing anything down.',
+            'Given a ratio and a total, find both parts in under ten seconds.'
+        ]
+    },
     'os': {
         'title': 'Operating Systems Rapid Revision',
         'estimated_minutes': 5,
@@ -92,6 +118,158 @@ STATIC_CHEAT_SHEETS = {
 # Topic-specific submodule definitions with real CS curriculum content
 # Each module has: title, objective, exam_angle, start_sec, end_sec, checkpoints
 SUBMODULE_DEFINITIONS = {
+    # Quantitative Aptitude. Added for the real-learner pilot so that people
+    # without a computer science background can take part at all - the other
+    # four topics assume one.
+    #
+    # Every checkpoint answer here was computed before it was written down,
+    # because these go in front of people who are doing a favour and a wrong
+    # answer in a "correct" slot destroys their trust in everything else on
+    # the page.
+    #
+    # All four videos are from one channel and one series, so the style does
+    # not lurch between modules, and all four were verified to resolve
+    # through YouTube's oembed endpoint. Re-check them with
+    # scripts/check_video_links.py before any session: they are third-party
+    # content and go away without warning.
+    'qa': [
+        {
+            "title": "Percentages",
+            "objective": "Convert between fractions and percentages, compute percentage change, and spot where successive changes do not cancel.",
+            "exam_angle": "\U0001f3af Placement tip: successive percentage change is the single most common trap - a rise then an equal fall never returns to the original value.",
+            "video_id": "RWdNhJWwzSs",
+            "start_sec": 0,
+            "end_sec": 3106,
+            "checkpoints": [
+                {
+                    "id": "qa-cp1-1",
+                    "trigger_pct": 25,
+                    "question": "A price rises by 20% and then falls by 20%. Compared with the original price, the final price is:",
+                    "options": ["4% lower", "the same", "4% higher", "20% lower"],
+                    "correct_index": 0,
+                    "explanation": "100 becomes 120, then 20% of 120 is 24, giving 96. That is 4% below the original, because the fall is taken on the larger number."
+                },
+                {
+                    "id": "qa-cp1-2",
+                    "trigger_pct": 55,
+                    "question": "What is 15% of 240?",
+                    "options": ["36", "32", "40", "24"],
+                    "correct_index": 0,
+                    "explanation": "10% is 24 and 5% is half of that, 12. 24 + 12 = 36."
+                },
+                {
+                    "id": "qa-cp1-3",
+                    "trigger_pct": 85,
+                    "question": "A value goes from 40 to 50. What is the percentage increase?",
+                    "options": ["25%", "20%", "10%", "12.5%"],
+                    "correct_index": 0,
+                    "explanation": "The increase is 10, taken over the ORIGINAL 40: 10/40 = 25%. Dividing by the new value instead gives 20%, which is the usual mistake."
+                }
+            ]
+        },
+        {
+            "title": "Ratio and Proportion",
+            "objective": "Split a total in a given ratio, chain two ratios into one, and recover a quantity from a known part.",
+            "exam_angle": "\U0001f3af Placement tip: a ratio names PARTS, not amounts. 2:3 means five parts in total, which is where most errors start.",
+            "video_id": "jfoJBivWlnQ",
+            "start_sec": 0,
+            "end_sec": 3511,
+            "checkpoints": [
+                {
+                    "id": "qa-cp2-1",
+                    "trigger_pct": 25,
+                    "question": "Divide 350 in the ratio 3:4. What is the smaller share?",
+                    "options": ["150", "175", "140", "120"],
+                    "correct_index": 0,
+                    "explanation": "3 + 4 = 7 parts, so one part is 50. The smaller share is 3 parts: 150."
+                },
+                {
+                    "id": "qa-cp2-2",
+                    "trigger_pct": 55,
+                    "question": "If a:b = 2:3 and b:c = 4:5, then a:b:c is:",
+                    "options": ["8:12:15", "2:3:5", "2:12:5", "8:12:20"],
+                    "correct_index": 0,
+                    "explanation": "Make b match: multiply the first ratio by 4 and the second by 3, giving 8:12 and 12:15, so a:b:c = 8:12:15."
+                },
+                {
+                    "id": "qa-cp2-3",
+                    "trigger_pct": 85,
+                    "question": "Two numbers are in the ratio 5:7. If the larger is 56, the smaller is:",
+                    "options": ["40", "35", "42", "48"],
+                    "correct_index": 0,
+                    "explanation": "7 parts = 56, so one part is 8. The smaller is 5 parts: 40."
+                }
+            ]
+        },
+        {
+            "title": "Speed, Distance and Time",
+            "objective": "Apply speed = distance / time, convert units reliably, and handle average speed over equal distances.",
+            "exam_angle": "\U0001f3af Placement tip: average speed over equal distances is NOT the average of the two speeds - it is the harmonic mean, 2ab/(a+b).",
+            "video_id": "jzNxXm5twx4",
+            "start_sec": 0,
+            "end_sec": 2502,
+            "checkpoints": [
+                {
+                    "id": "qa-cp3-1",
+                    "trigger_pct": 25,
+                    "question": "72 km/h expressed in metres per second is:",
+                    "options": ["20 m/s", "25 m/s", "18 m/s", "36 m/s"],
+                    "correct_index": 0,
+                    "explanation": "Multiply km/h by 5/18: 72 x 5/18 = 20 m/s."
+                },
+                {
+                    "id": "qa-cp3-2",
+                    "trigger_pct": 55,
+                    "question": "How long does a 150 km journey take at a steady 50 km/h?",
+                    "options": ["3 hours", "2.5 hours", "3.5 hours", "2 hours"],
+                    "correct_index": 0,
+                    "explanation": "Time = distance / speed = 150 / 50 = 3 hours."
+                },
+                {
+                    "id": "qa-cp3-3",
+                    "trigger_pct": 85,
+                    "question": "A car covers equal distances at 60 km/h and 40 km/h. Its average speed for the whole trip is:",
+                    "options": ["48 km/h", "50 km/h", "52 km/h", "45 km/h"],
+                    "correct_index": 0,
+                    "explanation": "Equal distances means the harmonic mean: 2 x 60 x 40 / (60 + 40) = 48 km/h. It is below 50 because more time is spent at the slower speed."
+                }
+            ]
+        },
+        {
+            "title": "Time and Work",
+            "objective": "Turn 'days to finish' into work per day, combine workers, and scale a job across a different number of people.",
+            "exam_angle": "\U0001f3af Placement tip: never add days. Convert each worker to a rate (1/days), add the rates, then invert.",
+            "video_id": "KE7tQf9spPg",
+            "start_sec": 0,
+            "end_sec": 2595,
+            "checkpoints": [
+                {
+                    "id": "qa-cp4-1",
+                    "trigger_pct": 25,
+                    "question": "A finishes a job in 10 days and B in 15 days. Working together they finish it in:",
+                    "options": ["6 days", "12.5 days", "5 days", "25 days"],
+                    "correct_index": 0,
+                    "explanation": "Rates add: 1/10 + 1/15 = 1/6, so together they take 6 days. Adding or averaging the days is the common error."
+                },
+                {
+                    "id": "qa-cp4-2",
+                    "trigger_pct": 55,
+                    "question": "If 6 workers complete a job in 12 days, how long do 8 workers take at the same rate?",
+                    "options": ["9 days", "16 days", "8 days", "10 days"],
+                    "correct_index": 0,
+                    "explanation": "Total work is 6 x 12 = 72 worker-days. Divided among 8 workers, that is 9 days."
+                },
+                {
+                    "id": "qa-cp4-3",
+                    "trigger_pct": 85,
+                    "question": "A works twice as fast as B. Together they finish a job in 8 days. B alone would take:",
+                    "options": ["24 days", "16 days", "12 days", "32 days"],
+                    "correct_index": 0,
+                    "explanation": "If B takes x days, A takes x/2. Their combined rate is 2/x + 1/x = 3/x = 1/8, so x = 24 days."
+                }
+            ]
+        }
+    ],
     'os': [
         {
             "title": "Process & Thread Lifecycle",
