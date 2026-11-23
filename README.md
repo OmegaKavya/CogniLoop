@@ -3,7 +3,7 @@
 **Author**: Kavya Aggarwal
 
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
-[![Tests Passed](https://img.shields.io/badge/tests-478%20passed-emerald.svg)](#)
+[![Tests Passed](https://img.shields.io/badge/tests-554%20passed-emerald.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-amber.svg)](LICENSE)
 [![Evaluation](https://img.shields.io/badge/evaluation-simulation%20only-lightgrey.svg)](#evaluation-status)
 
@@ -28,18 +28,24 @@ For technical system blueprints, mathematical models, module boundaries, and req
 
 The analysis of the estimator confound is written up as a manuscript. Its source is deliberately not tracked here, because similarity checkers crawl public repositories and the manuscript would match itself at submission. The code it refers to is public, which is what the reproducibility statement means.
 
-### Core Computer Science Curriculum
-CogniLoop structures core university CS topics into modular learning paths. The system includes **16 distinct submodules** across four primary domain areas:
+### Curriculum
+CogniLoop structures its subjects into modular learning paths. The system includes **24 submodules** across five domain areas, totalling 14.9 hours of curated lecture time:
 
 1. **Operating Systems (OS)**: Process & Thread Lifecycle / Virtual Memory & Paging / Synchronization & Deadlocks / File Systems & Disk Scheduling
 2. **Data Structures (DS)**: Linear Structures & Pointers / Balanced Trees (AVL, Red-Black) / Graph Algorithms & Hashing / Advanced Heaps & Priority Queues
 3. **Database Management Systems (DBMS)**: Relational Algebra & SQL Mastery / Schema Normalization & ER Modeling / ACID Transactions & Concurrency Control / Indexing B-Trees & Query Optimization
 4. **Computer Networks (CN)**: Network Architecture & IP Addressing / Transport Layer (TCP vs UDP dynamics) / Application Protocols & Routing / Network Security & Cryptographic Protocols
+5. **Quantitative Aptitude (QA)**: Percentages / Ratio & Proportion / Speed, Distance & Time / Time & Work
+
+Quantitative Aptitude requires no computer science background. It was added so
+that the system could be evaluated by people outside the discipline, and its
+content is constrained by the 10-15 second question timer, which rules out the
+multi-minute problems the subject usually implies.
 
 Every submodule includes:
 - A dedicated educational video lecture with uninterrupted playback integration.
 - 3 embedded concept checkpoints triggered dynamically at 30%, 65%, and 85% video completion milestones.
-- GATE exam focus tips and structured conceptual study summaries.
+- Exam focus tips (GATE for the CS subjects, placement tests for aptitude) and structured conceptual study summaries.
 - A future roadmap announcement for transitioning AI study anchors into comprehensive, expert-curated textbook modules.
 
 ---
@@ -60,7 +66,7 @@ Every submodule includes:
 - Provides an executive revision cheat sheet exportable directly as a high-resolution PDF document.
 
 ### 3. Comprehensive Verification & QA
-- Protected by a suite of **478 automated tests** executing with 100% reliability in pytest.
+- Protected by a suite of **554 automated tests** executing with 100% reliability in pytest.
 - Covers BKT transitions and parameter fitting, bandit selection, concurrency safety of all persisted state, credential handling and abuse limits, LLM provider routing, and full-stack route flows.
 
 ---
