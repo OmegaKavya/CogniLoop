@@ -247,7 +247,11 @@ class QuizInsightsEngine:
         """Ask the model to rewrite the advice. None on any failure."""
         if self.client.available:
             try:
-                prompt = f"""You are an expert CS learning coach. A student scored {score}% on a {topic_name} quiz (mastery: {mastery:.0%}).
+                # The subject, not "CS". The curriculum now includes
+                # Quantitative Aptitude, and telling the model it is a computer
+                # science coach while handing it a percentages question biases
+                # the advice toward a framing the question does not have.
+                prompt = f"""You are an expert {topic_name} learning coach. A student scored {score}% on a {topic_name} quiz (mastery: {mastery:.0%}).
 Wrong answers: {json.dumps([{"question": q.get("text",""), "chosen": q.get("selected_answer",""), "correct": q.get("correct_answer",""), "time_s": q.get("time_taken",0)} for q in incorrect])[:1800]}
 
 Return ONLY JSON:
@@ -255,8 +259,9 @@ Return ONLY JSON:
 
                 parsed = self.client.complete_json(
                     prompt,
-                    system="You are an expert CS learning coach. Return valid "
-                           "JSON only, with no markdown and no explanation.",
+                    system=f"You are an expert {topic_name} learning coach. "
+                           "Return valid JSON only, with no markdown and no "
+                           "explanation.",
                     max_tokens=600,
                     temperature=0.4,
                 )

@@ -1158,11 +1158,38 @@
           }
       }
 
+      // Shown when a submission does not come back with a result. Before this
+      // existed, any non-200 still fell through to the results screen, which
+      // rendered "Score: undefined%" and "NaN%" while discarding the message
+      // the server had sent. A participant whose quiz token expired, or who hit
+      // the submission rate limit, was told nothing - and the rate limit is new,
+      // so that path was added before anything could display it.
+      function showSubmitError(message) {
+          document.getElementById('submit-loading-overlay').style.display = 'none';
+          let box = document.getElementById('submit-error');
+          if (!box) {
+              box = document.createElement('div');
+              box.id = 'submit-error';
+              box.style.cssText = 'margin:24px auto;max-width:560px;padding:20px 24px;'
+                  + 'border:1px solid var(--border,#d33);border-radius:12px;text-align:center;';
+              const content = document.getElementById('quiz-content');
+              content.parentNode.insertBefore(box, content);
+          }
+          box.innerHTML = '<h3 style="margin:0 0 8px">Your answers were not saved</h3>'
+              + '<p style="margin:0 0 16px">' + message + '</p>'
+              + '<button onclick="location.reload()" class="btn btn-primary" '
+              + 'style="width:auto">Reload and try again</button>';
+          box.style.display = 'block';
+          box.scrollIntoView({behavior: 'smooth', block: 'center'});
+      }
+
       async function submitQuiz() {
           clearInterval(timerInterval);
           document.getElementById('submit-loading-overlay').style.display='flex';
 
-          const response = await fetch('/api/quiz-submit', {
+          let response;
+          try {
+              response = await fetch('/api/quiz-submit', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               // The difficulty is deliberately not sent. The server grades and
@@ -1173,8 +1200,38 @@
                   quiz_token: quizToken,
                   responses: responses
               })
-          });
-          const result = await response.json();
+              });
+          } catch (networkError) {
+              showSubmitError('We could not reach the server. Check your connection, '
+                  + 'then reload and take the quiz again.');
+              return;
+          }
+
+          let result;
+          try {
+              result = await response.json();
+          } catch (parseError) {
+              result = {};
+          }
+
+          // The server's own message, where it sent one. Falling back to a
+          // status-specific sentence rather than a generic failure, because a
+          // participant has fifteen minutes and needs to know whether to retry.
+          if (!response.ok || result.success === false) {
+              let message = result.message;
+              if (!message) {
+                  if (response.status === 429) {
+                      message = 'That is a lot of quizzes in a short time. '
+                          + 'Wait a minute, then reload.';
+                  } else if (response.status === 401) {
+                      message = 'Your session ended. Reload to sign in again.';
+                  } else {
+                      message = 'Something went wrong on our side. Reload and try again.';
+                  }
+              }
+              showSubmitError(message);
+              return;
+          }
 
           document.getElementById('submit-loading-overlay').style.display = 'none';
           document.getElementById('quiz-content').style.display = 'none';

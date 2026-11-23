@@ -14,22 +14,32 @@ is the first thing an ethics reviewer asks about.
 
 What it removes, by document:
 
-  users           the account row              matched on id or email
-  quiz_attempts   every attempt                matched on user_id
-  user_progress   the per-topic progress map   keyed by user id
-  bkt_states      the mastery estimates        keyed by user id
-  micro_patterns  the behaviour log            matched on user_id
+  users           the account row                matched on id or email
+  quiz_attempts   every attempt                  matched on user_id
+  user_progress   the per-topic progress map     keyed by user id
+  bkt_states      the mastery estimates          keyed by user id
+  micro_patterns  the behaviour log              matched on user_id
+  active_quizzes  any quiz issued and not yet    keyed by token, user_id
+                  submitted                      inside the value
 
-What it cannot remove, and why that is disclosed rather than hidden:
+What it cannot remove, and why that is disclosed rather than hidden.
 
-  bandit_q_table  the policy posterior is an AGGREGATE over all learners,
-                  keyed by behaviour cluster and mastery band, not by person.
-                  One participant's contribution cannot be subtracted from it
-                  without replaying every other participant's history. It
-                  holds no identifier and nothing about an individual can be
-                  recovered from it. If a participant insists, the honest
-                  options are to reset the table or to say plainly that this
-                  one aggregate retains an unattributable statistical trace.
+Both of these are AGGREGATES: they are derived from many participants at once,
+hold no identifier, and nothing about an individual can be recovered from
+them. Neither can have one person's contribution subtracted without replaying
+every other person's history.
+
+  bandit_q_table         the policy posterior, keyed by behaviour cluster and
+                         mastery band rather than by person.
+
+  models/clustering_model.pkl
+                         the KMeans model fitted over micro_patterns. Deleting
+                         a participant's behaviour rows does not unfit the
+                         model that was trained while they were in it.
+
+If a participant insists on total removal, the honest options are to reset the
+bandit table and refit the clustering model from the remaining data, or to say
+plainly that these two aggregates retain an unattributable statistical trace.
 
 Usage:
     python3 scripts/delete_participant.py --email someone@example.com --dry-run
@@ -52,6 +62,7 @@ DOCUMENTS = {
     "user_progress": "data/user_progress.json",
     "bkt_states": "data/bkt_states.json",
     "micro_patterns": "data/micro_patterns.json",
+    "active_quizzes": "data/active_quizzes.json",
 }
 
 
@@ -78,6 +89,13 @@ def count_matches(uid):
     for name in ("user_progress", "bkt_states"):
         doc = open_store(DOCUMENTS[name], default=dict).read()
         found[name] = 1 if isinstance(doc, dict) and uid in doc else 0
+    # Keyed by the issued token, with the owner inside the value, so it is
+    # matched on contents rather than on the key.
+    active = open_store(DOCUMENTS["active_quizzes"], default=dict).read()
+    found["active_quizzes"] = sum(
+        1 for v in active.values()
+        if isinstance(v, dict) and str(v.get("user_id")) == uid
+    ) if isinstance(active, dict) else 0
     return found
 
 
@@ -117,6 +135,21 @@ def delete(uid):
         store.update(mutate)
         removed[name] = count["n"]
 
+    store = open_store(DOCUMENTS["active_quizzes"], default=dict)
+    active_count = {"n": 0}
+
+    def drop_active(doc):
+        if not isinstance(doc, dict):
+            return doc
+        for token in [t for t, v in doc.items()
+                      if isinstance(v, dict) and str(v.get("user_id")) == uid]:
+            doc.pop(token)
+            active_count["n"] += 1
+        return doc
+
+    store.update(drop_active)
+    removed["active_quizzes"] = active_count["n"]
+
     return removed
 
 
@@ -146,8 +179,8 @@ def main():
     for name, n in count_matches(uid).items():
         print(f"  {name:<16} {n}")
     print(f"  {'users':<16} 1")
-    print("\nNot removable: bandit_q_table holds an aggregate posterior with no "
-          "identifier in it; see the module docstring.")
+    print("\nNot removable: bandit_q_table and the fitted clustering model are "
+          "aggregates with no identifier in them; see the module docstring.")
 
     if not args.confirm:
         print("\nDry run. Re-run with --confirm to delete.")
