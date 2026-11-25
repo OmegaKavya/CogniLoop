@@ -3,7 +3,7 @@
 **Author**: Kavya Aggarwal
 
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
-[![Tests Passed](https://img.shields.io/badge/tests-565%20passed-emerald.svg)](#)
+[![Tests Passed](https://img.shields.io/badge/tests-587%20passed-emerald.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-amber.svg)](LICENSE)
 [![Evaluation](https://img.shields.io/badge/evaluation-simulation%20only-lightgrey.svg)](#evaluation-status)
 
@@ -68,7 +68,7 @@ Every submodule includes:
 - Provides an executive revision cheat sheet exportable directly as a high-resolution PDF document.
 
 ### 3. Comprehensive Verification & QA
-- Protected by a suite of **565 automated tests** executing with 100% reliability in pytest.
+- Protected by a suite of **587 automated tests** executing with 100% reliability in pytest.
 - Covers BKT transitions and parameter fitting, bandit selection, concurrency safety of all persisted state, credential handling and abuse limits, LLM provider routing, and full-stack route flows.
 
 ---
