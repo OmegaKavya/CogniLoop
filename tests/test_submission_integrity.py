@@ -206,3 +206,42 @@ class TestUnreadableStorage:
                                                          "responses": []})
         assert res.status_code == 503
         assert res.get_json()['success'] is False
+
+
+class TestRefinedInsightsEndpoint:
+    def _attempt(self, client):
+        user_id = _register(client)
+        token = active_quiz_store.issue(user_id, _quiz(n=2))
+        with patch('app.refine_insights_in_background'):
+            body = json.loads(_submit(client, token, [
+                {"question_id": 1, "selected_answer": "A", "time_taken": 5}]).data)
+        return user_id, body['attempt_id']
+
+    def test_reports_unrefined_then_refined(self, client):
+        user_id, attempt_id = self._attempt(client)
+        first = client.get(f'/api/attempt-insights/{attempt_id}').get_json()
+        assert first['success'] and first['refined'] is False
+
+        quiz_repo.set_insights(user_id, attempt_id, {
+            "summary": "model text", "focus_concepts": ["x"], "cheat_sheet": [],
+            "resources": [], "source": "model"})
+        second = client.get(f'/api/attempt-insights/{attempt_id}').get_json()
+        assert second['refined'] is True
+        assert second['ai_insights']['summary'] == "model text"
+
+    def test_another_learners_attempt_is_not_found(self, client):
+        _, attempt_id = self._attempt(client)
+        client.get('/logout')
+        _register(client)
+        assert client.get(f'/api/attempt-insights/{attempt_id}').status_code == 404
+
+    def test_requires_a_session(self, client):
+        assert client.get('/api/attempt-insights/whatever').status_code == 401
+
+    def test_model_insights_are_marked_as_such(self):
+        from backend.quiz.quiz_insights import QuizInsightsEngine
+        engine = QuizInsightsEngine()
+        with patch.object(engine, '_model_attempt', return_value={
+                "summary": "s", "focus_concepts": ["c"], "cheat_sheet": [], "resources": []}):
+            out = engine.model_insights("T", 50, 0.5, [{"is_correct": False, "time_taken": 3}])
+        assert out['source'] == 'model'

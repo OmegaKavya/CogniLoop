@@ -832,6 +832,12 @@
             AI Insights to Focus Next
           </h4>
           <p
+            id="insight-refined-note"
+            style="display: none; font-size: 0.82rem; color: var(--text-light); margin: -4px 0 8px"
+          >
+            Updated with a model-written breakdown of your answers.
+          </p>
+          <p
             id="insight-summary"
             style="color: var(--text-light); margin-bottom: 12px"
           ></p>
@@ -1182,7 +1188,15 @@
       // the server had sent. A participant whose quiz token expired, or who hit
       // the submission rate limit, was told nothing - and the rate limit is new,
       // so that path was added before anything could display it.
-      function showSubmitError(message) {
+      // How a failed submission can be recovered, which decides what the box
+      // offers. The answers are still in `responses`, and the server keeps the
+      // quiz token when a submission fails, so most failures can simply be
+      // sent again. Reloading used to be the only option, and it threw the
+      // participant's answers away.
+      //   retry  - nothing was saved; send the same answers again
+      //   saved  - an earlier attempt already went through (409)
+      //   reload - the quiz or the session is gone; only a reload helps
+      function showSubmitError(message, mode) {
           document.getElementById('submit-loading-overlay').style.display = 'none';
           let box = document.getElementById('submit-error');
           if (!box) {
@@ -1193,87 +1207,34 @@
               const content = document.getElementById('quiz-content');
               content.parentNode.insertBefore(box, content);
           }
-          box.innerHTML = '<h3 style="margin:0 0 8px">Your answers were not saved</h3>'
-              + '<p style="margin:0 0 16px">' + escapeHtml(message) + '</p>'
-              + '<button onclick="location.reload()" class="btn btn-primary" '
-              + 'style="width:auto">Reload and try again</button>';
+          const heading = mode === 'saved' ? 'Your answers were already submitted'
+              : mode === 'retry' ? 'Your answers have not been sent yet'
+              : 'Your answers were not saved';
+          box.innerHTML = '<h3 style="margin:0 0 8px">' + escapeHtml(heading) + '</h3>'
+              + '<p style="margin:0 0 16px">' + escapeHtml(message) + '</p>';
+
+          const button = document.createElement('button');
+          button.className = 'btn btn-primary';
+          button.style.width = 'auto';
+          if (mode === 'retry') {
+              button.textContent = 'Send my answers again';
+              button.onclick = () => { box.style.display = 'none'; submitQuiz(); };
+          } else if (mode === 'saved') {
+              button.textContent = 'See my results';
+              button.onclick = () => { location.href = '/quiz-review'; };
+          } else {
+              button.textContent = 'Reload and try again';
+              button.onclick = () => location.reload();
+          }
+          box.appendChild(button);
           box.style.display = 'block';
           box.scrollIntoView({behavior: 'smooth', block: 'center'});
       }
 
-      async function submitQuiz() {
-          clearInterval(timerInterval);
-          document.getElementById('submit-loading-overlay').style.display='flex';
-
-          let response;
-          try {
-              response = await fetch('/api/quiz-submit', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              // The difficulty is deliberately not sent. The server grades and
-              // updates the model against its own copy of the issued quiz, so
-              // the tier is read there rather than taken from this client.
-              body: JSON.stringify({
-                  topic_id: quizData.topic_id,
-                  quiz_token: quizToken,
-                  responses: responses
-              })
-              });
-          } catch (networkError) {
-              showSubmitError('We could not reach the server. Check your connection, '
-                  + 'then reload and take the quiz again.');
-              return;
-          }
-
-          let result;
-          try {
-              result = await response.json();
-          } catch (parseError) {
-              result = {};
-          }
-
-          // The server's own message, where it sent one. Falling back to a
-          // status-specific sentence rather than a generic failure, because a
-          // participant has fifteen minutes and needs to know whether to retry.
-          if (!response.ok || result.success === false) {
-              let message = result.message;
-              if (!message) {
-                  if (response.status === 429) {
-                      message = 'That is a lot of quizzes in a short time. '
-                          + 'Wait a minute, then reload.';
-                  } else if (response.status === 401) {
-                      message = 'Your session ended. Reload to sign in again.';
-                  } else {
-                      message = 'Something went wrong on our side. Reload and try again.';
-                  }
-              }
-              showSubmitError(message);
-              return;
-          }
-
-          document.getElementById('submit-loading-overlay').style.display = 'none';
-          document.getElementById('quiz-content').style.display = 'none';
-          document.getElementById('result-area').style.display = 'block';
-
-          // Populate results
-          document.getElementById('result-score').innerText = `Score: ${result.score}%`;
-
-          if (result.next_difficulty) {
-              const note = document.getElementById('adaptation-note');
-              document.getElementById('served-tier').innerText = result.served_difficulty || '—';
-              document.getElementById('next-tier').innerText = result.next_difficulty;
-              document.getElementById('next-tier-reason').innerText = result.next_difficulty_reason || '';
-              note.style.display = 'block';
-          }
-          document.getElementById('result-mastery').innerText = (result.mastery * 100).toFixed(0) + '%';
-          document.getElementById('result-cluster').innerText = result.behavior_cluster || result.cluster;
-
-          if (result.recommendation) {
-              document.getElementById('rec-action').innerText = result.recommendation.action;
-              document.getElementById('rec-message').innerText = result.recommendation.message;
-          }
-
-          const insights = result.ai_insights || {};
+      // Fills the feedback panel. Called once with the immediate feedback and
+      // again if the model-written version arrives while the results are open.
+      function renderInsights(insights) {
+          insights = insights || {};
           document.getElementById('insight-summary').innerText = insights.summary || 'Review your weak concepts and revise with short, focused iterations.';
 
           const conceptsUl = document.getElementById('insight-concepts');
@@ -1305,9 +1266,126 @@
               li.appendChild(a);
               resourcesUl.appendChild(li);
           });
+      }
+
+      // The model rewrites the feedback a few seconds after the response, in
+      // the background. Ask a few times while the participant is reading their
+      // score, swap it in if it lands, and stop. If the model is unavailable
+      // nothing changes: the feedback already shown is complete on its own.
+      async function pollRefinedInsights(attemptId) {
+          for (const delay of [3000, 4000, 6000, 8000]) {
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              let data;
+              try {
+                  const res = await fetch(`/api/attempt-insights/${encodeURIComponent(attemptId)}`);
+                  if (!res.ok) return;
+                  data = await res.json();
+              } catch (e) {
+                  return;
+              }
+              if (data && data.refined) {
+                  renderInsights(data.ai_insights);
+                  const note = document.getElementById('insight-refined-note');
+                  if (note) note.style.display = 'block';
+                  return;
+              }
+          }
+      }
+
+      // A second tap on Submit while the first is in flight would send the
+      // same token twice. The server refuses the second, but the participant
+      // would then be shown an error for a submission that worked.
+      let submitting = false;
+
+      async function submitQuiz() {
+          if (submitting) return;
+          submitting = true;
+          clearInterval(timerInterval);
+          document.getElementById('submit-loading-overlay').style.display='flex';
+
+          let response;
+          try {
+              response = await fetch('/api/quiz-submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              // The difficulty is deliberately not sent. The server grades and
+              // updates the model against its own copy of the issued quiz, so
+              // the tier is read there rather than taken from this client.
+              body: JSON.stringify({
+                  topic_id: quizData.topic_id,
+                  quiz_token: quizToken,
+                  responses: responses
+              })
+              });
+          } catch (networkError) {
+              submitting = false;
+              showSubmitError('We could not reach the server. Check your connection, '
+                  + 'then send them again. Nothing is lost.', 'retry');
+              return;
+          }
+
+          let result;
+          try {
+              result = await response.json();
+          } catch (parseError) {
+              result = {};
+          }
+
+          // The server's own message, where it sent one. Falling back to a
+          // status-specific sentence rather than a generic failure, because a
+          // participant has fifteen minutes and needs to know whether to retry.
+          if (!response.ok || result.success === false) {
+              submitting = false;
+              let mode = 'reload';
+              if (response.status === 409) {
+                  mode = 'saved';
+              } else if (response.status === 429 || response.status >= 500) {
+                  mode = 'retry';
+              }
+              let message = result.message;
+              if (response.status === 429) {
+                  message = 'That is a lot of quizzes in a short time. '
+                      + 'Wait a minute, then send your answers again.';
+              } else if (response.status >= 500) {
+                  message = 'Something went wrong on our side. Your answers are '
+                      + 'still here; send them again in a moment.';
+              } else if (!message) {
+                  message = response.status === 401
+                      ? 'Your session ended. Reload to sign in again.'
+                      : 'Something went wrong. Reload and try again.';
+              }
+              showSubmitError(message, mode);
+              return;
+          }
+
+          document.getElementById('submit-loading-overlay').style.display = 'none';
+          document.getElementById('quiz-content').style.display = 'none';
+          document.getElementById('result-area').style.display = 'block';
+
+          // Populate results
+          document.getElementById('result-score').innerText = `Score: ${result.score}%`;
+
+          if (result.next_difficulty) {
+              const note = document.getElementById('adaptation-note');
+              document.getElementById('served-tier').innerText = result.served_difficulty || '—';
+              document.getElementById('next-tier').innerText = result.next_difficulty;
+              document.getElementById('next-tier-reason').innerText = result.next_difficulty_reason || '';
+              note.style.display = 'block';
+          }
+          document.getElementById('result-mastery').innerText = (result.mastery * 100).toFixed(0) + '%';
+          document.getElementById('result-cluster').innerText = result.behavior_cluster || result.cluster;
+
+          if (result.recommendation) {
+              document.getElementById('rec-action').innerText = result.recommendation.action;
+              document.getElementById('rec-message').innerText = result.recommendation.message;
+          }
+
+          renderInsights(result.ai_insights);
 
           if (result.attempt_id) {
               document.getElementById('reviewLink').href = `/quiz-review/${result.attempt_id}`;
+              // Nothing to rewrite after a perfect score: no model call is made.
+              if (result.score < 100) pollRefinedInsights(result.attempt_id);
           }
 
           // AI Breakdown

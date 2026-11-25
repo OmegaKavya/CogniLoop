@@ -246,6 +246,11 @@ INSIGHT_REFINE_MAX_INFLIGHT = env_int("INSIGHT_REFINE_MAX_INFLIGHT", 4)
 VIDEO_TRACK_MAX = env_int("VIDEO_TRACK_MAX", 120)
 VIDEO_TRACK_WINDOW_SECONDS = env_int("VIDEO_TRACK_WINDOW_SECONDS", 300)
 
+# The results screen asks a few times whether the model-written feedback has
+# arrived (four checks per submission). Generous for that, small for a script.
+INSIGHT_POLL_MAX = env_int("INSIGHT_POLL_MAX", 60)
+INSIGHT_POLL_WINDOW_SECONDS = env_int("INSIGHT_POLL_WINDOW_SECONDS", 300)
+
 # The cohort report reads every user and every attempt. Admin-only, but an
 # admin with a reload loop is still the most expensive request in the app.
 ANALYTICS_MAX = env_int("ANALYTICS_MAX", 30)

@@ -60,6 +60,8 @@ video_track_limiter = SlidingWindowLimiter(
     config.VIDEO_TRACK_MAX, config.VIDEO_TRACK_WINDOW_SECONDS)
 analytics_limiter = SlidingWindowLimiter(
     config.ANALYTICS_MAX, config.ANALYTICS_WINDOW_SECONDS)
+insight_poll_limiter = SlidingWindowLimiter(
+    config.INSIGHT_POLL_MAX, config.INSIGHT_POLL_WINDOW_SECONDS)
 
 ALL_LIMITERS = {
     "login": login_limiter,
@@ -68,6 +70,7 @@ ALL_LIMITERS = {
     "quiz submission": quiz_submit_limiter,
     "video tracking": video_track_limiter,
     "analytics": analytics_limiter,
+    "insight polling": insight_poll_limiter,
 }
 
 
@@ -993,6 +996,37 @@ app.jinja_env.filters['safe_link'] = safe_link
 class QuizAlreadySubmitted(Exception):
     """Raised inside the submit transaction to roll it back when the token
     was spent by a concurrent submission between the check and the write."""
+
+
+@app.route('/api/attempt-insights/<attempt_id>')
+def attempt_insights(attempt_id):
+    """The stored feedback for one of this learner's attempts.
+
+    The results screen shows the deterministic feedback at once, and the
+    model-written version replaces it in the background a few seconds later.
+    Without this the learner only ever saw the better version if they went
+    to the review page afterwards. The screen asks a handful of times and
+    stops; `refined` says whether the model version has landed.
+
+    Owner-scoped: an attempt id belonging to someone else is a 404, the same
+    as one that does not exist.
+    """
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    user_id = str(session['user_id'])
+    if not insight_poll_limiter.record(user_id):
+        return jsonify({'success': False, 'message': 'Too many requests.'}), 429, \
+            {'Retry-After': str(insight_poll_limiter.retry_after(user_id))}
+
+    attempt = quiz_repo.get_attempt(session['user_id'], attempt_id)
+    if not attempt:
+        return jsonify({'success': False, 'message': 'Not found'}), 404
+    insights = attempt.get('ai_insights') or {}
+    return jsonify({
+        'success': True,
+        'refined': insights.get('source') == 'model',
+        'ai_insights': insights,
+    })
 
 
 @app.route('/api/video-track', methods=['POST'])

@@ -303,6 +303,7 @@ class QuizInsightsEngine:
             parsed = self._model_attempt(topic_name, score, mastery, incorrect)
             if parsed:
                 parsed["diagnoses"] = diagnoses
+                parsed["source"] = "model"
                 return parsed
 
         return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect,
@@ -324,6 +325,9 @@ class QuizInsightsEngine:
         if not parsed:
             return None
         parsed["diagnoses"] = self._compute_diagnoses(question_results, time_limit)
+        # Marks the stored attempt as carrying the model's version, which is
+        # how the results screen knows the rewrite has arrived.
+        parsed["source"] = "model"
         return parsed
 
     def _model_attempt(self, topic_name, score, mastery, incorrect):

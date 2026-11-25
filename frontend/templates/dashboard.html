@@ -535,77 +535,84 @@
 
     <script>
       // ── Mastery Chart with Course Filter ──
-      const masteryCtx = document.getElementById('masteryChart');
-      const allLabels = JSON.parse(masteryCtx.dataset.labels);
-      const allHistory = JSON.parse(masteryCtx.dataset.history);
-      const byCourse = JSON.parse(masteryCtx.dataset.byCourse);
+      // The canvas is only rendered once the learner has taken a quiz. This
+      // ran unconditionally, so on every new participant's first visit it
+      // threw on the missing canvas and the rest of this script (heatmap
+      // colours, progress bars) never ran.
+      (function initMasteryChart() {
+        const masteryCtx = document.getElementById('masteryChart');
+        if (!masteryCtx) return;
+        const allLabels = JSON.parse(masteryCtx.dataset.labels);
+        const allHistory = JSON.parse(masteryCtx.dataset.history);
+        const byCourse = JSON.parse(masteryCtx.dataset.byCourse);
 
-      const courseColors = {
-        os: {border:'#0d9488',bg:'rgba(13,148,136,0.10)'},
-        ds: {border:'#d97706',bg:'rgba(217,119,6,0.10)'},
-        dbms: {border:'#7c3aed',bg:'rgba(124,58,237,0.10)'},
-        cn: {border:'#2563eb',bg:'rgba(37,99,235,0.10)'},
-        qa: {border:'#db2777',bg:'rgba(219,39,119,0.10)'}
-      };
-      const courseNames = {os:'Operating Systems',ds:'Data Structures',dbms:'Databases',cn:'Computer Networks',qa:'Quantitative Aptitude'};
+        const courseColors = {
+          os: {border:'#0d9488',bg:'rgba(13,148,136,0.10)'},
+          ds: {border:'#d97706',bg:'rgba(217,119,6,0.10)'},
+          dbms: {border:'#7c3aed',bg:'rgba(124,58,237,0.10)'},
+          cn: {border:'#2563eb',bg:'rgba(37,99,235,0.10)'},
+          qa: {border:'#db2777',bg:'rgba(219,39,119,0.10)'}
+        };
+        const courseNames = {os:'Operating Systems',ds:'Data Structures',dbms:'Databases',cn:'Computer Networks',qa:'Quantitative Aptitude'};
 
-      const courseFilter = document.getElementById('courseFilter');
-      Object.keys(byCourse).forEach(cid => {
-        const opt = document.createElement('option');
-        opt.value = cid;
-        opt.textContent = courseNames[cid] || cid.toUpperCase();
-        courseFilter.appendChild(opt);
-      });
+        const courseFilter = document.getElementById('courseFilter');
+        Object.keys(byCourse).forEach(cid => {
+          const opt = document.createElement('option');
+          opt.value = cid;
+          opt.textContent = courseNames[cid] || cid.toUpperCase();
+          courseFilter.appendChild(opt);
+        });
 
-      function buildChartData(filterVal) {
-        if (filterVal === 'all') {
-          const datasets = Object.entries(byCourse).map(([cid, d]) => ({
-            label: courseNames[cid] || cid.toUpperCase(),
-            data: d.values,
-            borderColor: (courseColors[cid]||courseColors.os).border,
-            backgroundColor: (courseColors[cid]||courseColors.os).bg,
-            tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5
-          }));
-          const maxLen = Math.max(...Object.values(byCourse).map(d => d.labels.length), 0);
-          const labels = Array.from({length: maxLen}, (_, i) => `#${i+1}`);
-          return {labels, datasets};
-        } else {
-          const d = byCourse[filterVal] || {labels:[], values:[]};
-          return {
-            labels: d.labels,
-            datasets: [{
-              label: courseNames[filterVal] || filterVal.toUpperCase(),
+        function buildChartData(filterVal) {
+          if (filterVal === 'all') {
+            const datasets = Object.entries(byCourse).map(([cid, d]) => ({
+              label: courseNames[cid] || cid.toUpperCase(),
               data: d.values,
-              borderColor: (courseColors[filterVal]||courseColors.os).border,
-              backgroundColor: (courseColors[filterVal]||courseColors.os).bg,
-              tension: 0.4, fill: true, pointRadius: 5, pointHoverRadius: 7, borderWidth: 2.5
-            }]
-          };
+              borderColor: (courseColors[cid]||courseColors.os).border,
+              backgroundColor: (courseColors[cid]||courseColors.os).bg,
+              tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5
+            }));
+            const maxLen = Math.max(...Object.values(byCourse).map(d => d.labels.length), 0);
+            const labels = Array.from({length: maxLen}, (_, i) => `#${i+1}`);
+            return {labels, datasets};
+          } else {
+            const d = byCourse[filterVal] || {labels:[], values:[]};
+            return {
+              labels: d.labels,
+              datasets: [{
+                label: courseNames[filterVal] || filterVal.toUpperCase(),
+                data: d.values,
+                borderColor: (courseColors[filterVal]||courseColors.os).border,
+                backgroundColor: (courseColors[filterVal]||courseColors.os).bg,
+                tension: 0.4, fill: true, pointRadius: 5, pointHoverRadius: 7, borderWidth: 2.5
+              }]
+            };
+          }
         }
-      }
 
-      const masteryChart = new Chart(masteryCtx, {
-        type: 'line',
-        data: buildChartData('all'),
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 16, font: {size: 11, weight: '600'} } }
-          },
-          scales: {
-            x: { display: true, grid: {display: false}, ticks: {font: {size: 10}, color: 'var(--ink-faint)'} },
-            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: {size: 10}, color: 'var(--ink-faint)' }, grid: {color: 'rgba(0,0,0,0.04)'} }
-          },
-          interaction: { intersect: false, mode: 'index' }
-        }
-      });
+        const masteryChart = new Chart(masteryCtx, {
+          type: 'line',
+          data: buildChartData('all'),
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 16, font: {size: 11, weight: '600'} } }
+            },
+            scales: {
+              x: { display: true, grid: {display: false}, ticks: {font: {size: 10}, color: 'var(--ink-faint)'} },
+              y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: {size: 10}, color: 'var(--ink-faint)' }, grid: {color: 'rgba(0,0,0,0.04)'} }
+            },
+            interaction: { intersect: false, mode: 'index' }
+          }
+        });
 
-      courseFilter.addEventListener('change', () => {
-        const d = buildChartData(courseFilter.value);
-        masteryChart.data = d;
-        masteryChart.options.plugins.legend.display = (courseFilter.value === 'all');
-        masteryChart.update();
-      });
+        courseFilter.addEventListener('change', () => {
+          const d = buildChartData(courseFilter.value);
+          masteryChart.data = d;
+          masteryChart.options.plugins.legend.display = (courseFilter.value === 'all');
+          masteryChart.update();
+        });
+      })();
 
       // ── Heatmap Colors ──
       document.querySelectorAll('.heat-cell[data-value]').forEach(cell => {
