@@ -44,7 +44,7 @@ from backend.ratelimit import SlidingWindowLimiter
 from backend.repositories.core_repositories import (
     user_repo, progress_repo, quiz_repo, video_repo, QuizAttemptRepository,
     assign_study_group)
-from backend.storage import transaction
+from backend.storage import StorageCorrupted, transaction
 
 login_limiter = SlidingWindowLimiter(
     config.LOGIN_MAX_ATTEMPTS, config.LOGIN_ATTEMPT_WINDOW_SECONDS)
@@ -423,6 +423,48 @@ def _csrf_token():
     return token
 
 
+@app.errorhandler(StorageCorrupted)
+def storage_unreadable(exc):
+    """A damaged document is logged and answered, not rendered as a raw 500.
+
+    The pages that call the API read JSON, and an HTML error page reached
+    them as "Something went wrong" with nothing to say retrying is pointless.
+    503, because it is the service that is unwell, not the request.
+    """
+    print(f"[Storage] {exc}")
+    if request.path.startswith('/api/') or request.is_json:
+        return jsonify({'success': False,
+                        'message': 'The service is temporarily unavailable. '
+                                   'Please try again later.'}), 503
+    return 'The service is temporarily unavailable. Please try again later.', 503
+
+
+@app.before_request
+def resolve_session_user():
+    """Tie the signed cookie back to a stored account on every request.
+
+    Two things depend on it. The cohort: it is read from the stored user, not
+    trusted from whatever the session happened to be given, because
+    registration used to log a participant in without recording one, and
+    every route then defaulted them to `experimental` - so half the control
+    arm of the pilot would have been adapted while being analysed as control.
+    And deletion: a cookie stays valid for seven days, so a participant
+    removed with scripts/delete_participant.py could keep writing attempts
+    under a user id that no longer exists. A session whose account is gone is
+    cleared here, which is what revoking it means.
+    """
+    if request.endpoint == 'static' or 'user_id' not in session:
+        return None
+    user = user_repo.find_by_id(session['user_id'])
+    if user is None:
+        session.clear()
+        return None
+    group = user.get('study_group') or 'experimental'
+    if session.get('study_group') != group:
+        session['study_group'] = group
+    return None
+
+
 @app.before_request
 def require_csrf_token():
     """Reject state-changing requests that do not echo the CSRF token.
@@ -569,12 +611,25 @@ def contact():
         "repository": "https://github.com/OmegaKavya/CogniLoop"
     })
 
+def _json_object():
+    """The request body if it is a JSON object, else {}.
+
+    `request.json` raises on a non-JSON content type and returns whatever was
+    sent otherwise, so a body of `[1]` reached `.get` as a list and became a
+    500. Every handler that reads a body wants an object or nothing.
+    """
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.json or {}
+        data = _json_object()
         email = data.get('email')
         password = data.get('password')
+        if not isinstance(email, str) or not isinstance(password, str):
+            return jsonify({'success': False, 'message': 'Invalid credentials'})
 
         account_key = f"account:{str(email).strip().lower()}"
         address_key = f"address:{_client_address()}"
@@ -605,11 +660,14 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        data = request.json or {}
+        data = _json_object()
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
-        
+        if not all(isinstance(v, str) for v in (name, email, password)):
+            return jsonify({'success': False, 'message': 'Name, email, and password are required.'}), 400
+        name, email = name.strip(), email.strip().lower()
+
         if not name or not email or not password:
             return jsonify({'success': False, 'message': 'Name, email, and password are required.'}), 400
 
@@ -640,6 +698,7 @@ def register():
 
         session['user_id'] = new_user['id']
         session['user_name'] = new_user['name']
+        session['study_group'] = new_user.get('study_group') or 'experimental'
         return jsonify({'success': True})
     
     return render_template('register.html')
@@ -920,10 +979,20 @@ def refine_insights_in_background(user_id, attempt_id, topic_name, score,
 
 from backend.adaptation.recommendation import recommender
 from backend.quiz.quiz_generator import quiz_gen
-from backend.quiz.quiz_evaluator import evaluator
-from backend.quiz.quiz_insights import insights_engine
+from backend.quiz.quiz_evaluator import evaluator, normalise_responses
+from backend.quiz.quiz_insights import insights_engine, safe_link
 from backend.bkt.bkt_engine import bkt_engine
 from backend.adaptation.bandit_policy import bandit_adapter
+
+
+# Resource links in stored attempts predate the sanitiser, so the template
+# checks them again rather than trusting what is on disk.
+app.jinja_env.filters['safe_link'] = safe_link
+
+
+class QuizAlreadySubmitted(Exception):
+    """Raised inside the submit transaction to roll it back when the token
+    was spent by a concurrent submission between the check and the write."""
 
 
 @app.route('/api/video-track', methods=['POST'])
@@ -939,7 +1008,7 @@ def video_track():
             'success': False, 'message': 'Too many updates.'
         }), 429, {'Retry-After': str(video_track_limiter.retry_after(str(user_id)))}
 
-    data = request.json
+    data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({'success': False, 'message': 'Invalid payload'}), 400
 
@@ -1063,21 +1132,34 @@ def quiz_submit():
             'message': 'Too many submissions. Please wait a moment.'
         }), 429, {'Retry-After': str(quiz_submit_limiter.retry_after(str(user_id)))}
 
-    data = request.json
-    responses = data.get('responses', [])
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'message': 'Invalid submission.'}), 400
+    quiz_token = data.get('quiz_token')
 
-    # Single-use: consuming the token stops one issued quiz being replayed to
-    # farm repeated mastery updates from the same set of questions.
-    quiz = active_quiz_store.consume(data.get('quiz_token'), user_id)
+    # Checked here, consumed only inside the transaction below. Consuming first
+    # meant any failure in grading or in the writes destroyed the token, so a
+    # participant who pressed Submit again was told their session had expired
+    # and the quiz they had just finished was lost.
+    quiz = active_quiz_store.get(quiz_token, user_id)
     if not quiz:
         return jsonify({'success': False, 'message': 'Quiz session expired. Please refresh the page.'}), 400
+
+    # One response per issued question, times clamped to the question's limit.
+    # See normalise_responses for what an unchecked body could do.
+    responses = normalise_responses(quiz, data.get('responses', []))
 
     # From the server's copy, for the same reason the difficulty is, below.
     # `topic_id` keys the BKT state and labels the stored attempt, so reading
     # it from the request body let a client credit one topic's mastery update
     # to another, or create state under a topic that does not exist. The quiz
     # was issued for exactly one topic and the store remembers which.
-    topic_id = quiz.get('topic_id') or data.get('topic_id')
+    # Every issued quiz carries one (build_quiz_payload sets it), so there is
+    # no fallback to the request body: that fallback was the only way left for
+    # a client to name the topic.
+    topic_id = quiz.get('topic_id')
+    if not topic_id:
+        return jsonify({'success': False, 'message': 'Quiz session expired. Please refresh the page.'}), 400
 
     # The tier the server actually served, from the server's own copy of the
     # quiz. Reading this from the request body let the client name the
@@ -1113,94 +1195,109 @@ def quiz_submit():
     # Grading happens before this block, deliberately: it may call a model,
     # and holding a transaction open across a network call would tie up one
     # of four pooled connections for the length of its timeout.
-    with transaction():
-        new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
-    
-        cluster = mp_manager.predict_cluster(
-            mp_manager.latest_interaction(user_id, topic_id))
-    
-        if study_group == 'experimental':
-            # Update Bandit Policy
-            bandit_adapter.update_policy(cluster, new_mastery, current_difficulty, score)
-            recommendation = recommender.get_recommendation(score, new_mastery, speed_label, cluster)
-        else:
-            # Static control group logic
-            recommendation = "Continue reviewing the material sequentially."
-        
-        videos = video_repo.get_all_videos()
-        video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
-    
-        # Deterministic insights now; the model version is produced after the
-        # response has gone out. See refine_insights_in_background.
-        # The quiz's own per-question limit, so the diagnosis thresholds scale with
-        # the difficulty that was actually served rather than with a default.
-        question_time_limit = quiz.get('question_time_seconds') or config.DEFAULT_QUESTION_SECONDS
+    #
+    # The behaviour log is read before the transaction opens. That read
+    # swallows its own errors, and a swallowed SQL error inside an open
+    # Postgres transaction leaves it aborted, so every later write would fail.
+    interaction = mp_manager.latest_interaction(user_id, topic_id)
 
-        ai_insights = insights_engine.generate_insights(
-            video.get('title', topic_id),
-            score,
-            round(new_mastery, 2),
-            eval_result.get('question_results', []),
-            topic_id=topic_id,
-            use_model=False,
-            time_limit=question_time_limit
-        )
+    try:
+        with transaction():
+            # Inside the transaction, so the token is spent only if the
+            # writes it pays for commit. The check-and-remove is itself
+            # atomic, so a second concurrent submission finds nothing here.
+            if active_quiz_store.consume(quiz_token, user_id) is None:
+                raise QuizAlreadySubmitted()
 
-        answer_map = {
-            str(r.get('question_id')): {
-                'selected_answer': r.get('selected_answer'),
-                'time_taken': r.get('time_taken'),
-                'used_hint': r.get('used_hint', False)
+            new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
+
+            cluster = mp_manager.predict_cluster(interaction)
+
+            if study_group == 'experimental':
+                # Update Bandit Policy
+                bandit_adapter.update_policy(cluster, new_mastery, current_difficulty, score)
+                recommendation = recommender.get_recommendation(score, new_mastery, speed_label, cluster)
+            else:
+                # Static control group logic
+                recommendation = "Continue reviewing the material sequentially."
+
+            videos = video_repo.get_all_videos()
+            video = next((v for v in videos if v['id'] == topic_id), {'title': topic_id})
+
+            # Deterministic insights now; the model version is produced after the
+            # response has gone out. See refine_insights_in_background.
+            # The quiz's own per-question limit, so the diagnosis thresholds scale with
+            # the difficulty that was actually served rather than with a default.
+            question_time_limit = quiz.get('question_time_seconds') or config.DEFAULT_QUESTION_SECONDS
+
+            ai_insights = insights_engine.generate_insights(
+                video.get('title', topic_id),
+                score,
+                round(new_mastery, 2),
+                eval_result.get('question_results', []),
+                topic_id=topic_id,
+                use_model=False,
+                time_limit=question_time_limit
+            )
+
+            answer_map = {
+                str(r.get('question_id')): {
+                    'selected_answer': r.get('selected_answer'),
+                    'time_taken': r.get('time_taken'),
+                    'used_hint': r.get('used_hint', False)
+                }
+                for r in responses
             }
-            for r in responses
-        }
-        reviewed_questions = []
-        for q_res in eval_result.get('question_results', []):
-            qid = str(q_res.get('question_id'))
-            q_data = next((q for q in quiz.get('questions', []) if str(q.get('id')) == qid), {})
-            user_data = answer_map.get(qid, {})
-            reviewed_questions.append({
-                'id': qid,
-                'text': q_data.get('text'),
-                'options': q_data.get('options', []),
-                'correct_answer': q_data.get('answer'),
-                'selected_answer': user_data.get('selected_answer'),
-                'is_correct': q_res.get('is_correct', False),
-                'feedback': q_res.get('feedback', ''),
-                'hint': q_data.get('hint', ''),
-                'used_hint': user_data.get('used_hint', False),
-                'time_taken': user_data.get('time_taken', q_res.get('time_taken', 0))
-            })
+            reviewed_questions = []
+            for q_res in eval_result.get('question_results', []):
+                qid = str(q_res.get('question_id'))
+                q_data = next((q for q in quiz.get('questions', []) if str(q.get('id')) == qid), {})
+                user_data = answer_map.get(qid, {})
+                reviewed_questions.append({
+                    'id': qid,
+                    'text': q_data.get('text'),
+                    'options': q_data.get('options', []),
+                    'correct_answer': q_data.get('answer'),
+                    'selected_answer': user_data.get('selected_answer'),
+                    'is_correct': q_res.get('is_correct', False),
+                    'feedback': q_res.get('feedback', ''),
+                    'hint': q_data.get('hint', ''),
+                    'used_hint': user_data.get('used_hint', False),
+                    'time_taken': user_data.get('time_taken', q_res.get('time_taken', 0))
+                })
 
-        attempt_id = f"{user_id}-{uuid.uuid4().hex[:10]}"
+            attempt_id = f"{user_id}-{uuid.uuid4().hex[:10]}"
 
-    
-        attempt_log = {
-            "attempt_id": attempt_id,
-            "user_id": user_id,
-            "topic_id": topic_id,
-            "topic_name": video.get('title', topic_id),
-            "timestamp": datetime.now().isoformat(),
-            "score": score,
-            "avg_time": avg_time,
-            "total_time": eval_result.get('total_time', 0),
-            "adaptation": adaptation,
-            "mastery": new_mastery,
-            "behavior_cluster": cluster,
-            "recommendation": recommendation,
-            "quiz_meta": {
-                "difficulty": quiz.get('difficulty', current_difficulty),
-                "num_questions": len(quiz.get('questions', [])),
-                # The key written by build_quiz_payload is question_time_seconds.
-                # Reading 'timer_seconds' meant this logged 0 on every attempt.
-                "timer_seconds": quiz.get('question_time_seconds', 0),
-                "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
-            },
-            "question_results": reviewed_questions,
-            "ai_insights": ai_insights
-        }
-    
-        quiz_repo.add_attempt(attempt_log)
+
+            attempt_log = {
+                "attempt_id": attempt_id,
+                "user_id": user_id,
+                "topic_id": topic_id,
+                "topic_name": video.get('title', topic_id),
+                "timestamp": datetime.now().isoformat(),
+                "score": score,
+                "avg_time": avg_time,
+                "total_time": eval_result.get('total_time', 0),
+                "adaptation": adaptation,
+                "mastery": new_mastery,
+                "behavior_cluster": cluster,
+                "recommendation": recommendation,
+                "quiz_meta": {
+                    "difficulty": quiz.get('difficulty', current_difficulty),
+                    "num_questions": len(quiz.get('questions', [])),
+                    # The key written by build_quiz_payload is question_time_seconds.
+                    # Reading 'timer_seconds' meant this logged 0 on every attempt.
+                    "timer_seconds": quiz.get('question_time_seconds', 0),
+                    "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
+                },
+                "question_results": reviewed_questions,
+                "ai_insights": ai_insights
+            }
+
+            quiz_repo.add_attempt(attempt_log)
+    except QuizAlreadySubmitted:
+        return jsonify({'success': False,
+                        'message': 'This quiz was already submitted.'}), 409
 
     refine_insights_in_background(
         user_id, attempt_id, video.get('title', topic_id),
@@ -1292,6 +1389,15 @@ def quiz_review_page(attempt_id):
 
     if not selected_attempt:
         return redirect(url_for('quiz_review_list'))
+
+    # Each question's label comes from the same function and the same time
+    # limit as the attempt's insights. The template used to apply its own
+    # fixed thresholds (< 5s, > 25s), so the two disagreed on one page and
+    # "genuine concept gap" could never appear on a quiz capped at 15s.
+    limit = (selected_attempt.get('quiz_meta') or {}).get('timer_seconds')
+    for q in selected_attempt.get('question_results') or []:
+        if isinstance(q, dict):
+            q['signal'] = insights_engine.diagnose_question(q, limit) or 'correct'
 
     return render_template('quiz_review.html', review_rows=review_rows, selected_attempt=selected_attempt)
 

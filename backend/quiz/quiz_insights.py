@@ -6,6 +6,91 @@ from backend.llm import LLMClient, llm_client
 from utils.constants import STATIC_CHEAT_SHEETS
 
 
+def safe_link(url):
+    """`url` if it is an https link or a path on this site, else None.
+
+    Resource links come from a model, and a model can be steered by the
+    answers it is shown. `javascript:` or `data:` in an href runs in the
+    learner's session when clicked, and the page's policy allows inline
+    script. A protocol-relative `//host` is refused too: it leaves the site
+    while looking like a path.
+    """
+    if not isinstance(url, str):
+        return None
+    url = url.strip()
+    if url.lower().startswith("https://") and len(url) > len("https://"):
+        return url
+    if url.startswith("/") and not url.startswith("//") and "\\" not in url:
+        return url
+    return None
+
+
+def _practice_links(topic_id, topic_name, advanced=False):
+    """Outside practice for a topic.
+
+    Aptitude gets aptitude practice. It used to get the same GATE computer
+    science links as every other topic, so a participant who chose it because
+    they have no computer science background was sent to GATE CS notes.
+    """
+    if topic_id == "qa":
+        return [
+            {"title": "Aptitude questions and answers - GeeksforGeeks",
+             "url": "https://www.geeksforgeeks.org/aptitude/aptitude-questions-and-answers/"},
+            {"title": "Aptitude practice by topic - IndiaBix",
+             "url": "https://www.indiabix.com/aptitude/questions-and-answers/"},
+        ]
+    slug = topic_name.lower().replace(' ', '-')
+    query = topic_name.replace(' ', '+')
+    if advanced:
+        return [
+            {"title": f"Advanced {topic_name} - GATE PYQs",
+             "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={query}"},
+            {"title": f"{topic_name} interview questions",
+             "url": f"https://www.geeksforgeeks.org/{slug}-interview-questions/"},
+        ]
+    return [
+        {"title": f"{topic_name} - GeeksforGeeks",
+         "url": f"https://www.geeksforgeeks.org/{slug}/"},
+        {"title": f"{topic_name} - GATE Practice Questions",
+         "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={query}"},
+    ]
+
+
+def _clean_model_insights(parsed):
+    """The model's JSON reduced to the shape the pages render, or None.
+
+    Strings stay strings (the templates escape them), lists of strings stay
+    lists of strings, and a resource survives only with a safe link.
+    """
+    if not isinstance(parsed, dict):
+        return None
+
+    def strings(value, limit):
+        if not isinstance(value, list):
+            return []
+        return [v.strip() for v in value if isinstance(v, str) and v.strip()][:limit]
+
+    summary = parsed.get("summary")
+    focus = strings(parsed.get("focus_concepts"), 3)
+    if not isinstance(summary, str) or not summary.strip() or not focus:
+        return None
+
+    resources = []
+    for item in parsed.get("resources") or []:
+        if not isinstance(item, dict):
+            continue
+        link, title = safe_link(item.get("url")), item.get("title")
+        if link and isinstance(title, str) and title.strip():
+            resources.append({"title": title.strip(), "url": link})
+
+    return {
+        "focus_concepts": focus,
+        "cheat_sheet": strings(parsed.get("cheat_sheet"), 4),
+        "resources": resources[:4],
+        "summary": summary.strip(),
+    }
+
+
 class QuizInsightsEngine:
     """Produces post-quiz diagnostics, with a cheat-sheet fallback.
 
@@ -22,6 +107,22 @@ class QuizInsightsEngine:
         else:
             self.client = llm_client
 
+    @staticmethod
+    def _limit(time_limit):
+        """The per-question budget in seconds, falling back to the default."""
+        try:
+            limit = float(time_limit or config.DEFAULT_QUESTION_SECONDS)
+        except (TypeError, ValueError):
+            limit = float(config.DEFAULT_QUESTION_SECONDS)
+        if limit != limit or limit <= 0 or limit == float("inf"):
+            limit = float(config.DEFAULT_QUESTION_SECONDS)
+        return limit
+
+    def diagnose_question(self, q, time_limit=None):
+        """Public alias, used by the review page so it labels each question
+        with the same thresholds the insights were computed with."""
+        return self._diagnose_question(q, time_limit)
+
     def _diagnose_question(self, q, time_limit=None):
         """Return a time-based learning signal for one answer.
 
@@ -35,13 +136,7 @@ class QuizInsightsEngine:
         "Confused" now means the learner spent most of the time available and
         still got it wrong, which is the signal that was intended.
         """
-        limit = time_limit or config.DEFAULT_QUESTION_SECONDS
-        try:
-            limit = float(limit)
-        except (TypeError, ValueError):
-            limit = float(config.DEFAULT_QUESTION_SECONDS)
-        if limit <= 0:
-            limit = float(config.DEFAULT_QUESTION_SECONDS)
+        limit = self._limit(time_limit)
 
         time_taken = q.get("time_taken", 0) or 0
         try:
@@ -73,8 +168,15 @@ class QuizInsightsEngine:
                 return item
         return None
 
-    def _smart_fallback(self, topic_id, topic_name, score, mastery, incorrect_questions):
-        """Diagnostic fallback that uses the cheat sheet for concept mapping."""
+    def _smart_fallback(self, topic_id, topic_name, score, mastery, incorrect_questions,
+                        diagnoses):
+        """Diagnostic fallback that uses the cheat sheet for concept mapping.
+
+        `diagnoses` is the dict `_compute_diagnoses` already produced for this
+        attempt. It is reused rather than recomputed: recomputing here dropped
+        the quiz's time limit, so easy and hard quizzes were judged against the
+        12-second default, and lucky guesses were reported as zero.
+        """
         sheet = STATIC_CHEAT_SHEETS.get(topic_id, {})
         pitfalls = sheet.get("pitfalls", [])
         drills = sheet.get("drills", [])
@@ -100,18 +202,7 @@ class QuizInsightsEngine:
                 if len(kws) >= 3: break
             focus_concepts = kws or [topic_name, "core concepts"]
 
-        # Time-based diagnosis
-        diagnoses = [self._diagnose_question(q) for q in incorrect_questions]
-        guessed  = diagnoses.count("guessed")
-        confused = diagnoses.count("confused")
-        n = len(incorrect_questions) or 1
-
-        if guessed / n > 0.5:
-            pace_advice = "Many answers were selected very quickly: slow down and read each option carefully before answering."
-        elif confused / n > 0.5:
-            pace_advice = "Several questions took a long time and were still wrong: these are genuine concept gaps that need targeted review."
-        else:
-            pace_advice = "Some answers reflect specific misconceptions: targeted re-reading of those concepts should help."
+        pace_advice = diagnoses["pace_advice"]
 
         # Build action plan from pitfalls + drills
         cheat_sheet = []
@@ -130,9 +221,7 @@ class QuizInsightsEngine:
 
         resources = [
             {"title": f"{topic_name} - CogniLoop Study Notes", "url": f"/video/{topic_id}#study-notes"},
-            {"title": f"{topic_name} - GeeksforGeeks", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}/"},
-            {"title": f"{topic_name} - GATE Practice Questions", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"}
-        ]
+        ] + _practice_links(topic_id, topic_name)
 
         if score >= 80:
             summary = f"Strong performance ({score}%). {pace_advice} Focus on the {len(incorrect_questions)} question(s) you missed to push toward mastery."
@@ -146,13 +235,7 @@ class QuizInsightsEngine:
             "cheat_sheet": cheat_sheet[:4],
             "resources": resources,
             "summary": summary,
-            "diagnoses": {
-                "guessed": guessed,
-                "confused": confused,
-                "misconception": diagnoses.count("misconception"),
-                "lucky_guess": 0,
-                "pace_advice": pace_advice
-            }
+            "diagnoses": diagnoses
         }
 
     def _compute_diagnoses(self, question_results, time_limit=None):
@@ -170,7 +253,9 @@ class QuizInsightsEngine:
         elif confused / n > 0.5:
             pace_advice = "Several questions took a long time and were still wrong: these are genuine concept gaps."
         elif lucky_guesses >= 3:
-            pace_advice = f"{lucky_guesses} correct answers came suspiciously fast (< 2.5s): make sure you're reading fully."
+            pace_advice = (f"{lucky_guesses} correct answers came suspiciously fast "
+                           f"(under {config.DIAGNOSIS_LUCKY_GUESS_FRACTION * self._limit(time_limit):.0f}s): "
+                           "make sure you're reading fully.")
         else:
             pace_advice = "Some answers reflect specific misconceptions: targeted re-reading should help."
 
@@ -209,10 +294,7 @@ class QuizInsightsEngine:
                     "Solve one unseen problem and write your full reasoning.",
                     "Review the exam-angle notes in each submodule."
                 ],
-                "resources": [
-                    {"title": f"Advanced {topic_name} - GATE PYQs", "url": f"https://www.geeksforgeeks.org/gate-cs-notes-gq/?q={topic_name.replace(' ', '+')}"},
-                    {"title": f"{topic_name} interview questions", "url": f"https://www.geeksforgeeks.org/{topic_name.lower().replace(' ', '-')}-interview-questions/"}
-                ],
+                "resources": _practice_links(topic_id, topic_name, advanced=True),
                 "summary": f"Perfect score! You have strong recall. Shift focus to application-level and transfer-based questions to cement mastery.",
                 "diagnoses": diagnoses
             }
@@ -223,7 +305,8 @@ class QuizInsightsEngine:
                 parsed["diagnoses"] = diagnoses
                 return parsed
 
-        return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect)
+        return self._smart_fallback(topic_id, topic_name, score, mastery, incorrect,
+                                    diagnoses)
 
     def model_insights(self, topic_name, score, mastery, question_results,
                        time_limit=None):
@@ -265,8 +348,9 @@ Return ONLY JSON:
                     max_tokens=600,
                     temperature=0.4,
                 )
-                if parsed and parsed.get("focus_concepts") and parsed.get("summary"):
-                    return parsed
+                cleaned = _clean_model_insights(parsed)
+                if cleaned:
+                    return cleaned
             except Exception as e:
                 print(f"[Insights] model error: {e}")
         return None

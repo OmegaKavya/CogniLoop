@@ -17,15 +17,23 @@ import uuid
 from unittest.mock import patch
 
 from app import app
+from helpers import set_study_group
 from backend.quiz.quiz_session import ActiveQuizStore, public_view
 
 
-def _register(client, email=None):
-    """Register a learner and return their user id."""
+def _register(client, email=None, group='experimental'):
+    """Register a learner in `group` and return their user id.
+
+    Experimental by default, because most of these tests exercise the
+    adaptive path. Registration balances cohorts, so without pinning it a
+    test would land in either arm depending on who registered before it.
+    """
     email = email or f"integrity-{uuid.uuid4().hex[:10]}@test.com"
     client.post('/register', json={"name": "Integrity", "email": email, "password": "pw"})
     with client.session_transaction() as sess:
-        return sess['user_id']
+        user_id = sess['user_id']
+    set_study_group(user_id, group)
+    return user_id
 
 
 def _quiz(difficulty="medium"):

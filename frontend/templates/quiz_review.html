@@ -442,7 +442,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div style="background:var(--surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:.88rem;color:var(--text-600);">
                 <strong style="color:var(--text-900);display:block;margin-bottom:4px;">💡 Key Takeaway:</strong>
-                Always verify worst-case assumptions vs average-case complexity before locking answer choices in exams.
+                Before locking an answer, rule out each other option for a stated reason. Most misses come from taking the first one that looks right.
               </div>
               <div style="background:var(--surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:.88rem;color:var(--text-600);">
                 <strong style="color:var(--text-900);display:block;margin-bottom:4px;">🔄 Review Recommendation:</strong>
@@ -458,10 +458,12 @@
             <h4 style="font-size:.8rem;font-weight:700;color:var(--text-600);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">📚 Curated Learning Resources</h4>
             <div class="resource-list">
               {% for res in (selected_attempt.ai_insights.resources if selected_attempt.ai_insights else []) %}
-              <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+              {% if res.url|safe_link %}
+              <a href="{{ res.url|safe_link }}" target="_blank" rel="noopener noreferrer" class="resource-link">
                 <div class="resource-icon">→</div>
                 {{ res.title }}
               </a>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -475,34 +477,31 @@
           {% set t = q.time_taken|float %}
           {% set is_ok = q.is_correct %}
 
-          {# Pre-compute signal without nesting Jinja inside HTML attrs #}
-          {% if not is_ok %}
-            {% if t < 5 %}
-              {% set signal = 'guessed' %}
-              {% set sig_label = '⚡ Rushed guess' %}
-              {% set sig_style = 'background:var(--tint-pink);color:var(--on-pink)' %}
-            {% elif t > 25 %}
-              {% set signal = 'confused' %}
-              {% set sig_label = '🤔 Genuine concept gap' %}
-              {% set sig_style = 'background:var(--tint-violet);color:var(--on-violet)' %}
-            {% else %}
-              {% set signal = 'misconception' %}
-              {% set sig_label = '💭 Likely misconception' %}
-              {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
-            {% endif %}
-            {% set card_border = 'border-left:4px solid var(--on-pink)' %}
+          {# The signal is computed by the route, with the attempt's own time
+             limit and the same thresholds as its insights. #}
+          {% set signal = q.signal or ('correct' if is_ok else 'misconception') %}
+          {% if signal == 'guessed' %}
+            {% set sig_label = '⚡ Rushed guess' %}
+            {% set sig_style = 'background:var(--tint-pink);color:var(--on-pink)' %}
+          {% elif signal == 'confused' %}
+            {% set sig_label = '🤔 Genuine concept gap' %}
+            {% set sig_style = 'background:var(--tint-violet);color:var(--on-violet)' %}
+          {% elif signal == 'misconception' %}
+            {% set sig_label = '💭 Likely misconception' %}
+            {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
+          {% elif signal == 'lucky_guess' %}
+            {% set sig_label = '🍀 Lucky guess?' %}
+            {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
           {% else %}
-            {% if t < 2.5 %}
-              {% set signal = 'lucky_guess' %}
-              {% set sig_label = '🍀 Lucky guess?' %}
-              {% set sig_style = 'background:var(--tint-amber);color:var(--on-amber)' %}
-              {% set card_border = 'border-left:4px solid #d97706' %}
-            {% else %}
-              {% set signal = 'correct' %}
-              {% set sig_label = '✓ Correct' %}
-              {% set sig_style = 'background:var(--tint-green);color:var(--on-green)' %}
-              {% set card_border = 'border-left:4px solid var(--on-green)' %}
-            {% endif %}
+            {% set sig_label = '✓ Correct' %}
+            {% set sig_style = 'background:var(--tint-green);color:var(--on-green)' %}
+          {% endif %}
+          {% if not is_ok %}
+            {% set card_border = 'border-left:4px solid var(--on-pink)' %}
+          {% elif signal == 'lucky_guess' %}
+            {% set card_border = 'border-left:4px solid #d97706' %}
+          {% else %}
+            {% set card_border = 'border-left:4px solid var(--on-green)' %}
           {% endif %}
 
           <div class="q-card" data-result="{{ signal }}" style="{{ card_border }}">

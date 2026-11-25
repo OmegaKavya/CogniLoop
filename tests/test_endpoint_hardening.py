@@ -19,6 +19,7 @@ import re
 import pytest
 
 from app import bounded_number
+from helpers import set_study_group
 
 
 class TestBoundedNumber:
@@ -106,7 +107,8 @@ def signed_in(client):
     assert response.status_code == 200, "fixture could not sign in"
     with client.session_transaction() as sess:
         assert 'user_id' in sess
-        sess['study_group'] = 'experimental'
+        user_id = sess['user_id']
+    set_study_group(user_id, 'experimental')
     return client
 
 

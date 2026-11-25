@@ -134,52 +134,62 @@ class ActiveQuizStore:
         self._store.update_replacing(mutate, default=dict)
         return token
 
+    def _lookup(self, data, token, user_id, now):
+        """The live entry for `token` in `data` if this learner owns it."""
+        if not token or not isinstance(data, dict):
+            return None, None
+
+        # Constant-time lookup: compare against every key so a wrong token
+        # cannot be distinguished from a right one by how long the miss took.
+        key, entry = None, None
+        for candidate, value in data.items():
+            if secrets.compare_digest(str(candidate), str(token)):
+                key, entry = candidate, value
+        if not isinstance(entry, dict):
+            return None, None
+
+        if now - entry.get("issued_at", 0) >= self.ttl_seconds:
+            return None, None
+        if not secrets.compare_digest(str(entry.get("user_id")), str(user_id)):
+            return None, None
+        return key, entry.get("quiz")
+
     def get(self, token, user_id, now=None):
         """The stored quiz for `token`, or None.
 
         Returns None unless the token exists, has not expired, and belongs to
         this learner - so one learner cannot grade against another's quiz.
+        Does not remove it; see `consume`.
         """
         now = time.time() if now is None else now
         if not token:
             return None
-
-        data = self._store.read()
-        if not isinstance(data, dict):
-            return None
-
-        # Constant-time lookup: compare against every key so a wrong token
-        # cannot be distinguished from a right one by how long the miss took.
-        entry = None
-        for candidate, value in data.items():
-            if secrets.compare_digest(str(candidate), str(token)):
-                entry = value
-        if not isinstance(entry, dict):
-            return None
-
-        if now - entry.get("issued_at", 0) >= self.ttl_seconds:
-            return None
-        if not secrets.compare_digest(str(entry.get("user_id")), str(user_id)):
-            return None
-        return entry.get("quiz")
+        return self._lookup(self._store.read(), token, user_id, now)[1]
 
     def consume(self, token, user_id, now=None):
         """Fetch the quiz and remove it, so a token grades exactly once.
 
         The removal is what stops a learner replaying one issued quiz to farm
-        repeated mastery updates from a single set of questions.
+        repeated mastery updates from a single set of questions. The check and
+        the removal happen under one exclusive lock: checking with a separate
+        read first let two simultaneous submissions both pass the check and
+        both be graded.
         """
-        quiz = self.get(token, user_id, now=now)
-        if quiz is None:
+        now = time.time() if now is None else now
+        if not token:
             return None
+        taken = {}
 
         def mutate(data):
             data = data if isinstance(data, dict) else {}
-            data.pop(token, None)
-            return self._prune(data, time.time() if now is None else now)
+            key, quiz = self._lookup(data, token, user_id, now)
+            if quiz is not None:
+                taken["quiz"] = quiz
+                data.pop(key, None)
+            return self._prune(data, now)
 
         self._store.update_replacing(mutate, default=dict)
-        return quiz
+        return taken.get("quiz")
 
 
 active_quiz_store = ActiveQuizStore()

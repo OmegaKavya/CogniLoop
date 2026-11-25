@@ -131,3 +131,24 @@ class TestTopicWiring:
         invisible there even though it appears in the course list."""
         source = open("app.py").read()
         assert '_node("qa"' in source
+
+
+class TestCatalogueMatchesTheCurriculum:
+    def test_each_topic_video_is_one_of_its_submodule_videos(self):
+        # The catalogue's video_id is what quiz generation retrieves a
+        # transcript for. Operating Systems kept a replaced lecture (a history
+        # of Multics and MS-DOS) here after its submodules moved on, so its
+        # quizzes were grounded in content the learner was never shown.
+        import json
+        import os
+        path = os.path.join(os.path.dirname(__file__), "..", "data", "videos.json")
+        with open(path) as fh:
+            catalogue = json.load(fh)
+        for topic in catalogue:
+            modules = SUBMODULE_DEFINITIONS.get(topic["id"])
+            if not modules:
+                continue
+            served = {m.get("video_id") for m in modules}
+            assert topic.get("video_id") in served, (
+                f"{topic['id']}: catalogue video {topic.get('video_id')} is not "
+                f"one the learner watches ({sorted(served)})")

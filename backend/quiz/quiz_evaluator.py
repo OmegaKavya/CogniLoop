@@ -1,5 +1,71 @@
+import math
+
 from backend import config
 from backend.llm import LLMClient, llm_client
+
+
+def _time_budget(quiz):
+    try:
+        limit = float(quiz.get("question_time_seconds") or config.DEFAULT_QUESTION_SECONDS)
+    except (TypeError, ValueError):
+        limit = float(config.DEFAULT_QUESTION_SECONDS)
+    if not math.isfinite(limit) or limit <= 0:
+        limit = float(config.DEFAULT_QUESTION_SECONDS)
+    return limit
+
+
+def normalise_responses(quiz, responses):
+    """At most one well-formed response per question the server issued.
+
+    The body is client-controlled. Graded as sent, ten copies of one correct
+    answer on a ten-question quiz scored 100% (fifty scored 500%), and a
+    negative `time_taken` produced a negative average that reads as "Fast".
+    Both feed the mastery update and the stored attempt, which is the study's
+    data. So:
+
+    - a response must be a dict naming a question in this quiz; the first one
+      for each question counts and later duplicates are dropped;
+    - `time_taken` is clamped to [0, the quiz's per-question limit], with a
+      missing or non-numeric value treated as the full limit - the client
+      auto-advances at the limit, so an honest submission is never altered;
+    - `selected_answer` must be a string, or it counts as no answer.
+
+    Idempotent, so the handler and `evaluate` can both apply it.
+    """
+    if not isinstance(responses, list) or not isinstance(quiz, dict):
+        return []
+    issued = {str(q.get("id")) for q in quiz.get("questions", []) if isinstance(q, dict)}
+    limit = _time_budget(quiz)
+
+    cleaned, seen = [], set()
+    for resp in responses:
+        if not isinstance(resp, dict):
+            continue
+        q_id = str(resp.get("question_id"))
+        if q_id not in issued or q_id in seen:
+            continue
+        seen.add(q_id)
+
+        try:
+            time_taken = float(resp.get("time_taken"))
+        except (TypeError, ValueError):
+            time_taken = limit
+        if not math.isfinite(time_taken):
+            time_taken = limit
+        time_taken = min(max(time_taken, 0.0), limit)
+
+        selected = resp.get("selected_answer")
+        if isinstance(selected, (int, float)) and not isinstance(selected, bool):
+            selected = str(selected)
+        if not isinstance(selected, str):
+            selected = None
+
+        item = dict(resp)
+        item.update(question_id=q_id, time_taken=time_taken,
+                    selected_answer=selected,
+                    used_hint=bool(resp.get("used_hint", False)))
+        cleaned.append(item)
+    return cleaned
 
 
 class QuizEvaluator:
@@ -33,6 +99,7 @@ class QuizEvaluator:
             if not quiz:
                 return None
 
+            responses = normalise_responses(quiz, responses)
             correct_count = 0
             total_time = 0
             question_results = []

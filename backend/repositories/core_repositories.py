@@ -10,9 +10,18 @@ attempt or a progress update.
 """
 
 import random
+import secrets
 
 from backend import config
 from backend.repositories.base_repository import BaseJsonRepository
+
+
+def _same_email(a, b):
+    """Email addresses compare without case or surrounding space, so
+    Name@x.com and name@x.com are one account rather than two."""
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
+    return a.strip().lower() == b.strip().lower()
 
 
 class UserRepository(BaseJsonRepository):
@@ -24,9 +33,17 @@ class UserRepository(BaseJsonRepository):
         if not isinstance(users, list):
             return None
         for user in users:
-            if user.get("email") == email:
+            if _same_email(user.get("email"), email):
                 return user
         return None
+
+    def find_by_id(self, user_id):
+        """The user with this id, or None. Filtered in the store, so against
+        Postgres this reads one row rather than every account."""
+        if user_id is None:
+            return None
+        rows = self._store.query_list(match={"id": str(user_id)})
+        return rows[0] if rows else None
 
     def save(self, user_id, user_data):
         def mutate(users):
@@ -58,17 +75,20 @@ class UserRepository(BaseJsonRepository):
 
         def mutate(users):
             for existing in users:
-                if existing.get("email") == email:
+                if _same_email(existing.get("email"), email):
                     return users
-            # Derived from the highest existing id rather than the count, so a
-            # deleted account cannot cause an id to be reused.
-            highest = 0
-            for existing in users:
-                try:
-                    highest = max(highest, int(existing.get("id", 0)))
-                except (TypeError, ValueError):
-                    continue
-            user = build_user(str(highest + 1), users)
+            # Random, not derived from existing ids. Counting reused an id
+            # once an account was deleted; "highest + 1" still did whenever
+            # the deleted account was the newest one, which handed a new
+            # participant the id that any leftover rows or a still-valid
+            # cookie of the old one pointed at. Random ids also cannot be
+            # enumerated. Checked against every id ever stored, old numeric
+            # ones included.
+            taken = {str(existing.get("id")) for existing in users}
+            new_id = secrets.token_hex(4)
+            while new_id in taken:
+                new_id = secrets.token_hex(4)
+            user = build_user(new_id, users)
             created["user"] = user
             users.append(user)
             return users

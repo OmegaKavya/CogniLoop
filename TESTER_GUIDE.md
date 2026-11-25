@@ -25,7 +25,9 @@ didn't happen, don't take part, and no hard feelings.
 
 You can stop at any point, and ask me to delete everything, without giving a
 reason. Just tell me — I have a script that removes your account, attempts,
-progress and learning estimates, and confirms nothing is left.
+progress and learning estimates, and confirms nothing is left. The only thing
+it can't take back is your small share in two group-level statistics,
+computed across everyone, that hold no name, email or id.
 
 ---
 
@@ -165,7 +167,7 @@ Your answers pass through an external AI provider (Groq) to be graded and to
 generate feedback, **without your name or email attached**. Nothing goes
 anywhere else, and no one but me sees your individual results.
 
-Say the word and I delete all of it.
+Say the word and I delete everything tied to you.
 
 ## If something goes wrong
 

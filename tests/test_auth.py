@@ -104,14 +104,32 @@ class TestAccountCreation:
         assert repo.create("a@example.com", self._build("a@example.com")) is None
 
     def test_ids_are_not_reused_after_deletion(self, tmp_path):
-        """Deriving the id from the count would hand out a live id again."""
+        """Deleting the newest account must not hand its id to the next one.
+
+        "highest + 1" passed a version of this test that deleted a middle
+        account and failed this one: removing the newest made its id the next
+        one allocated, merging a new participant with whatever of the old one
+        remained (rows, or a cookie still within its seven days).
+        """
         repo = UserRepository(str(tmp_path / "users.json"))
-        for i in range(3):
-            repo.create(f"u{i}@example.com", self._build(f"u{i}@example.com"))
-
-        repo._store.update_replacing(lambda users: [u for u in users if u["id"] != "2"],
+        ids = [repo.create(f"u{i}@example.com", self._build(f"u{i}@example.com"))["id"]
+               for i in range(3)]
+        newest = ids[-1]
+        repo._store.update_replacing(lambda users: [u for u in users if u["id"] != newest],
                                      default=list)
-        created = repo.create("new@example.com", self._build("new@example.com"))
+        for i in range(50):
+            created = repo.create(f"n{i}@example.com", self._build(f"n{i}@example.com"))
+            assert created["id"] != newest
+        assert len({u["id"] for u in repo.get_all()}) == 52
 
-        assert created["id"] == "4"
-        assert len({u["id"] for u in repo.get_all()}) == 3
+    def test_new_ids_avoid_existing_numeric_ids(self, tmp_path):
+        repo = UserRepository(str(tmp_path / "users.json"))
+        repo._store.write([{"id": "1", "email": "old@example.com"}])
+        created = repo.create("new@example.com", self._build("new@example.com"))
+        assert created["id"] != "1"
+
+    def test_email_matching_ignores_case(self, tmp_path):
+        repo = UserRepository(str(tmp_path / "users.json"))
+        assert repo.create("Ana@Example.com", self._build("Ana@Example.com"))
+        assert repo.create("ana@example.com", self._build("ana@example.com")) is None
+        assert repo.find_by_email(" ANA@example.COM ") is not None

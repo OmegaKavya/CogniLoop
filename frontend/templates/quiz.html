@@ -1099,23 +1099,41 @@
           }
       }
 
+      // Question text, options, hints and feedback come from a language model,
+      // and the model sees the learner's answers. Everything interpolated into
+      // innerHTML goes through this; elsewhere textContent is used instead.
+      function escapeHtml(value) {
+          return String(value == null ? '' : value)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      // Same rule as safe_link on the server: https, or a path on this site.
+      function safeLink(url) {
+          if (typeof url !== 'string') return null;
+          const u = url.trim();
+          if (/^https:\/\/./i.test(u)) return u;
+          if (u.startsWith('/') && !u.startsWith('//') && !u.includes('\\')) return u;
+          return null;
+      }
+
       function renderQuestion(index) {
           const question = quizQuestions[index];
           const questionArea = document.getElementById('question-area');
           questionArea.innerHTML = `
-              <div class="question-card active" data-q-id="${question.id}">
+              <div class="question-card active" data-q-id="${escapeHtml(question.id)}">
                   <span style="color: var(--text-light); font-size: 0.9rem;">Question ${index + 1} of ${quizQuestions.length}</span>
-                  <h2 style="margin: 15px 0 25px;">${question.text}</h2>
+                  <h2 style="margin: 15px 0 25px;">${escapeHtml(question.text)}</h2>
                   ${question.options.map((opt, i) => `
                       <div class="option" role="radio" tabindex="0" aria-checked="false"
                            data-index="${i + 1}"
                            onclick="selectOption(this)"
                            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectOption(this);}">
                         <span class="option__key" aria-hidden="true">${i + 1}</span>
-                        <span class="option__text">${opt}</span>
+                        <span class="option__text">${escapeHtml(opt)}</span>
                       </div>
                   `).join('')}
-                  <div class="hint-box" id="hint-${question.id}">💡 ${question.hint || 'Eliminate obviously incorrect options first.'}</div>
+                  <div class="hint-box" id="hint-${escapeHtml(question.id)}">💡 ${escapeHtml(question.hint || 'Eliminate obviously incorrect options first.')}</div>
               </div>
           `;
           document.getElementById('hintBtn').disabled = true;
@@ -1176,7 +1194,7 @@
               content.parentNode.insertBefore(box, content);
           }
           box.innerHTML = '<h3 style="margin:0 0 8px">Your answers were not saved</h3>'
-              + '<p style="margin:0 0 16px">' + message + '</p>'
+              + '<p style="margin:0 0 16px">' + escapeHtml(message) + '</p>'
               + '<button onclick="location.reload()" class="btn btn-primary" '
               + 'style="width:auto">Reload and try again</button>';
           box.style.display = 'block';
@@ -1276,9 +1294,11 @@
               cheatsUl.appendChild(li);
           });
           (insights.resources || []).forEach((item) => {
+              const href = safeLink(item && item.url);
+              if (!href) return;
               const li = document.createElement('li');
               const a = document.createElement('a');
-              a.href = item.url;
+              a.href = href;
               a.innerText = item.title;
               a.target = '_blank';
               a.rel = 'noopener noreferrer';
@@ -1304,12 +1324,12 @@
               item.style.background = 'var(--surface)';
 
               item.innerHTML = `
-                  <div style="font-weight: 600; margin-bottom: 5px;">Q${idx + 1}: ${qData ? qData.text : 'Question'}</div>
+                  <div style="font-weight: 600; margin-bottom: 5px;">Q${idx + 1}: ${escapeHtml(qData ? qData.text : 'Question')}</div>
                   <div style="font-size: 0.9rem; color: var(--ink-warm);">
                       <span style="color: ${q.is_correct ? '#006D5B' : '#d9534f'}; font-weight: 700;">
                           ${q.is_correct ? 'Correct' : 'Incorrect'}
                       </span>
-                      <span> • ${q.feedback}</span>
+                      <span> • ${escapeHtml(q.feedback)}</span>
                   </div>
               `;
               breakdownDiv.appendChild(item);
@@ -1371,7 +1391,7 @@
               document.getElementById('loading-state').innerHTML = `
                   <div style="font-size: 3rem; margin-bottom: 14px;">⚠️</div>
                   <h2 style="margin-bottom: 10px; color: var(--text-dark);">Could not generate quiz</h2>
-                  <p style="color: var(--text-light);">${error.message}</p>
+                  <p style="color: var(--text-light);">${escapeHtml(error.message)}</p>
               `;
           }
       }

@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from datetime import datetime
 
 from backend import config
@@ -15,6 +16,29 @@ except ImportError:
     KMeans = None
     sklearn_version = None
     InconsistentVersionWarning = Warning
+
+
+def _write_atomically(path, payload):
+    """Write bytes so a reader sees the old file or the new one, never half.
+
+    The model is read on every quiz submission; writing it in place let a
+    submission unpickle a partly written file.
+    """
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".tmp-", suffix=".pkl")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 class MicroPatternManager:
     FEATURE_COLUMNS = ['pause_count', 'rewatch_count', 'skip_ratio', 'watch_percentage']
@@ -90,14 +114,26 @@ class MicroPatternManager:
         return {}
 
     def train_model(self):
-        if not KMeans or not os.path.exists(self.storage_path):
+        """Fit the clustering model on the behaviour log and save it.
+
+        Reads through the store, so against Postgres it trains on production
+        data. It used to require the log to exist as a local file first, which
+        it never does when the data lives in Postgres, so it silently trained
+        nothing there.
+        """
+        if not KMeans:
             return False
         data = self._store.read()
+        if not isinstance(data, list):
+            return False
+        data = [row for row in data if isinstance(row, dict)]
         if len(data) < 5:
             return False
-        
+
         df = pd.DataFrame(data)
-        X = df[self.FEATURE_COLUMNS]
+        if any(column not in df.columns for column in self.FEATURE_COLUMNS):
+            return False
+        X = df[self.FEATURE_COLUMNS].fillna(0)
         
         kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
         kmeans.fit(X)
@@ -105,12 +141,11 @@ class MicroPatternManager:
         # than only once the file signature happens to differ.
         self._cached_model = None
         self._cached_signature = None
-        with open(self.model_path, 'wb') as f:
-            pickle.dump({
-                "model": kmeans,
-                "sklearn_version": sklearn_version,
-                "feature_columns": self.FEATURE_COLUMNS
-            }, f)
+        _write_atomically(self.model_path, pickle.dumps({
+            "model": kmeans,
+            "sklearn_version": sklearn_version,
+            "feature_columns": self.FEATURE_COLUMNS
+        }))
         return True
 
     def _model_signature(self):
@@ -119,7 +154,9 @@ class MicroPatternManager:
             stat = os.stat(self.model_path)
         except OSError:
             return None
-        return (stat.st_mtime_ns, stat.st_size)
+        # The inode too: a model replaced atomically within one timestamp tick
+        # and at the same size is otherwise indistinguishable from the old one.
+        return (stat.st_ino, stat.st_mtime_ns, stat.st_size)
 
     def _load_model(self):
         """The fitted model, unpickled at most once per version of the file.

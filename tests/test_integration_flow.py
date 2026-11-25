@@ -31,7 +31,8 @@ class TestFullLearningFlow:
             user_id = sess['user_id']
         token = active_quiz_store.issue(
             user_id,
-            {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "medium"})
+            {"topic_id": "os", "questions": [{"id": 1, "text": "Q?", "answer": "A"}],
+             "difficulty": "medium"})
 
         with patch('backend.quiz.quiz_evaluator.evaluator.evaluate') as mock_eval:
             mock_eval.return_value = {
@@ -68,7 +69,8 @@ class TestFullLearningFlow:
             user_id = sess['user_id']
         token = active_quiz_store.issue(
             user_id,
-            {"questions": [{"id": 1, "text": "Q?", "answer": "A"}], "difficulty": "easy"})
+            {"topic_id": "test_topic", "questions": [{"id": 1, "text": "Q?", "answer": "A"}],
+             "difficulty": "easy"})
         with patch('backend.quiz.quiz_evaluator.evaluator.evaluate') as mock_eval:
             mock_eval.return_value = {"score": 60, "avg_time": 15, "total_time": 15,
                 "question_results": [{"question_id": 1, "is_correct": False, "feedback": "Wrong"}]}

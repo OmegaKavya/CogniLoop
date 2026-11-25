@@ -37,6 +37,11 @@ every other person's history.
                          a participant's behaviour rows does not unfit the
                          model that was trained while they were in it.
 
+  models/bkt_params.json
+                         only if scripts/train_models.py has been run: BKT
+                         parameters fitted over everyone's attempts. Not
+                         present in the deployed app today.
+
 If a participant insists on total removal, the honest options are to reset the
 bandit table and refit the clustering model from the remaining data, or to say
 plainly that these two aggregates retain an unattributable statistical trace.
@@ -54,7 +59,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.storage import open_store  # noqa: E402
+from backend.storage import open_store, transaction  # noqa: E402
 
 DOCUMENTS = {
     "users": "data/users.json",
@@ -100,6 +105,20 @@ def count_matches(uid):
 
 
 def delete(uid):
+    """Remove everything for `uid` in one transaction, the account row last.
+
+    One transaction, so against Postgres it is all or nothing. And the
+    account last, because the account is how this script finds a
+    participant: removing it third meant a failure partway through left
+    attempts and progress that no re-run could locate. Against local JSON
+    files the transaction is a no-op, but the ordering still makes a failed
+    run safe to repeat.
+    """
+    with transaction():
+        return _delete(uid)
+
+
+def _delete(uid):
     removed = {}
 
     def drop_from_list(path, key):
@@ -120,7 +139,6 @@ def delete(uid):
 
     removed["quiz_attempts"] = drop_from_list(DOCUMENTS["quiz_attempts"], "user_id")
     removed["micro_patterns"] = drop_from_list(DOCUMENTS["micro_patterns"], "user_id")
-    removed["users"] = drop_from_list(DOCUMENTS["users"], "id")
 
     for name in ("user_progress", "bkt_states"):
         store = open_store(DOCUMENTS[name], default=dict)
@@ -150,6 +168,7 @@ def delete(uid):
     store.update(drop_active)
     removed["active_quizzes"] = active_count["n"]
 
+    removed["users"] = drop_from_list(DOCUMENTS["users"], "id")
     return removed
 
 
@@ -179,8 +198,9 @@ def main():
     for name, n in count_matches(uid).items():
         print(f"  {name:<16} {n}")
     print(f"  {'users':<16} 1")
-    print("\nNot removable: bandit_q_table and the fitted clustering model are "
-          "aggregates with no identifier in them; see the module docstring.")
+    print("\nNot removable: bandit_q_table, the fitted clustering model and (if "
+          "trained) bkt_params.json are aggregates with no identifier in them; "
+          "see the module docstring.")
 
     if not args.confirm:
         print("\nDry run. Re-run with --confirm to delete.")

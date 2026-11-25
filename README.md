@@ -60,8 +60,10 @@ Every submodule includes:
 
 ### 2. Time-Signal Diagnosis & AI Analytics
 - Diagnoses student errors based on interaction speed and cognitive load:
-  - **Rushed Guessing** (< 5 seconds): Alerts learners to careless execution.
-  - **Conceptual Gap** (> 25 seconds): Identifies deep theoretical confusion and triggers remedial study links.
+  - Thresholds are fractions of each question's own time limit (10 to 15 seconds by difficulty), so a label means the same thing on an easy quiz and a hard one.
+  - **Rushed Guessing** (wrong, under 40% of the limit): Alerts learners to careless execution.
+  - **Conceptual Gap** (wrong, 85% of the limit or more): Identifies genuine confusion and triggers remedial study links.
+  - **Lucky Guess** (right, under 20% of the limit): Flags answers too fast to have been read.
 - Generates topic-wise revision action plans and 5-minute rapid recall drills.
 - Provides an executive revision cheat sheet exportable directly as a high-resolution PDF document.
 

@@ -77,6 +77,7 @@ def test_api_quiz_submit(mock_evaluate, client):
     with client.session_transaction() as sess:
         user_id = sess['user_id']
     token = active_quiz_store.issue(user_id, {
+        "topic_id": "test_topic",
         "questions": [{"id": 1, "text": "Q1", "answer": "A"}],
         "difficulty": "medium"
     })

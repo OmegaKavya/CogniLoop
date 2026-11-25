@@ -192,7 +192,10 @@ class JsonStore:
         for whoever comes to look at it.
         """
         try:
-            with open(self.path, "r") as handle:
+            # utf-8-sig: a file saved by an editor that prepends a byte order
+            # mark is still valid JSON, and refusing it as corrupt would take
+            # the app down over an invisible character.
+            with open(self.path, "r", encoding="utf-8-sig") as handle:
                 raw = handle.read()
         except FileNotFoundError:
             # The expected case: nothing has been written yet.

@@ -115,7 +115,8 @@ class TestSmartFallback:
     def test_fallback_returns_required_keys(self):
         e = _engine()
         incorrect = [_qr(False, 3.0), _qr(False, 30.0)]
-        result = e._smart_fallback("os", "Operating Systems", 40, 0.4, incorrect)
+        result = e._smart_fallback("os", "Operating Systems", 40, 0.4, incorrect,
+                                   e._compute_diagnoses(incorrect))
         for key in ("focus_concepts", "cheat_sheet", "resources", "summary", "diagnoses"):
             assert key in result, f"Missing key: {key}"
 
@@ -127,7 +128,8 @@ class TestSmartFallback:
             _qr(False, 30.0),  # confused
             _qr(False, 10.0),  # misconception
         ]
-        result = e._smart_fallback("os", "Operating Systems", 25, 0.2, incorrect)
+        result = e._smart_fallback("os", "Operating Systems", 25, 0.2, incorrect,
+                                   e._compute_diagnoses(incorrect))
         diag = result["diagnoses"]
         assert diag["guessed"] == 2
         assert diag["confused"] == 1
@@ -136,7 +138,8 @@ class TestSmartFallback:
     def test_fallback_resources_are_not_generic_google(self):
         e = _engine()
         incorrect = [_qr(False, 10.0)]
-        result = e._smart_fallback("os", "Operating Systems", 50, 0.4, incorrect)
+        result = e._smart_fallback("os", "Operating Systems", 50, 0.4, incorrect,
+                                   e._compute_diagnoses(incorrect))
         for res in result["resources"]:
             assert "video" in res["url"].lower() or "geeksforgeeks" in res["url"].lower(), \
                 f"Resource not CogniLoop/GFG: {res['url']}"
@@ -144,9 +147,32 @@ class TestSmartFallback:
     def test_fallback_cheat_sheet_uses_topic_drills(self):
         e = _engine()
         incorrect = [_qr(False, 10.0, text="scheduling problem")]
-        result = e._smart_fallback("os", "Operating Systems", 50, 0.4, incorrect)
+        result = e._smart_fallback("os", "Operating Systems", 50, 0.4, incorrect,
+                                   e._compute_diagnoses(incorrect))
         # cheat sheet should contain real content, not the generic "do nothing"
         assert len(result["cheat_sheet"]) >= 2
+
+    def test_fallback_keeps_lucky_guesses_and_the_real_time_limit(self):
+        # Regression: the fallback recomputed diagnoses without the quiz's
+        # time limit and hardcoded lucky_guess to 0. A 10s hard quiz: 1.5s
+        # correct is a lucky guess (< 0.20 x 10), 9s wrong is confused
+        # (>= 0.85 x 10) but would be a misconception against the 12s default.
+        e = _engine()
+        results = [_qr(True, 1.5), _qr(True, 1.5), _qr(True, 1.5),
+                   _qr(False, 9.0, text="anything")]
+        result = e.generate_insights("Operating Systems", 75, 0.5, results,
+                                     topic_id="os", use_model=False,
+                                     time_limit=10)
+        diag = result["diagnoses"]
+        assert diag["lucky_guess"] == 3
+        assert diag["confused"] == 1
+        assert diag["misconception"] == 0
+
+    def test_lucky_guess_advice_states_the_threshold_it_used(self):
+        e = _engine()
+        results = [_qr(True, 1.0)] * 3 + [_qr(False, 9.0)]
+        advice = e._compute_diagnoses(results, 15)["pace_advice"]
+        assert "under 3s" in advice and "2.5" not in advice
 
     def test_perfect_score_returns_advanced_content(self):
         e = _engine()

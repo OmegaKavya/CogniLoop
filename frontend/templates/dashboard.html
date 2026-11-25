@@ -504,7 +504,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--amber);">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
         </svg>
-        Computer Science Topics
+        Topics
       </div>
       <div class="course-grid">
         {% for video in videos %}
@@ -544,9 +544,10 @@
         os: {border:'#0d9488',bg:'rgba(13,148,136,0.10)'},
         ds: {border:'#d97706',bg:'rgba(217,119,6,0.10)'},
         dbms: {border:'#7c3aed',bg:'rgba(124,58,237,0.10)'},
-        cn: {border:'#2563eb',bg:'rgba(37,99,235,0.10)'}
+        cn: {border:'#2563eb',bg:'rgba(37,99,235,0.10)'},
+        qa: {border:'#db2777',bg:'rgba(219,39,119,0.10)'}
       };
-      const courseNames = {os:'Operating Systems',ds:'Data Structures',dbms:'Databases',cn:'Computer Networks'};
+      const courseNames = {os:'Operating Systems',ds:'Data Structures',dbms:'Databases',cn:'Computer Networks',qa:'Quantitative Aptitude'};
 
       const courseFilter = document.getElementById('courseFilter');
       Object.keys(byCourse).forEach(cid => {
