@@ -198,6 +198,25 @@ Return ONLY valid JSON:
         # it is what the bandit chose and what its arm will be credited with.
         quiz_data["difficulty"] = adaptive_difficulty
 
+        # Too few left once seen questions are filtered out: keep the model's
+        # new ones and make up the number from the bank, rather than throwing
+        # the whole quiz away. A check quiz in the control arm, which
+        # practises with the probe's own inputs, is the likeliest to lose
+        # questions this way, so discarding it pushed that arm onto the bank.
+        if (0 < len(cleaned_questions) < 5
+                and self._is_valid_quiz({"questions": cleaned_questions}, min_questions=1)):
+            taken = [q.get("text") for q in cleaned_questions]
+            bank = self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions,
+                                           list(avoid_questions or []) + taken)
+            questions = cleaned_questions + bank["questions"][:num_questions - len(cleaned_questions)]
+            for idx, question in enumerate(questions, start=1):
+                question["id"] = idx
+            quiz_data["questions"] = questions
+            quiz_data["num_questions"] = len(questions)
+            quiz_data["source"] = "mixed"
+            if self._is_valid_quiz(quiz_data, min_questions=5):
+                return self._shuffle_question_options(quiz_data)
+
         if not self._is_valid_quiz(quiz_data, min_questions=5):
             print("[QuizGen] Validation failed for LLM generated quiz. Falling back to static questions.")
             return self._fallback(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
@@ -255,7 +274,12 @@ Return ONLY valid JSON:
                         all_questions.append({
                             "id": cp["id"],
                             "text": cp["question"],
-                            "options": cp["options"],
+                            # A copy: the quiz's options are shuffled in place
+                            # below, and shuffling the bank's own list reordered
+                            # it under its correct_index, so every later quiz
+                            # and in-video checkpoint drawn from it was graded
+                            # against the wrong answer.
+                            "options": list(cp["options"]),
                             "answer": correct_text,
                             "hint": cp["explanation"]
                         })

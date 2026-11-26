@@ -143,8 +143,10 @@ just whether you were given easier questions.
 
 → *This is why one quiz is no use, and why switching topics wastes it.*
 
-**3. Whether the generated questions are any good.** Every question is written
-by a model, fresh each time. Nobody outside my own testing has judged them.
+**3. Whether the generated questions are any good.** Questions are written by a
+model, fresh for each quiz (your starting and final check quizzes stay the same
+if you reload them, and a few may come from a short hand-written set when the
+model is unavailable). Nobody outside my own testing has judged them.
 
 → *This is why "question 4 was nonsense" is genuinely valuable.*
 

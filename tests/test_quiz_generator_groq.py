@@ -90,6 +90,7 @@ class TestGroqIntegration:
     def test_groq_skipped_when_no_key(self):
         gen = QuizGenerator()
         gen.client.groq_api_key = ""  # no key
+        gen.client.ollama_enabled = True  # the suite disables providers; this test stubs one
         questions = _sample_questions(7)
 
         with patch("requests.post") as mock_post:

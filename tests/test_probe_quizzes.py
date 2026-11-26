@@ -200,7 +200,8 @@ def test_a_second_pre_test_that_slips_through_is_recorded_as_practice(client):
     gen = _Generator()
     with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
          patch('app.refine_insights_in_background'), \
-         patch.object(app_module.active_quiz_store, 'find_probe', return_value=None):
+         patch.object(app_module.active_quiz_store, 'find_probe', return_value=None), \
+         patch.object(app_module.active_quiz_store, '_live_probe', return_value=None):
         first, second = _issue(client), _issue(client)
         _submit(client, first["quiz_token"])
         body = json.loads(_submit(client, second["quiz_token"]).data)
@@ -364,3 +365,116 @@ def test_the_fallback_bank_serves_unseen_questions_before_seen_ones():
     texts = [q["text"] for q in picked]
     assert texts[:3] == ["B10?", "B11?", "B12?"]
     assert len(texts) == 7 and len(set(texts)) == 7
+
+
+def test_fallback_quizzes_leave_the_question_bank_unchanged():
+    # Shuffling a fallback quiz's options used to shuffle the bank itself,
+    # under its stored correct_index: from the second fallback quiz on, the
+    # answer keys were wrong.
+    import copy
+    from utils.constants import SUBMODULE_DEFINITIONS
+    before = copy.deepcopy(SUBMODULE_DEFINITIONS["qa"])
+    for _ in range(4):
+        quiz = app_module.quiz_gen._fallback("qa", "QA", "medium", 8, [])
+        for question in quiz["questions"]:
+            assert question["answer"] in question["options"]
+    assert SUBMODULE_DEFINITIONS["qa"] == before
+
+
+# ---- probes stay one fixed quiz, and practice stays off them ----
+
+def _store(tmp_path, **kw):
+    from backend.quiz.quiz_session import ActiveQuizStore
+    return ActiveQuizStore(file_path=str(tmp_path / "active.json"), **kw)
+
+
+def _probe_quiz(probe, text="P?"):
+    return {"topic_id": "t", "probe": probe,
+            "questions": [{"id": 1, "text": text, "options": ["A", "B"], "answer": "A"}]}
+
+
+def test_a_second_check_quiz_issued_meanwhile_is_replaced_by_the_first(tmp_path):
+    store = _store(tmp_path)
+    first_token, first = store.issue_returning("u1", _probe_quiz("post", "First?"))
+    token, quiz = store.issue_returning("u1", _probe_quiz("post", "Second?"))
+    assert token == first_token
+    assert quiz["questions"][0]["text"] == "First?"
+
+
+def test_an_open_check_quiz_is_never_evicted_by_the_open_quiz_cap(tmp_path):
+    store = _store(tmp_path, max_per_user=3)
+    token, _ = store.issue_returning("u1", _probe_quiz("post"))
+    for i in range(6):
+        store.issue("u1", {"topic_id": "t", "probe": None, "questions": []})
+    assert store.find_probe("u1", "t", "post")[0] == token
+
+
+def test_handing_a_probe_back_renews_its_lifetime(tmp_path):
+    store = _store(tmp_path, ttl_seconds=100)
+    token, _ = store.issue_returning("u1", _probe_quiz("pre"), now=0)
+    assert store.find_probe("u1", "t", "pre", now=95)[0] == token
+    assert store.get(token, "u1", now=150) is not None
+
+
+def test_a_token_live_on_arrival_survives_pruning_during_grading(tmp_path):
+    store = _store(tmp_path, ttl_seconds=100)
+    token = store.issue("u1", _probe_quiz(None), now=0)
+    store.issue("u2", _probe_quiz(None), now=150)       # another request prunes
+    assert store.consume(token, "u1", now=99) is not None
+
+
+def test_practice_avoids_the_questions_of_an_open_check_quiz(client):
+    _register(client, "control")
+    gen = _Generator()
+    with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
+         patch('app.refine_insights_in_background'):
+        for _ in range(3):
+            _take(client)
+        held = _issue(client, check=True)["quiz"]["questions"][0]["text"]
+        _issue(client)                               # practice while it is open
+    assert held in gen.avoided[-1]
+
+
+def test_a_held_probe_is_handed_back_without_spending_the_generation_limit(client):
+    _register(client, "control")
+    with patch.object(app_module.quiz_gen, 'generate_quiz', _Generator()), \
+         patch.object(app_module.quiz_generate_limiter, 'record', wraps=app_module.quiz_generate_limiter.record) as record:
+        _issue(client)
+        for _ in range(5):
+            _issue(client)
+    assert record.call_count == 1
+
+
+# ---- the generator, through its real paths ----
+
+def test_a_fallback_quiz_is_marked_and_serves_unseen_bank_questions_first():
+    from utils.constants import SUBMODULE_DEFINITIONS
+    bank = [cp["question"] for sub in SUBMODULE_DEFINITIONS["qa"] for cp in sub["checkpoints"]]
+    seen = bank[:len(bank) - 3]
+    quiz = app_module.quiz_gen._fallback("qa", "QA", "medium", 5, seen)
+    texts = [q["text"] for q in quiz["questions"]]
+    assert quiz["source"] == "fallback"
+    assert set(bank[-3:]) <= set(texts)
+
+
+def test_a_model_quiz_left_short_is_topped_up_from_the_bank():
+    model = {"questions": [
+        {"id": i, "text": f"Model {i}?", "options": ["A", "B", "C", "D"], "answer": "A", "hint": "h"}
+        for i in range(1, 9)]}
+    seen = [f"Model {i}?" for i in range(1, 6)]           # five of eight repeat
+    gen = app_module.quiz_gen
+    with patch.object(gen.client, 'complete_json', return_value=model), \
+         patch.object(gen, '_get_transcript_text', return_value=""):
+        quiz = gen.generate_quiz("qa", "QA", "vid", difficulty="medium", mastery=0.5,
+                                 avoid_questions=seen)
+    texts = [q["text"] for q in quiz["questions"]]
+    assert quiz["source"] == "mixed"
+    assert {"Model 6?", "Model 7?", "Model 8?"} <= set(texts)
+    assert not set(seen) & set(texts)
+
+
+def test_the_prompt_carries_forty_questions_to_avoid():
+    avoid = [f"Seen {i}?" for i in range(60)]
+    prompt = app_module.quiz_gen._build_prompt("qa", "QA", 8, "medium", "General Learner",
+                                               "Steady", 0.5, "", avoid)
+    assert "Seen 39?" in prompt and "Seen 40?" not in prompt

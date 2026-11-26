@@ -60,6 +60,15 @@ def _capture_database_url():
 os.environ["_PG_TEST_URL"] = _capture_database_url()
 os.environ["DATABASE_URL"] = ""
 
+# The same for the model providers. With a key readable from .env, any test
+# that reached grading or insights without its own stub called Groq for real:
+# it spent the project's quota, sent test data to an outside service, and made
+# results depend on the network. Empty, not deleted, for the reason above.
+# Tests that exercise a provider construct their client with explicit values.
+for _name in ("GROQ_API_KEY", "LLM_FALLBACK_URL", "LLM_FALLBACK_API_KEY"):
+    os.environ[_name] = ""
+os.environ["OLLAMA_ENABLED"] = "0"
+
 import pytest
 import json
 import tempfile

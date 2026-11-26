@@ -289,4 +289,4 @@ class TestReAuditEdges:
         attempts = [_a("u1", 40, "pre"), {**_a("u1", 70, "post"),
                     "quiz_meta": {"probe": "post", "source": "fallback"}}]
         report = self._report(engine, users, attempts)
-        assert report["control"]["probes_from_fallback"] == 1
+        assert report["control"]["participants_with_bank_probe"] == 1

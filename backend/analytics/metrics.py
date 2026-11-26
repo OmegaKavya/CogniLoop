@@ -45,7 +45,7 @@ class AnalyticsEngine:
 
         excluded = {"control": 0, "experimental": 0}
         undefined = {"control": 0, "experimental": 0}
-        fallback = {"control": 0, "experimental": 0}
+        fallback = {"control": 0, "experimental": 0}  # participants, not probes
 
         for user in users:
             if not isinstance(user, dict) or user.get('deleted'):
@@ -104,14 +104,14 @@ class AnalyticsEngine:
                 continue
 
             pre, post, topic_attempts = best
-            # Counted, not excluded: a probe drawn from the small authored
-            # bank may repeat questions the learner saw in practice.
-            if any((a.get('quiz_meta') or {}).get('source') == 'fallback' for a in (pre, post)):
-                fallback[group] += 1
             gain = self.calculate_nlg(pre.get('score', 0), post.get('score', 0))
             if gain is None:
                 undefined[group] += 1
                 continue
+            # Counted, not excluded: a probe drawn from the small authored
+            # bank may repeat questions the learner saw in practice.
+            if any((a.get('quiz_meta') or {}).get('source') in ('fallback', 'mixed') for a in (pre, post)):
+                fallback[group] += 1
             report[group]["nlg"].append(gain)
             report[group]["scores"].append(post.get('score', 0))
             report[group]["engagement"].append(len(topic_attempts))
@@ -135,7 +135,9 @@ class AnalyticsEngine:
                 "user_count": len(nlg_list),
                 "without_check_quiz": excluded[group],
                 "gain_undefined": undefined[group],
-                "probes_from_fallback": fallback[group],
+                # Participants with a pre or post probe drawn wholly or partly
+                # from the authored bank, among those with a defined gain.
+                "participants_with_bank_probe": fallback[group],
                 # Mean normalised change, not Hake's g (see calculate_nlg).
                 # None for an empty arm: 0 would read as "no gain".
                 "avg_gain": _mean(nlg_list),

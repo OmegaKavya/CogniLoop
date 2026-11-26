@@ -46,6 +46,11 @@ from backend import config
 from backend.storage import open_store
 
 
+def _probe_of(entry):
+    quiz = entry.get("quiz") if isinstance(entry, dict) else None
+    return quiz.get("probe") if isinstance(quiz, dict) else None
+
+
 def _b(value):
     # surrogatepass: a lone surrogate ("\ud800") cannot be encoded strictly,
     # and raising here turned a junk token into a 500. It now simply matches
@@ -128,35 +133,76 @@ class ActiveQuizStore:
         Returns (token, quiz) or None. The pre-test and the check quiz are each
         one fixed quiz: reloading the page hands back the same one rather than
         generating another, which let a learner look at several check quizzes
-        and submit the best.
+        and submit the best. Handing it back renews its lifetime, so it cannot
+        be returned with seconds left and then refuse the answers.
         """
         now = time.time() if now is None else now
-        live = [
-            (entry.get("issued_at", 0), token, entry.get("quiz"))
-            for token, entry in (self._store.read() or {}).items()
+        found = {}
+
+        def mutate(data):
+            data = data if isinstance(data, dict) else {}
+            held = self._live_probe(data, user_id, topic_id, probe, now)
+            if held:
+                data[held]["issued_at"] = now
+                found["probe"] = (held, data[held]["quiz"])
+            return data
+
+        self._store.update_replacing(mutate, default=dict)
+        return found.get("probe")
+
+    def held_probe_questions(self, user_id, topic_id, now=None):
+        """Question texts of this learner's open probes on a topic.
+
+        A practice quiz avoids these: one taken while a check quiz was open
+        could otherwise teach, with answers on its results page, the very
+        questions the check quiz then asked.
+        """
+        now = time.time() if now is None else now
+        return [
+            q.get("text") for entry in (self._store.read() or {}).values()
             if isinstance(entry, dict)
             and str(entry.get("user_id")) == str(user_id)
             and now - entry.get("issued_at", 0) < self.ttl_seconds
             and isinstance(entry.get("quiz"), dict)
             and entry["quiz"].get("topic_id") == topic_id
-            and entry["quiz"].get("probe") == probe
+            and entry["quiz"].get("probe")
+            for q in entry["quiz"].get("questions") or [] if isinstance(q, dict) and q.get("text")
         ]
-        if not live:
-            return None
-        _, token, quiz = max(live, key=lambda item: item[0])
-        return token, quiz
 
     def issue(self, user_id, quiz, now=None):
         """Store `quiz` and return the token the client should present."""
+        return self.issue_returning(user_id, quiz, now)[0]
+
+    def issue_returning(self, user_id, quiz, now=None):
+        """Store `quiz`; return (token, the quiz the client should be shown).
+
+        A probe (pre-test or check quiz) is one fixed quiz per topic. If this
+        learner already holds a live one for the same topic, that one is
+        returned instead of `quiz`, under the same lock: two requests that
+        both generated a check quiz in the same moment used to leave the
+        learner holding two different ones.
+        """
         now = time.time() if now is None else now
         token = secrets.token_urlsafe(32)
+        result = {}
 
         def mutate(data):
             data = self._prune(data if isinstance(data, dict) else {}, now)
 
-            # Evict this learner's oldest outstanding quizzes beyond the cap.
+            probe = quiz.get("probe") if isinstance(quiz, dict) else None
+            if probe:
+                held = self._live_probe(data, user_id, quiz.get("topic_id"), probe, now)
+                if held:
+                    data[held]["issued_at"] = now
+                    result["issued"] = (held, data[held]["quiz"])
+                    return data
+
+            # Evict this learner's oldest practice quizzes beyond the cap.
+            # Never a probe: evicting an open check quiz let the learner be
+            # issued a different one.
             mine = sorted(
-                (t for t, e in data.items() if str(e.get("user_id")) == str(user_id)),
+                (t for t, e in data.items()
+                 if str(e.get("user_id")) == str(user_id) and not _probe_of(e)),
                 key=lambda t: data[t].get("issued_at", 0),
             )
             for stale in mine[: max(0, len(mine) - (self.max_per_user - 1))]:
@@ -167,10 +213,25 @@ class ActiveQuizStore:
                 "issued_at": now,
                 "quiz": quiz,
             }
+            result["issued"] = (token, quiz)
             return data
 
         self._store.update_replacing(mutate, default=dict)
-        return token
+        return result["issued"]
+
+    def _live_probe(self, data, user_id, topic_id, probe, now):
+        """Token of this learner's live probe of that kind on that topic."""
+        live = [
+            (entry.get("issued_at", 0), token)
+            for token, entry in data.items()
+            if isinstance(entry, dict)
+            and str(entry.get("user_id")) == str(user_id)
+            and now - entry.get("issued_at", 0) < self.ttl_seconds
+            and isinstance(entry.get("quiz"), dict)
+            and entry["quiz"].get("topic_id") == topic_id
+            and entry["quiz"].get("probe") == probe
+        ]
+        return max(live)[1] if live else None
 
     def _lookup(self, data, token, user_id, now):
         """The live entry for `token` in `data` if this learner owns it."""

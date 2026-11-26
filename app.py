@@ -434,10 +434,13 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
         # practice question again on the check.
         pre_first = sorted(user_topic_attempts, key=lambda a: _probe_of(a) != 'pre')
         source = pre_first[:1] + list(reversed(pre_first[1:]))
+        held_texts = []
     else:
         source = user_topic_attempts[-5:]
+        # Questions of an open check quiz, so practice cannot rehearse them.
+        held_texts = active_quiz_store.held_probe_questions(user_id, topic_id)
 
-    recent_question_texts = []
+    recent_question_texts = list(held_texts)
     for attempt in source:
         for q in attempt.get('question_results', []):
             text = q.get('text')
@@ -1212,6 +1215,24 @@ def api_quiz_data(topic_id):
         return jsonify({'success': False, 'message': 'Topic not found'}), 404
 
     user_id = session['user_id']
+    want_check = request.args.get('check') == '1'
+
+    # A pre-test or check quiz that is issued and not yet submitted is handed
+    # back as it is. Generating a new one on every reload let a learner look
+    # at several check quizzes and submit the best, or redraw a starting quiz
+    # that began badly; each is meant to be one fixed quiz. Before the rate
+    # limit, because handing one back makes no model call.
+    probe, _ = probe_for(quiz_repo.get_user_attempts(
+        user_id, topic_id=topic_id, include_responses=False), want_check)
+    held = active_quiz_store.find_probe(user_id, topic_id, probe) if probe else None
+    if held:
+        token, quiz = held
+        return jsonify({
+            'success': True,
+            'quiz': public_view(quiz),
+            'quiz_token': token,
+            'static_cheat_sheet': get_static_cheat_sheet(topic_id, video['title'])
+        })
 
     # Generating a quiz is a model call. Unlimited, one account could run up
     # the provider bill and keep the single sync worker busy indefinitely.
@@ -1225,24 +1246,6 @@ def api_quiz_data(topic_id):
     user_video_progress = progress_repo.get_progress(user_id, topic_id)
     watch_time = user_video_progress.get('last_position', 0)
 
-    want_check = request.args.get('check') == '1'
-
-    # A pre-test or check quiz that is issued and not yet submitted is handed
-    # back as it is. Generating a new one on every reload let a learner look
-    # at several check quizzes and submit the best, or redraw a starting quiz
-    # that began badly; each is meant to be one fixed quiz.
-    probe, _ = probe_for(quiz_repo.get_user_attempts(
-        user_id, topic_id=topic_id, include_responses=False), want_check)
-    held = active_quiz_store.find_probe(user_id, topic_id, probe) if probe else None
-    if held:
-        token, quiz = held
-        return jsonify({
-            'success': True,
-            'quiz': public_view(quiz),
-            'quiz_token': token,
-            'static_cheat_sheet': get_static_cheat_sheet(topic_id, video['title'])
-        })
-
     quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group,
                               want_check=want_check)
 
@@ -1250,7 +1253,8 @@ def api_quiz_data(topic_id):
     # opaque token and a redacted copy. It previously received the whole object
     # twice over - once in this response body and once in the session cookie,
     # which is signed but not encrypted and so is readable by its holder.
-    quiz_token = active_quiz_store.issue(user_id, quiz)
+    # A probe that another request issued meanwhile is returned in its place.
+    quiz_token, quiz = active_quiz_store.issue_returning(user_id, quiz)
 
     return jsonify({
         'success': True,

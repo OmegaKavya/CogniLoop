@@ -42,6 +42,7 @@ def test_generate_quiz_success(mock_post):
     mock_post.return_value = mock_response
 
     gen = QuizGenerator()
+    gen.client.ollama_enabled = True   # the suite disables providers; this test stubs one
     quiz = gen.generate_quiz("topic_1", "Test Topic", youtube_id=None)
     
     assert quiz['num_questions'] >= 5
