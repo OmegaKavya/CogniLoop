@@ -94,8 +94,8 @@ class TestExperimentReport:
 
         assert report["control"]["user_count"] == 1
         assert report["experimental"]["user_count"] == 1
-        assert report["control"]["avg_nlg"] > 0
-        assert report["experimental"]["avg_nlg"] > 0
+        assert report["control"]["avg_gain"] > 0
+        assert report["experimental"]["avg_gain"] > 0
 
     def test_statistical_significance_field_present(self, engine):
         mock_users = [
@@ -150,7 +150,7 @@ class TestOutcomeUsesProbesOnly:
         attempts = [_a("u1", 50, "pre"), _a("u1", 60, None), _a("u1", 60, "post"),
                     _a("u1", 100, None)]
         report = self._report(engine, users, attempts)
-        assert report["experimental"]["avg_nlg"] == round((60 - 50) / 50, 3)
+        assert report["experimental"]["avg_gain"] == round((60 - 50) / 50, 3)
 
     def test_pre_and_post_must_be_on_the_same_topic(self, engine):
         users = [{"id": "u1", "study_group": "control"}]
@@ -181,7 +181,7 @@ class TestOutcomeUsesProbesOnly:
         users = [{"id": "u1", "study_group": "control"}]
         attempts = [_a("u1", 40, "pre"), _a("u1", 50, "post"), _a("u1", 70, "post")]
         report = self._report(engine, users, attempts)
-        assert report["control"]["avg_nlg"] == round((50 - 40) / 60, 3)
+        assert report["control"]["avg_gain"] == round((50 - 40) / 60, 3)
 
     def test_the_arm_recorded_on_the_attempt_wins(self, engine):
         users = [{"id": "u1", "study_group": "experimental"}]
@@ -198,7 +198,7 @@ class TestOutcomeUsesProbesOnly:
                     _a("u2", 40, "pre"), _a("u2", 70, "post")]
         report = self._report(engine, users, attempts)
         assert report["control"]["gain_undefined"] == 1
-        assert report["control"]["avg_nlg"] == 0.5
+        assert report["control"]["avg_gain"] == 0.5
 
     def test_same_day_and_later_checks_are_reported_apart(self, engine):
         users = [{"id": "u1", "study_group": "control"},
@@ -210,8 +210,8 @@ class TestOutcomeUsesProbesOnly:
             _a("u2", 100, "post", timestamp="2026-12-12T18:00:00"),
         ]
         report = self._report(engine, users, attempts)
-        assert report["control"]["same_day"] == {"user_count": 1, "avg_nlg": 0.5}
-        assert report["control"]["across_sessions"] == {"user_count": 1, "avg_nlg": 1.0}
+        assert report["control"]["same_day"] == {"user_count": 1, "avg_gain": 0.5}
+        assert report["control"]["across_sessions"] == {"user_count": 1, "avg_gain": 1.0}
 
 
 class TestSignificance:
@@ -253,3 +253,40 @@ class TestSignificance:
         expected = stats.ttest_ind(gains[3:], gains[:3], equal_var=False).pvalue
         assert report["statistical_significance"]["test"] == "welch"
         assert report["statistical_significance"]["p_value"] == round(float(expected), 4)
+
+
+class TestReAuditEdges:
+    def _report(self, engine, users, attempts):
+        with patch('backend.analytics.metrics.user_repo') as mu, \
+             patch('backend.analytics.metrics.quiz_repo') as mq:
+            mu.get_all.return_value = users
+            mq.all_attempts.return_value = attempts
+            return engine.generate_experiment_report()
+
+    def test_two_constant_arms_are_not_called_significant(self, engine):
+        # scipy returns p = 0 here, which read as a significant result.
+        users = [{"id": f"u{i}", "study_group": "experimental" if i < 3 else "control"}
+                 for i in range(5)]
+        attempts = []
+        for i in range(5):
+            attempts += [_a(f"u{i}", 40, "pre"), _a(f"u{i}", 100 if i < 3 else 80, "post")]
+        report = self._report(engine, users, attempts)
+        assert isinstance(report["statistical_significance"], str)
+
+    def test_an_unknown_gap_counts_as_the_same_day(self, engine):
+        users = [{"id": "u1", "study_group": "control"}]
+        attempts = [_a("u1", 40, "pre"), _a("u1", 70, "post")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["same_day"]["user_count"] == 1
+        assert report["control"]["across_sessions"]["user_count"] == 0
+
+    def test_an_empty_arm_has_no_average_rather_than_zero(self, engine):
+        report = self._report(engine, [], [])
+        assert report["control"]["avg_gain"] is None
+
+    def test_probes_from_the_fallback_bank_are_counted(self, engine):
+        users = [{"id": "u1", "study_group": "control"}]
+        attempts = [_a("u1", 40, "pre"), {**_a("u1", 70, "post"),
+                    "quiz_meta": {"probe": "post", "source": "fallback"}}]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["probes_from_fallback"] == 1

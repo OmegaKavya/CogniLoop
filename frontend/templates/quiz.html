@@ -716,7 +716,7 @@
             </button>
           </div>
           <p class="quiz-hintbar">
-            <kbd>1</kbd>–<kbd>4</kbd> to answer · <kbd>Enter</kbd> to continue · <kbd>H</kbd> for a hint
+            <kbd>1</kbd> to <kbd>4</kbd> to answer · <kbd>Enter</kbd> to continue · <kbd>H</kbd> for a hint
           </p>
         </div>
       </div>
@@ -739,10 +739,10 @@
         <div id="adaptation-note" class="adaptation-note" style="display:none;">
           <div class="adaptation-note__row">
             <span class="adaptation-note__label">This quiz</span>
-            <span id="served-tier" class="tier-chip">—</span>
+            <span id="served-tier" class="tier-chip">…</span>
             <span class="adaptation-note__arrow" aria-hidden="true">&rarr;</span>
             <span class="adaptation-note__label">Next</span>
-            <span id="next-tier" class="tier-chip tier-chip--next">—</span>
+            <span id="next-tier" class="tier-chip tier-chip--next">…</span>
           </div>
           <p id="next-tier-reason" class="adaptation-note__why"></p>
         </div>
@@ -1213,7 +1213,8 @@
       // sent again. Reloading used to be the only option, and it threw the
       // participant's answers away.
       //   retry  - nothing was saved; send the same answers again
-      //   saved  - an earlier attempt already went through (409)
+      //   saved  - this quiz can no longer be submitted (409): it went
+      //            through already, or a newer quiz replaced it
       //   reload - the quiz or the session is gone; only a reload helps
       function showSubmitError(message, mode) {
           document.getElementById('submit-loading-overlay').style.display = 'none';
@@ -1226,7 +1227,7 @@
               const content = document.getElementById('quiz-content');
               content.parentNode.insertBefore(box, content);
           }
-          const heading = mode === 'saved' ? 'Your answers were already submitted'
+          const heading = mode === 'saved' ? 'This quiz can no longer be submitted'
               : mode === 'retry' ? 'Your answers have not been sent yet'
               : 'Your answers were not saved';
           box.innerHTML = '<h3 style="margin:0 0 8px">' + escapeHtml(heading) + '</h3>'
@@ -1386,7 +1387,7 @@
 
           if (result.next_difficulty) {
               const note = document.getElementById('adaptation-note');
-              document.getElementById('served-tier').innerText = result.served_difficulty || '—';
+              document.getElementById('served-tier').innerText = result.served_difficulty || '…';
               document.getElementById('next-tier').innerText = result.next_difficulty;
               document.getElementById('next-tier-reason').innerText = result.next_difficulty_reason || '';
               note.style.display = 'block';
@@ -1407,6 +1408,10 @@
               if (result.check_available && result.topic_id) {
                   const check = document.getElementById('checkQuizLink');
                   check.href = `/quiz/${encodeURIComponent(result.topic_id)}?check=1`;
+                  // It can be taken once. Track B takes it at the end of
+                  // session 3, and a stray click in session 1 would spend it.
+                  check.onclick = () => confirm('The final check quiz can be taken only once. '
+                      + 'Take it now? (Track B: only at the end of session 3.)');
                   check.style.display = 'inline-block';
               }
               // Nothing to rewrite after a perfect score: no model call is made.
@@ -1486,6 +1491,10 @@
               } else if (quizData.check_declined === 'done') {
                   probeBanner.textContent = 'You have already taken the final check quiz on this topic, '
                       + 'so this is a practice quiz.';
+                  probeBanner.style.display = 'block';
+              } else if (quizData.check_declined === 'unavailable') {
+                  probeBanner.textContent = 'This account started on this topic before the final check '
+                      + 'quiz existed, so it cannot be measured here. This is a practice quiz.';
                   probeBanner.style.display = 'block';
               } else if (quizData.check_declined === 'not_yet') {
                   probeBanner.textContent = 'The final check quiz opens after your starting quiz and two '

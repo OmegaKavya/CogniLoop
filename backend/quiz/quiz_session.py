@@ -47,7 +47,17 @@ from backend.storage import open_store
 
 
 def _b(value):
-    return str(value).encode("utf-8")
+    # surrogatepass: a lone surrogate ("\ud800") cannot be encoded strictly,
+    # and raising here turned a junk token into a 500. It now simply matches
+    # nothing.
+    return str(value).encode("utf-8", "surrogatepass")
+
+
+# Entries are kept this long past expiry before pruning removes them.
+# Whether a token is live is judged at the moment its answers arrived (see
+# app.quiz_submit); pruning by wall clock in another request could delete a
+# token that arrived just in time while it was being graded.
+PRUNE_GRACE_SECONDS = 15 * 60
 
 
 def public_view(quiz):
@@ -105,12 +115,36 @@ class ActiveQuizStore:
         return self._store_cache
 
     def _prune(self, data, now):
-        """Drop expired entries. Caller must hold the lock."""
+        """Drop long-expired entries. Caller must hold the lock."""
         return {
             token: entry for token, entry in data.items()
             if isinstance(entry, dict)
-            and now - entry.get("issued_at", 0) < self.ttl_seconds
+            and now - entry.get("issued_at", 0) < self.ttl_seconds + PRUNE_GRACE_SECONDS
         }
+
+    def find_probe(self, user_id, topic_id, probe, now=None):
+        """This learner's live, unsubmitted probe quiz on a topic, if any.
+
+        Returns (token, quiz) or None. The pre-test and the check quiz are each
+        one fixed quiz: reloading the page hands back the same one rather than
+        generating another, which let a learner look at several check quizzes
+        and submit the best.
+        """
+        now = time.time() if now is None else now
+        live = [
+            (entry.get("issued_at", 0), token, entry.get("quiz"))
+            for token, entry in (self._store.read() or {}).items()
+            if isinstance(entry, dict)
+            and str(entry.get("user_id")) == str(user_id)
+            and now - entry.get("issued_at", 0) < self.ttl_seconds
+            and isinstance(entry.get("quiz"), dict)
+            and entry["quiz"].get("topic_id") == topic_id
+            and entry["quiz"].get("probe") == probe
+        ]
+        if not live:
+            return None
+        _, token, quiz = max(live, key=lambda item: item[0])
+        return token, quiz
 
     def issue(self, user_id, quiz, now=None):
         """Store `quiz` and return the token the client should present."""

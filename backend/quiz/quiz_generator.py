@@ -99,7 +99,10 @@ class QuizGenerator:
         else:
             mastery_instruction = "Balance conceptual and applied questions."
 
-        avoid_list = json.dumps((avoid_questions or [])[:15])
+        # Forty, not fifteen: the check quiz passes every question the learner
+        # has seen, and with only fifteen in the prompt the model was free to
+        # write the rest again, leaving the filter too few new ones to keep.
+        avoid_list = json.dumps((avoid_questions or [])[:40])
 
         return f"""{context_prompt}
 Generate a {num_questions}-question MCQ quiz on: {topic_name}
@@ -180,8 +183,7 @@ Return ONLY valid JSON:
         # Static fallback
         if not quiz_data or "questions" not in quiz_data:
             print("[QuizGen] Using static fallback questions")
-            return self._shuffle_question_options(
-                self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions))
+            return self._fallback(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
 
         cleaned_questions = self._ensure_unique_questions(
             quiz_data.get("questions", []),
@@ -198,11 +200,29 @@ Return ONLY valid JSON:
 
         if not self._is_valid_quiz(quiz_data, min_questions=5):
             print("[QuizGen] Validation failed for LLM generated quiz. Falling back to static questions.")
-            return self._shuffle_question_options(
-                self._get_fallback_quiz(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions))
+            return self._fallback(topic_id, topic_name, adaptive_difficulty, num_questions, avoid_questions)
 
         print(f"[QuizGen] Returning {len(cleaned_questions)} unique questions")
+        quiz_data["source"] = "model"
         return self._shuffle_question_options(quiz_data)
+
+    def _fallback(self, topic_id, topic_name, difficulty, num_questions, avoid_questions):
+        # Marked, because a topic's authored bank is small (twelve questions
+        # for most topics) and a check quiz drawn from it may repeat questions
+        # the learner has seen. The attempt records this so the analysis can
+        # tell those quizzes apart.
+        quiz = self._get_fallback_quiz(topic_id, topic_name, difficulty, num_questions, avoid_questions)
+        quiz["source"] = "fallback"
+        return self._shuffle_question_options(quiz)
+
+    def _unseen_first(self, questions, num_questions, avoid_questions):
+        """Questions not yet seen, then seen ones to make up the number."""
+        unique = self._ensure_unique_questions(questions, num_questions, avoid_questions=avoid_questions)
+        if len(unique) < num_questions:
+            taken = {self._normalize_text(q.get("text")) for q in unique}
+            unique += [q for q in questions
+                       if self._normalize_text(q.get("text")) not in taken][:num_questions - len(unique)]
+        return unique
 
     @staticmethod
     def _shuffle_question_options(quiz_data):
@@ -241,9 +261,7 @@ Return ONLY valid JSON:
                         })
                 if all_questions:
                     random.shuffle(all_questions)
-                    unique_questions = self._ensure_unique_questions(all_questions, num_questions, avoid_questions=avoid_questions)
-                    if not unique_questions:
-                        unique_questions = all_questions[:num_questions]
+                    unique_questions = self._unseen_first(all_questions, num_questions, avoid_questions)
                     for idx, question in enumerate(unique_questions, start=1):
                         question["id"] = idx
                     return {
@@ -288,11 +306,9 @@ Return ONLY valid JSON:
              "answer": "Predicting behavior under unseen constraints", "hint": "Higher-order understanding supports prediction in new situations."},
         ]
         random.shuffle(all_questions)
-        unique_questions = self._ensure_unique_questions(all_questions, num_questions, avoid_questions=avoid_questions)
-        if not unique_questions:
-            unique_questions = all_questions[:num_questions]
-            for idx, question in enumerate(unique_questions, start=1):
-                question["id"] = idx
+        unique_questions = self._unseen_first(all_questions, num_questions, avoid_questions)
+        for idx, question in enumerate(unique_questions, start=1):
+            question["id"] = idx
 
         return {
             "topic_id": topic_id,

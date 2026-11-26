@@ -368,6 +368,29 @@ def check_quiz_open(attempts):
             and len(attempts) >= config.CHECK_QUIZ_AFTER_ATTEMPTS)
 
 
+def probe_for(attempts, want_check):
+    """Which probe, if any, the next quiz on a topic is: (probe, declined).
+
+    Server-decided: the first quiz on a topic is always the pre-test, in
+    either arm. The post-test is the learner's request, granted only while
+    check_quiz_open holds; otherwise they get a practice quiz and `declined`
+    says why, rather than a check quiz that would not be counted.
+    """
+    if not attempts:
+        return 'pre', None
+    if want_check and check_quiz_open(attempts):
+        return 'post', None
+    if not want_check:
+        return None, None
+    if any(_probe_of(a) == 'post' for a in attempts):
+        return None, 'done'
+    if not any(_probe_of(a) == 'pre' for a in attempts):
+        # Attempts from before the study's probes existed: no pre-test to
+        # measure against, so the check can never open for this topic.
+        return None, 'unavailable'
+    return None, 'not_yet'
+
+
 def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental',
                        want_check=False):
     current_mastery = bkt_engine.get_mastery(user_id, topic_id)
@@ -385,20 +408,7 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
 
     from backend.adaptation.bandit_policy import bandit_adapter
 
-    # Server-decided: the first quiz on a topic is always the pre-test, in
-    # either arm. The post-test is the learner's request, granted only while
-    # check_quiz_open holds; otherwise they get a practice quiz and are told
-    # why, rather than a check quiz that would not be counted.
-    check_declined = None
-    if not user_topic_attempts:
-        probe = 'pre'
-    elif want_check and check_quiz_open(user_topic_attempts):
-        probe = 'post'
-    else:
-        probe = None
-        if want_check:
-            check_declined = ('done' if any(_probe_of(a) == 'post' for a in user_topic_attempts)
-                              else 'not_yet')
+    probe, check_declined = probe_for(user_topic_attempts, want_check)
 
     if probe:
         current_difficulty = PROBE_INPUTS['difficulty']
@@ -442,7 +452,11 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
             seen.add(norm)
             avoid_questions.append(text)
 
-    avoid_questions = avoid_questions[:30]
+    # Practice quizzes avoid a recent window. The check quiz avoids all of
+    # it: capped at thirty, a Track B learner's earlier practice questions
+    # could come back on the check.
+    if probe != 'post':
+        avoid_questions = avoid_questions[:30]
 
     quiz = quiz_gen.generate_quiz(
         topic_id,
@@ -1212,6 +1226,23 @@ def api_quiz_data(topic_id):
     watch_time = user_video_progress.get('last_position', 0)
 
     want_check = request.args.get('check') == '1'
+
+    # A pre-test or check quiz that is issued and not yet submitted is handed
+    # back as it is. Generating a new one on every reload let a learner look
+    # at several check quizzes and submit the best, or redraw a starting quiz
+    # that began badly; each is meant to be one fixed quiz.
+    probe, _ = probe_for(quiz_repo.get_user_attempts(
+        user_id, topic_id=topic_id, include_responses=False), want_check)
+    held = active_quiz_store.find_probe(user_id, topic_id, probe) if probe else None
+    if held:
+        token, quiz = held
+        return jsonify({
+            'success': True,
+            'quiz': public_view(quiz),
+            'quiz_token': token,
+            'static_cheat_sheet': get_static_cheat_sheet(topic_id, video['title'])
+        })
+
     quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group,
                               want_check=want_check)
 
@@ -1423,6 +1454,9 @@ def quiz_submit():
                     # "pre", "post" or None. The research outcome is computed
                     # from the probe attempts only; see PROBE_INPUTS.
                     "probe": probe,
+                    # "model" or "fallback". A fallback check quiz may repeat
+                    # questions already seen; see QuizGenerator._fallback.
+                    "source": quiz.get('source'),
                 },
                 "question_results": reviewed_questions,
                 "ai_insights": ai_insights

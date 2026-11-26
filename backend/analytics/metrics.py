@@ -45,6 +45,7 @@ class AnalyticsEngine:
 
         excluded = {"control": 0, "experimental": 0}
         undefined = {"control": 0, "experimental": 0}
+        fallback = {"control": 0, "experimental": 0}
 
         for user in users:
             if not isinstance(user, dict) or user.get('deleted'):
@@ -103,6 +104,10 @@ class AnalyticsEngine:
                 continue
 
             pre, post, topic_attempts = best
+            # Counted, not excluded: a probe drawn from the small authored
+            # bank may repeat questions the learner saw in practice.
+            if any((a.get('quiz_meta') or {}).get('source') == 'fallback' for a in (pre, post)):
+                fallback[group] += 1
             gain = self.calculate_nlg(pre.get('score', 0), post.get('score', 0))
             if gain is None:
                 undefined[group] += 1
@@ -130,9 +135,12 @@ class AnalyticsEngine:
                 "user_count": len(nlg_list),
                 "without_check_quiz": excluded[group],
                 "gain_undefined": undefined[group],
-                "avg_nlg": _mean(nlg_list),
-                "same_day": {"user_count": len(same_day), "avg_nlg": _mean(same_day)},
-                "across_sessions": {"user_count": len(later), "avg_nlg": _mean(later)},
+                "probes_from_fallback": fallback[group],
+                # Mean normalised change, not Hake's g (see calculate_nlg).
+                # None for an empty arm: 0 would read as "no gain".
+                "avg_gain": _mean(nlg_list),
+                "same_day": {"user_count": len(same_day), "avg_gain": _mean(same_day)},
+                "across_sessions": {"user_count": len(later), "avg_gain": _mean(later)},
                 "avg_engagement_quizzes": round(sum(eng_list) / len(eng_list), 1) if eng_list else 0
             }
 
@@ -142,6 +150,11 @@ class AnalyticsEngine:
 
 
 SAME_DAY_HOURS = 12
+
+
+def _spread(values):
+    mean = sum(values) / len(values)
+    return sum((v - mean) ** 2 for v in values)
 
 
 def _probe(attempt):
@@ -158,26 +171,29 @@ def _hours_between(pre, post):
 
 
 def _mean(values):
-    return round(sum(values) / len(values), 3) if values else 0
+    return round(sum(values) / len(values), 3) if values else None
 
 
 def _welch(a, b):
     """Welch's t-test, which does not assume the two arms vary equally.
 
     Returns a reason instead of a number when there is nothing to test. With
-    one participant in an arm, or every gain identical, scipy returns NaN, and
-    a NaN reached the analytics endpoint as a bare `NaN` token, which is not
-    JSON: the page that reads it failed to parse the whole report.
+    one participant in an arm, scipy returns NaN, which reached the analytics
+    endpoint as a bare `NaN` token: not JSON. With no spread in either arm it
+    returns NaN when the means agree and p = 0 when they differ, which would
+    have been reported as significant on two numbers.
     """
     if len(a) < 2 or len(b) < 2:
         return "Not enough participants: each arm needs at least two with both quizzes."
+    if _spread(a) < 1e-12 and _spread(b) < 1e-12:
+        return "Not testable: every participant within each arm has the same gain."
     try:
         from scipy import stats
     except ImportError:
         return "scipy not installed. T-test skipped."
     _, p_val = stats.ttest_ind(a, b, equal_var=False)
     if not math.isfinite(p_val):
-        return "Not testable: every gain in at least one arm is identical."
+        return "Not testable: the gains have too little spread."
     return {"test": "welch", "p_value": round(float(p_val), 4),
             "is_significant": bool(p_val < 0.05)}
 

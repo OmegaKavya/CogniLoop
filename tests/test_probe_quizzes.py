@@ -28,9 +28,10 @@ def _register(client, group):
 class _Generator:
     """Stands in for the model and records what each quiz was asked for."""
 
-    def __init__(self):
+    def __init__(self, per_quiz=1):
         self.calls = []
         self.avoided = []
+        self.per_quiz = per_quiz
 
     def __call__(self, topic_id, topic_name, youtube_id, watch_time=0, difficulty="medium",
                  mastery=0.3, cluster="General Learner", speed_label="Steady",
@@ -38,8 +39,14 @@ class _Generator:
         self.calls.append({"difficulty": difficulty, "mastery": mastery,
                            "cluster": cluster, "speed": speed_label})
         self.avoided.append(list(avoid_questions or []))
+        n = len(self.calls)
+        if self.per_quiz == 1:
+            texts = [f"Q{n}?"]
+        else:
+            texts = [f"Q{n}.{i}?" for i in range(1, self.per_quiz + 1)]
         return {"topic_id": topic_id, "difficulty": difficulty, "questions": [
-            {"id": 1, "text": f"Q{len(self.calls)}?", "options": ["A", "B"], "answer": "A"}]}
+            {"id": i, "text": t, "options": ["A", "B"], "answer": "A"}
+            for i, t in enumerate(texts, start=1)]}
 
 
 def _issue(client, topic="test_topic", check=False):
@@ -47,17 +54,18 @@ def _issue(client, topic="test_topic", check=False):
     return json.loads(client.get(url).data)
 
 
-def _submit(client, token):
+def _submit(client, token, ids=(1,)):
     return client.post('/api/quiz-submit', json={
         "quiz_token": token,
-        "responses": [{"question_id": 1, "selected_answer": "A", "time_taken": 5}],
+        "responses": [{"question_id": i, "selected_answer": "A", "time_taken": 5} for i in ids],
     })
 
 
 def _take(client, topic="test_topic", check=False):
-    """Fetch a quiz and submit it; return (issued quiz, submit response)."""
+    """Fetch a quiz, answer every question, submit; return (quiz, response)."""
     issued = _issue(client, topic, check)
-    body = json.loads(_submit(client, issued["quiz_token"]).data)
+    ids = [q["id"] for q in issued["quiz"]["questions"]]
+    body = json.loads(_submit(client, issued["quiz_token"], ids).data)
     return issued["quiz"], body
 
 
@@ -171,18 +179,33 @@ def test_the_check_is_issued_once_so_a_reload_cannot_replace_it(client):
     assert _probes(user_id).count("post") == 1
 
 
-def test_two_tabs_record_one_pre_test(client):
+def test_two_tabs_share_one_pre_test(client):
+    # The second tab is handed the same starting quiz, so only one can be
+    # submitted and the starting point cannot be redrawn.
     user_id = _register(client, "experimental")
     gen = _Generator()
     with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
          patch('app.refine_insights_in_background'):
         first, second = _issue(client), _issue(client)
-        assert first["quiz"]["probe"] == second["quiz"]["probe"] == "pre"
+        assert second["quiz_token"] == first["quiz_token"]
+        assert _submit(client, first["quiz_token"]).status_code == 200
+        assert _submit(client, second["quiz_token"]).status_code in (400, 409)
+    assert _probes(user_id) == ["pre"]
+
+
+def test_a_second_pre_test_that_slips_through_is_recorded_as_practice(client):
+    # If two starting quizzes are ever issued (an expired one replaced, or two
+    # requests racing), the one submitted second is practice.
+    user_id = _register(client, "experimental")
+    gen = _Generator()
+    with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
+         patch('app.refine_insights_in_background'), \
+         patch.object(app_module.active_quiz_store, 'find_probe', return_value=None):
+        first, second = _issue(client), _issue(client)
         _submit(client, first["quiz_token"])
         body = json.loads(_submit(client, second["quiz_token"]).data)
     assert _probes(user_id) == ["pre", None]
     assert body["probe"] is None
-    # The duplicate is practice: one more quiz is still needed for the check.
     assert body["check_available"] is False
 
 
@@ -259,3 +282,85 @@ def test_a_non_ascii_token_is_a_400_not_a_500(client):
     with patch.object(app_module.quiz_gen, 'generate_quiz', _Generator()):
         _issue(client)
     assert _submit(client, "\u00e9t\u00e9").status_code == 400
+
+
+def test_reloading_a_check_quiz_hands_back_the_same_one(client):
+    # A fresh check quiz on every reload let a learner look at several and
+    # submit the best.
+    _register(client, "control")
+    gen = _Generator()
+    with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
+         patch('app.refine_insights_in_background'):
+        for _ in range(3):
+            _take(client)
+        first, again = _issue(client, check=True), _issue(client, check=True)
+    assert first["quiz"]["probe"] == "post"
+    assert again["quiz_token"] == first["quiz_token"]
+    assert again["quiz"]["questions"] == first["quiz"]["questions"]
+    assert len(gen.calls) == 4
+
+
+def test_reloading_the_starting_quiz_hands_back_the_same_one(client):
+    _register(client, "experimental")
+    gen = _Generator()
+    with patch.object(app_module.quiz_gen, 'generate_quiz', gen):
+        first, again = _issue(client), _issue(client)
+    assert first["quiz"]["probe"] == "pre"
+    assert again["quiz_token"] == first["quiz_token"]
+    assert len(gen.calls) == 1
+
+
+def test_the_attempt_records_its_arm_and_the_quiz_source(client):
+    user_id = _register(client, "control")
+    gen = _Generator()
+    with patch.object(app_module.quiz_gen, 'generate_quiz',
+                      lambda *a, **k: {**gen(*a, **k), "source": "fallback"}), \
+         patch('app.refine_insights_in_background'):
+        _take(client)
+    stored = app_module.quiz_repo.get_user_attempts(user_id)[-1]
+    assert stored["study_group"] == "control"
+    assert stored["quiz_meta"]["source"] == "fallback"
+
+
+def test_the_check_avoid_list_is_not_capped(client):
+    _register(client, "control")
+    gen = _Generator(per_quiz=6)
+    with patch.object(app_module.quiz_gen, 'generate_quiz', gen), \
+         patch('app.refine_insights_in_background'):
+        for _ in range(8):                         # 48 questions seen
+            _take(client)
+        _take(client, check=True)
+    assert len(gen.avoided[-1]) == 48
+    assert gen.avoided[-1][:6] == [f"Q1.{i}?" for i in range(1, 7)]
+    assert len(gen.avoided[-2]) == 30            # practice keeps its window
+
+
+def test_an_account_with_no_pre_test_is_told_the_check_cannot_open(client):
+    user_id = _register(client, "control")
+    for _ in range(3):
+        app_module.quiz_repo.add_attempt({"user_id": user_id, "topic_id": "test_topic",
+                                          "score": 50, "quiz_meta": {"probe": None}})
+    with patch.object(app_module.quiz_gen, 'generate_quiz', _Generator()):
+        quiz = _issue(client, check=True)["quiz"]
+    assert quiz["probe"] is None
+    assert quiz["check_declined"] == "unavailable"
+
+
+def test_a_lone_surrogate_token_is_a_400(client):
+    _register(client, "control")
+    with patch.object(app_module.quiz_gen, 'generate_quiz', _Generator()):
+        _issue(client)
+    response = client.post('/api/quiz-submit', data='{"quiz_token": "\\ud800", "responses": []}',
+                           content_type='application/json')
+    assert response.status_code == 400
+
+
+def test_the_fallback_bank_serves_unseen_questions_before_seen_ones():
+    # A topic's authored bank is small, so a check quiz drawn from it used to
+    # come back as the first questions of the bank, seen or not.
+    bank = [{"id": i, "text": f"B{i}?"} for i in range(1, 13)]
+    seen = [f"B{i}?" for i in range(1, 10)]
+    picked = app_module.quiz_gen._unseen_first(bank, 7, seen)
+    texts = [q["text"] for q in picked]
+    assert texts[:3] == ["B10?", "B11?", "B12?"]
+    assert len(texts) == 7 and len(set(texts)) == 7
