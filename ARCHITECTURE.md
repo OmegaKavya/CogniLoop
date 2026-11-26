@@ -112,7 +112,7 @@ element as the most recent attempt.
 
 ## 4. Quality Assurance & Verification
 
-CogniLoop features an automated verification suite of **618 unit and integration tests** executing via `pytest`:
+CogniLoop features an automated verification suite of **630 unit and integration tests** executing via `pytest`:
 - **Mathematical Validation**: Confirms precision in Bayesian probability equations and Beta distribution convergence in Thompson Sampling.
 - **Concurrency Testing**: Drives concurrent writes against every persisted store and asserts that no record is lost and no file is left unparseable, which earlier implementations failed.
 - **Resilience Testing**: Exercises provider selection and fallback for quiz generation, grading and insights with no provider configured, with one unreachable, and under rate limiting.
