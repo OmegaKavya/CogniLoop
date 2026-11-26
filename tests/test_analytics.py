@@ -2,6 +2,8 @@
 Unit Tests: Analytics Engine (NLG & Experiment Report)
 Covers: NLG calculation correctness, edge cases, statistical report structure.
 """
+import json
+
 import pytest
 from unittest.mock import patch, MagicMock
 from backend.analytics.metrics import AnalyticsEngine
@@ -14,10 +16,10 @@ def engine():
 
 
 
-def _a(user_id, score, probe=None, topic="os"):
+def _a(user_id, score, probe=None, topic="os", **extra):
     """One stored attempt, shaped as the submit handler writes it."""
     return {"user_id": user_id, "score": score, "topic_id": topic,
-            "quiz_meta": {"probe": probe}}
+            "quiz_meta": {"probe": probe}, **extra}
 
 class TestNLGCalculation:
     def test_perfect_improvement(self, engine):
@@ -36,10 +38,18 @@ class TestNLGCalculation:
         # pre=0, post=50 -> NLG = 0.5
         assert abs(engine.calculate_nlg(0, 50) - 0.5) < 0.001
 
-    def test_edge_case_pre_100(self, engine):
-        # User already at 100% - no room for gain
-        assert engine.calculate_nlg(100, 100) == 1.0
-        assert engine.calculate_nlg(100, 80) == 0
+    def test_no_change_at_a_ceiling_or_floor_is_undefined(self, engine):
+        assert engine.calculate_nlg(100, 100) is None
+        assert engine.calculate_nlg(0, 0) is None
+
+    def test_a_drop_from_100_is_scaled_by_the_room_to_lose(self, engine):
+        assert engine.calculate_nlg(100, 80) == -0.2
+
+    def test_losses_are_bounded(self, engine):
+        # Hake's g gives (50 - 90) / 10 = -4.0 here: one bad check quiz would
+        # outweigh several participants who improved.
+        assert engine.calculate_nlg(90, 50) == pytest.approx(-40 / 90)
+        assert engine.calculate_nlg(100, 0) == -1.0
 
     def test_high_baseline(self, engine):
         # pre=90, post=95 -> NLG = (95-90)/(100-90) = 0.5
@@ -166,8 +176,80 @@ class TestOutcomeUsesProbesOnly:
         # u3 never took a quiz at all: not a drop-out, so not counted.
         assert report["experimental"]["without_check_quiz"] == 0
 
-    def test_the_latest_check_is_the_post_test(self, engine):
+    def test_the_first_check_is_the_post_test(self, engine):
+        # A retake must not replace the outcome.
         users = [{"id": "u1", "study_group": "control"}]
         attempts = [_a("u1", 40, "pre"), _a("u1", 50, "post"), _a("u1", 70, "post")]
         report = self._report(engine, users, attempts)
-        assert report["control"]["avg_nlg"] == round((70 - 40) / 60, 3)
+        assert report["control"]["avg_nlg"] == round((50 - 40) / 60, 3)
+
+    def test_the_arm_recorded_on_the_attempt_wins(self, engine):
+        users = [{"id": "u1", "study_group": "experimental"}]
+        attempts = [_a("u1", 40, "pre", study_group="control"),
+                    _a("u1", 70, "post", study_group="control")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["user_count"] == 1
+        assert report["experimental"]["user_count"] == 0
+
+    def test_undefined_gains_are_counted_not_averaged(self, engine):
+        users = [{"id": "u1", "study_group": "control"},
+                 {"id": "u2", "study_group": "control"}]
+        attempts = [_a("u1", 100, "pre"), _a("u1", 100, "post"),
+                    _a("u2", 40, "pre"), _a("u2", 70, "post")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["gain_undefined"] == 1
+        assert report["control"]["avg_nlg"] == 0.5
+
+    def test_same_day_and_later_checks_are_reported_apart(self, engine):
+        users = [{"id": "u1", "study_group": "control"},
+                 {"id": "u2", "study_group": "control"}]
+        attempts = [
+            _a("u1", 40, "pre", timestamp="2026-12-01T10:00:00"),
+            _a("u1", 70, "post", timestamp="2026-12-01T10:20:00"),
+            _a("u2", 40, "pre", timestamp="2026-12-01T10:00:00"),
+            _a("u2", 100, "post", timestamp="2026-12-12T18:00:00"),
+        ]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["same_day"] == {"user_count": 1, "avg_nlg": 0.5}
+        assert report["control"]["across_sessions"] == {"user_count": 1, "avg_nlg": 1.0}
+
+
+class TestSignificance:
+    def _report(self, engine, users, attempts):
+        with patch('backend.analytics.metrics.user_repo') as mu, \
+             patch('backend.analytics.metrics.quiz_repo') as mq:
+            mu.get_all.return_value = users
+            mq.all_attempts.return_value = attempts
+            return engine.generate_experiment_report()
+
+    def test_one_participant_per_arm_gives_a_reason_and_valid_json(self, engine):
+        users = [{"id": "u1", "study_group": "control"},
+                 {"id": "u2", "study_group": "experimental"}]
+        attempts = [_a("u1", 40, "pre"), _a("u1", 70, "post"),
+                    _a("u2", 40, "pre"), _a("u2", 90, "post")]
+        report = self._report(engine, users, attempts)
+        assert isinstance(report["statistical_significance"], str)
+        json.dumps(report, allow_nan=False)
+
+    def test_identical_gains_do_not_produce_nan(self, engine):
+        users = [{"id": f"u{i}", "study_group": "control" if i < 2 else "experimental"}
+                 for i in range(4)]
+        attempts = []
+        for i in range(4):
+            attempts += [_a(f"u{i}", 50, "pre"), _a(f"u{i}", 75, "post")]
+        report = self._report(engine, users, attempts)
+        json.dumps(report, allow_nan=False)
+
+    def test_the_test_is_welch(self, engine):
+        users = [{"id": f"u{i}", "study_group": "control" if i < 3 else "experimental"}
+                 for i in range(6)]
+        posts = [60, 70, 80, 70, 95, 100]
+        attempts = []
+        for i in range(6):
+            attempts += [_a(f"u{i}", 50, "pre"), _a(f"u{i}", posts[i], "post")]
+        report = self._report(engine, users, attempts)
+        from scipy import stats
+        gains = [engine.calculate_nlg(50, p) for p in posts]
+        expected = stats.ttest_ind(gains[3:], gains[:3], equal_var=False).pvalue
+        assert report["statistical_significance"]["test"] == "welch"
+        assert report["statistical_significance"]["p_value"] == round(float(expected), 4)

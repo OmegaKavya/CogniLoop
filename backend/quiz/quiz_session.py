@@ -46,6 +46,10 @@ from backend import config
 from backend.storage import open_store
 
 
+def _b(value):
+    return str(value).encode("utf-8")
+
+
 def public_view(quiz):
     """The quiz as the client may see it: every answer key removed.
 
@@ -141,16 +145,18 @@ class ActiveQuizStore:
 
         # Constant-time lookup: compare against every key so a wrong token
         # cannot be distinguished from a right one by how long the miss took.
+        # Compared as bytes: compare_digest raises on a str holding anything
+        # outside ASCII, so a token like "é" became a 500 instead of a miss.
         key, entry = None, None
         for candidate, value in data.items():
-            if secrets.compare_digest(str(candidate), str(token)):
+            if secrets.compare_digest(_b(candidate), _b(token)):
                 key, entry = candidate, value
         if not isinstance(entry, dict):
             return None, None
 
         if now - entry.get("issued_at", 0) >= self.ttl_seconds:
             return None, None
-        if not secrets.compare_digest(str(entry.get("user_id")), str(user_id)):
+        if not secrets.compare_digest(_b(entry.get("user_id")), _b(user_id)):
             return None, None
         return key, entry.get("quiz")
 

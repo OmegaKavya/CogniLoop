@@ -1483,6 +1483,14 @@
                   probeBanner.textContent = 'Final check quiz. The same kind of quiz as your first one, '
                       + 'for everyone, so it measures how far you have come.';
                   probeBanner.style.display = 'block';
+              } else if (quizData.check_declined === 'done') {
+                  probeBanner.textContent = 'You have already taken the final check quiz on this topic, '
+                      + 'so this is a practice quiz.';
+                  probeBanner.style.display = 'block';
+              } else if (quizData.check_declined === 'not_yet') {
+                  probeBanner.textContent = 'The final check quiz opens after your starting quiz and two '
+                      + 'practice quizzes, so this is a practice quiz.';
+                  probeBanner.style.display = 'block';
               }
               quizQuestions = quizData.questions || [];
               questionTimeLimit = Number(quizData.question_time_seconds || 12);

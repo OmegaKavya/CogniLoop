@@ -6,6 +6,7 @@ import os
 import random
 import secrets
 import threading
+import time
 from datetime import datetime, timedelta
 import uuid
 from utils.constants import STATIC_CHEAT_SHEETS
@@ -349,6 +350,24 @@ PROBE_INPUTS = {
 }
 
 
+def _probe_of(attempt):
+    return (attempt.get('quiz_meta') or {}).get('probe')
+
+
+def check_quiz_open(attempts):
+    """Whether the final check quiz may be issued on this topic.
+
+    After the pre-test and at least two practice quizzes, and only once. The
+    server decides: the quiz page shows the button only when this holds, but
+    the request is a query parameter anyone can add, and a reload of a check
+    quiz's results page used to issue a second check, which the report then
+    scored in place of the first.
+    """
+    return (any(_probe_of(a) == 'pre' for a in attempts)
+            and not any(_probe_of(a) == 'post' for a in attempts)
+            and len(attempts) >= config.CHECK_QUIZ_AFTER_ATTEMPTS)
+
+
 def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental',
                        want_check=False):
     current_mastery = bkt_engine.get_mastery(user_id, topic_id)
@@ -367,14 +386,19 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
     from backend.adaptation.bandit_policy import bandit_adapter
 
     # Server-decided: the first quiz on a topic is always the pre-test, in
-    # either arm. The post-test is the learner's request, but only once a
-    # pre-test exists to compare it with.
+    # either arm. The post-test is the learner's request, granted only while
+    # check_quiz_open holds; otherwise they get a practice quiz and are told
+    # why, rather than a check quiz that would not be counted.
+    check_declined = None
     if not user_topic_attempts:
         probe = 'pre'
-    elif want_check:
+    elif want_check and check_quiz_open(user_topic_attempts):
         probe = 'post'
     else:
         probe = None
+        if want_check:
+            check_declined = ('done' if any(_probe_of(a) == 'post' for a in user_topic_attempts)
+                              else 'not_yet')
 
     if probe:
         current_difficulty = PROBE_INPUTS['difficulty']
@@ -389,8 +413,22 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
     else:
         current_difficulty = bandit_adapter.get_action(current_cluster, current_mastery)
 
+    if probe == 'post':
+        # Every question this learner has seen on the topic, the pre-test's
+        # first so the cap below can never drop them, then the rest newest
+        # first. Only the last five attempts were used before, so after five
+        # practice quizzes the pre-test's questions fell out and could come
+        # back on the check. Excluding everything seen, rather than only the
+        # pre-test, matters for the comparison: control practises at medium,
+        # the post-test's own tier, so it is the arm more likely to meet a
+        # practice question again on the check.
+        pre_first = sorted(user_topic_attempts, key=lambda a: _probe_of(a) != 'pre')
+        source = pre_first[:1] + list(reversed(pre_first[1:]))
+    else:
+        source = user_topic_attempts[-5:]
+
     recent_question_texts = []
-    for attempt in user_topic_attempts[-5:]:
+    for attempt in source:
         for q in attempt.get('question_results', []):
             text = q.get('text')
             if text:
@@ -421,6 +459,7 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
     if probe:
         quiz['difficulty'] = PROBE_INPUTS['difficulty']
     quiz['probe'] = probe
+    quiz['check_declined'] = check_declined
 
     question_count = len(quiz.get('questions', []))
     question_time_seconds = 15 if quiz.get('difficulty') == 'easy' else 12 if quiz.get('difficulty') == 'medium' else 10
@@ -1216,7 +1255,12 @@ def quiz_submit():
     # meant any failure in grading or in the writes destroyed the token, so a
     # participant who pressed Submit again was told their session had expired
     # and the quiz they had just finished was lost.
-    quiz = active_quiz_store.get(quiz_token, user_id)
+    # Expiry is judged at this moment, when the answers arrived, and the same
+    # instant is passed to consume below. Grading can call a model and take a
+    # while; a quiz that was live when it was submitted used to expire during
+    # grading and be reported as already submitted, losing the answers.
+    received_at = time.time()
+    quiz = active_quiz_store.get(quiz_token, user_id, now=received_at)
     if not quiz:
         return jsonify({'success': False, 'message': 'Quiz session expired. Please refresh the page.'}), 400
 
@@ -1281,8 +1325,17 @@ def quiz_submit():
             # Inside the transaction, so the token is spent only if the
             # writes it pays for commit. The check-and-remove is itself
             # atomic, so a second concurrent submission finds nothing here.
-            if active_quiz_store.consume(quiz_token, user_id) is None:
+            if active_quiz_store.consume(quiz_token, user_id, now=received_at) is None:
                 raise QuizAlreadySubmitted()
+
+            # One pre-test and one check quiz per topic. Two tabs opened
+            # before the first submission are both issued a probe; the one
+            # submitted second is recorded as practice, so it neither
+            # replaces the outcome nor counts twice toward unlocking the check.
+            probe = quiz.get('probe')
+            if probe and any(_probe_of(a) == probe for a in quiz_repo.get_user_attempts(
+                    user_id, topic_id=topic_id, include_responses=False)):
+                probe = None
 
             new_mastery = bkt_engine.update_mastery(user_id, topic_id, is_correct_overall, difficulty=current_difficulty)
 
@@ -1357,6 +1410,9 @@ def quiz_submit():
                 "mastery": new_mastery,
                 "behavior_cluster": cluster,
                 "recommendation": recommendation,
+                # The arm this attempt was served under. The report reads it
+                # from here rather than from the user's current record.
+                "study_group": study_group,
                 "quiz_meta": {
                     "difficulty": quiz.get('difficulty', current_difficulty),
                     "num_questions": len(quiz.get('questions', [])),
@@ -1366,7 +1422,7 @@ def quiz_submit():
                     "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0),
                     # "pre", "post" or None. The research outcome is computed
                     # from the probe attempts only; see PROBE_INPUTS.
-                    "probe": quiz.get('probe'),
+                    "probe": probe,
                 },
                 "question_results": reviewed_questions,
                 "ai_insights": ai_insights
@@ -1375,7 +1431,8 @@ def quiz_submit():
             quiz_repo.add_attempt(attempt_log)
     except QuizAlreadySubmitted:
         return jsonify({'success': False,
-                        'message': 'This quiz was already submitted.'}), 409
+                        'message': 'This quiz was already submitted, or replaced by '
+                                   'a newer one opened in another tab.'}), 409
 
     refine_insights_in_background(
         user_id, attempt_id, video.get('title', topic_id),
@@ -1418,12 +1475,10 @@ def quiz_submit():
         next_difficulty = current_difficulty
         why = "Your group follows a fixed curriculum, so the difficulty does not change."
 
-    # Offer the final check once there is something to measure: the pre-test
-    # and at least two practice quizzes. Offered, not forced, and not after a
-    # check quiz itself.
-    probe = quiz.get('probe')
-    attempts_on_topic = quiz_repo.count_user_attempts(user_id, topic_id=topic_id)
-    check_available = probe != 'post' and attempts_on_topic >= config.CHECK_QUIZ_AFTER_ATTEMPTS
+    # Offer the final check once there is something to measure, by the same
+    # rule the quiz route enforces. Offered, not forced, and only once.
+    check_available = check_quiz_open(quiz_repo.get_user_attempts(
+        user_id, topic_id=topic_id, include_responses=False))
 
     return jsonify({
         'success': True, 

@@ -4,27 +4,27 @@ Thanks for doing this.
 
 CogniLoop is an adaptive learning system I built. It changes the difficulty of
 your next quiz based on how you answered the last one. It has only ever been
-tested on simulated learners — I need real ones.
+tested on simulated learners. I need real ones.
 
 **Getting answers wrong is useful.** Possibly more useful than getting them
 right.
 
 ---
 
-## Before you start — one line of consent
+## Before you start: one line of consent
 
 By taking part you're agreeing that your quiz answers, response times and
 scores can be used in my research, including in an academic paper, **reported
-only as anonymous aggregates — never individually and never by name**.
+only as anonymous aggregates, never individually and never by name**.
 
 **One thing you should know:** to generate questions and write your feedback,
 the system sends quiz content and your answers to an external AI provider
-(Groq). **Your name, email and account are never sent** — only the question
+(Groq). **Your name, email and account are never sent**, only the question
 text, which option you picked, and how long you took. If you'd rather that
 didn't happen, don't take part, and no hard feelings.
 
 You can stop at any point, and ask me to delete everything, without giving a
-reason. Just tell me — I have a script that removes your account, attempts,
+reason. Just tell me: I have a script that removes your account, attempts,
 progress and learning estimates, and confirms nothing is left. The only thing
 it can't take back is your small share in two group-level statistics,
 computed across everyone, that hold no name, email or id.
@@ -33,14 +33,14 @@ computed across everyone, that hold no name, email or id.
 
 ## Pick your track
 
-| | **Track A — One sitting** | **Track B — Contributor** |
+| | **Track A: one sitting** | **Track B: contributor** |
 |---|---|---|
 | Time | 15 minutes, once | 15 minutes × 3, over ~2 weeks |
 | What it gives me | Response-time data, bug reports, question quality | All of that **plus** whether people actually learn |
 | Pick this if | You can spare one block | You're willing to come back twice |
 
 **Track B is worth far more to me**, because improvement can only be measured
-across sessions. But Track A is genuinely useful — don't pick B unless you'll
+across sessions. But Track A is genuinely useful, so don't pick B unless you'll
 actually return.
 
 ---
@@ -49,7 +49,7 @@ actually return.
 
 **1. Open the link now:** https://cogniloop-2svo.onrender.com
 
-First load can take a minute — free server, it sleeps. Leave it open while you
+First load can take a minute, because the free server sleeps. Leave it open while you
 read on.
 
 **2. Sign up.** Any email, never contacted or shared. **Use a throwaway
@@ -62,45 +62,48 @@ password, not a real one.**
 | Know a CS subject | Data Structures, Operating Systems, DBMS, or Computer Networks |
 | Don't, or aren't sure | **Quantitative Aptitude** |
 
-Quantitative Aptitude needs no background — percentages, ratios, speed and
+Quantitative Aptitude needs no background: percentages, ratios, speed and
 distance, time and work. School level. **If in doubt, pick this.**
 
-**Do not switch topics, ever — including between sessions.** The system adapts
+**Do not switch topics, ever, including between sessions.** The system adapts
 to you per topic. Switching restarts it from zero and wastes everything.
 
 ---
 
-## Track A — one sitting
+## Track A: one sitting
 
-Take the same quiz **4 times in a row**. Each run is 8–10 questions,
-2–3 minutes. Your first one is labelled **Starting quiz**.
+Take the same quiz **4 times in a row**. Each run is 8 to 10 questions,
+2 to 3 minutes. Your first one is labelled **Starting quiz**.
 
 Then press **Take the final check quiz** on the results page and do that one
-too. **This last one is the one that counts most** — without it, your runs
+too. **This last one is the one that counts most**: without it, your runs
 can't be measured.
 
-Glance at your results page between runs. That's it — then answer the four
+Glance at your results page between runs. That's it. Then answer the four
 questions at the bottom of this page.
 
 ---
 
-## Track B — contributor
+## Track B: contributor
 
-**Session 1 (today)** — take the quiz **3 times**. The first is labelled
-**Starting quiz**: that's your starting point.
+**Session 1 (today):** take the quiz **3 times**. The first is labelled
+**Starting quiz**: that's your starting point. The results page will offer
+**Take the final check quiz** after your third run. **Don't take it yet**: it
+can be taken only once, and in Track B it belongs at the end of session 3.
 
-**Then, before session 2:** spend 10–15 minutes on that topic's modules inside
-the app — the videos and notes on the topic page. This matters: I'm testing
+**Then, before session 2:** spend 10 to 15 minutes on that topic's modules inside
+the app (the videos and notes on the topic page). This matters: I'm testing
 whether the system teaches, so please learn from *it*, not from elsewhere.
 
-**Session 2 (2–4 days later)** — take the quiz **3 times**.
+**Session 2 (2 to 4 days later):** take the quiz **3 times**, and again skip
+the final check quiz.
 
-**Session 3 (about a week after that)** — take the quiz **3 times**, then press
-**Take the final check quiz** on the results page and do that one too — it's
+**Session 3 (about a week after that):** take the quiz **3 times**, then press
+**Take the final check quiz** on the results page and do that one too. It's
 the one that counts most. Then answer the four questions below.
 
 Same login, same topic, every time. If you miss the timing by a few days it's
-fine — just don't stop halfway, because a half-finished Track B tells me less
+fine. Just don't stop halfway, because a half-finished Track B tells me less
 than a completed Track A.
 
 ---
@@ -113,7 +116,7 @@ than a completed Track A.
 - get things wrong on purpose to test it
 - look anything up mid-quiz
 
-If you don't know, guess and move on — or let the timer run out. Both are real
+If you don't know, guess and move on, or let the timer run out. Both are real
 and both are useful.
 
 ---
@@ -133,7 +136,7 @@ were genuinely thinking about.
 
 **2. Whether difficulty adaptation does anything.** The system picks your next
 difficulty from how you did. Three or four runs is the minimum before that
-shows up — below that it's deliberately still experimenting. Your **starting
+shows up; below that it's deliberately still experimenting. Your **starting
 quiz** and **final check quiz** are the same kind of quiz for everyone, whatever
 group you're in. Comparing those two is what tells me whether you learned, not
 just whether you were given easier questions.
@@ -163,13 +166,13 @@ One line each.
 3. **Was the advice after each quiz useful, or generic filler?**
 4. **Anything that broke, confused or annoyed you.** Especially small things.
 
-*Track B — also:* did it feel easier by session 3, or the same?
+*Track B, also:* did it feel easier by session 3, or the same?
 
 ---
 
 ## Privacy
 
-Your answers, timings and scores — nothing else. Your email is a login and is
+Your answers, timings and scores, nothing else. Your email is a login and is
 never contacted.
 
 Your answers pass through an external AI provider (Groq) to be graded and to
