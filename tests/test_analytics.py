@@ -12,6 +12,13 @@ def engine():
     return AnalyticsEngine()
 
 
+
+
+def _a(user_id, score, probe=None, topic="os"):
+    """One stored attempt, shaped as the submit handler writes it."""
+    return {"user_id": user_id, "score": score, "topic_id": topic,
+            "quiz_meta": {"probe": probe}}
+
 class TestNLGCalculation:
     def test_perfect_improvement(self, engine):
         # pre=0, post=100 -> NLG = 1.0
@@ -65,8 +72,8 @@ class TestExperimentReport:
         # One read of every attempt, grouped by user_id, which is what the
         # engine now does instead of a per-user call.
         all_attempts = [
-            {"user_id": "u1", "score": 40}, {"user_id": "u1", "score": 80},
-            {"user_id": "u2", "score": 20}, {"user_id": "u2", "score": 90},
+            _a("u1", 40, "pre"), _a("u1", 80, "post"),
+            _a("u2", 20, "pre"), _a("u2", 90, "post"),
         ]
 
         with patch('backend.analytics.metrics.user_repo') as mu, \
@@ -88,8 +95,8 @@ class TestExperimentReport:
         all_attempts = []
         for i in range(10):
             scores = (30, 50) if i < 5 else (20, 95)
-            all_attempts += [{"user_id": f"u{i}", "score": scores[0]},
-                             {"user_id": f"u{i}", "score": scores[1]}]
+            all_attempts += [_a(f"u{i}", scores[0], "pre"),
+                             _a(f"u{i}", scores[1], "post")]
 
         with patch('backend.analytics.metrics.user_repo') as mu, \
              patch('backend.analytics.metrics.quiz_repo') as mq:
@@ -108,3 +115,59 @@ class TestExperimentReport:
             mq.all_attempts.return_value = [{"user_id": "u1", "score": 70}]
             report = engine.generate_experiment_report()
         assert report["control"]["user_count"] == 0
+
+
+
+class TestOutcomeUsesProbesOnly:
+    """The pilot's outcome comes from the two probe quizzes, never practice.
+
+    Practice quizzes differ between arms by design (control medium,
+    experimental bandit-chosen), so a last-practice score partly reflects
+    which tier was served. Pre and post probes are generated identically for
+    everyone, which is what makes the arms comparable.
+    """
+
+    def _report(self, engine, users, attempts):
+        with patch('backend.analytics.metrics.user_repo') as mu, \
+             patch('backend.analytics.metrics.quiz_repo') as mq:
+            mu.get_all.return_value = users
+            mq.all_attempts.return_value = attempts
+            return engine.generate_experiment_report()
+
+    def test_practice_scores_do_not_move_the_outcome(self, engine):
+        users = [{"id": "u1", "study_group": "experimental"}]
+        # An easy practice quiz served last would have read as a huge gain.
+        attempts = [_a("u1", 50, "pre"), _a("u1", 60, None), _a("u1", 60, "post"),
+                    _a("u1", 100, None)]
+        report = self._report(engine, users, attempts)
+        assert report["experimental"]["avg_nlg"] == round((60 - 50) / 50, 3)
+
+    def test_pre_and_post_must_be_on_the_same_topic(self, engine):
+        users = [{"id": "u1", "study_group": "control"}]
+        attempts = [_a("u1", 30, "pre", topic="os"), _a("u1", 90, "post", topic="qa")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["user_count"] == 0
+
+    def test_a_post_before_the_pre_does_not_count(self, engine):
+        users = [{"id": "u1", "study_group": "control"}]
+        attempts = [_a("u1", 90, "post"), _a("u1", 30, "pre")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["user_count"] == 0
+
+    def test_participants_without_a_check_quiz_are_counted_not_hidden(self, engine):
+        users = [{"id": "u1", "study_group": "control"},
+                 {"id": "u2", "study_group": "experimental"},
+                 {"id": "u3", "study_group": "experimental"}]
+        attempts = [_a("u1", 40, "pre"), _a("u1", 50, None),
+                    _a("u2", 40, "pre"), _a("u2", 70, "post")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["without_check_quiz"] == 1
+        assert report["experimental"]["user_count"] == 1
+        # u3 never took a quiz at all: not a drop-out, so not counted.
+        assert report["experimental"]["without_check_quiz"] == 0
+
+    def test_the_latest_check_is_the_post_test(self, engine):
+        users = [{"id": "u1", "study_group": "control"}]
+        attempts = [_a("u1", 40, "pre"), _a("u1", 50, "post"), _a("u1", 70, "post")]
+        report = self._report(engine, users, attempts)
+        assert report["control"]["avg_nlg"] == round((70 - 40) / 60, 3)

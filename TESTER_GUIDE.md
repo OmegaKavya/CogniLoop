@@ -72,8 +72,12 @@ to you per topic. Switching restarts it from zero and wastes everything.
 
 ## Track A — one sitting
 
-Take the same quiz **4 or 5 times in a row**. Each run is 8–10 questions,
-2–3 minutes.
+Take the same quiz **4 times in a row**. Each run is 8–10 questions,
+2–3 minutes. Your first one is labelled **Starting quiz**.
+
+Then press **Take the final check quiz** on the results page and do that one
+too. **This last one is the one that counts most** — without it, your runs
+can't be measured.
 
 Glance at your results page between runs. That's it — then answer the four
 questions at the bottom of this page.
@@ -82,7 +86,8 @@ questions at the bottom of this page.
 
 ## Track B — contributor
 
-**Session 1 (today)** — take the quiz **3 times**. This is your starting point.
+**Session 1 (today)** — take the quiz **3 times**. The first is labelled
+**Starting quiz**: that's your starting point.
 
 **Then, before session 2:** spend 10–15 minutes on that topic's modules inside
 the app — the videos and notes on the topic page. This matters: I'm testing
@@ -90,8 +95,9 @@ whether the system teaches, so please learn from *it*, not from elsewhere.
 
 **Session 2 (2–4 days later)** — take the quiz **3 times**.
 
-**Session 3 (about a week after that)** — take the quiz **3 times**, then
-answer the four questions below.
+**Session 3 (about a week after that)** — take the quiz **3 times**, then press
+**Take the final check quiz** on the results page and do that one too — it's
+the one that counts most. Then answer the four questions below.
 
 Same login, same topic, every time. If you miss the timing by a few days it's
 fine — just don't stop halfway, because a half-finished Track B tells me less
@@ -127,7 +133,10 @@ were genuinely thinking about.
 
 **2. Whether difficulty adaptation does anything.** The system picks your next
 difficulty from how you did. Three or four runs is the minimum before that
-shows up — below that it's deliberately still experimenting.
+shows up — below that it's deliberately still experimenting. Your **starting
+quiz** and **final check quiz** are the same kind of quiz for everyone, whatever
+group you're in. Comparing those two is what tells me whether you learned, not
+just whether you were given easier questions.
 
 → *This is why one quiz is no use, and why switching topics wastes it.*
 

@@ -330,7 +330,27 @@ def build_topic_submodules(video):
     return submodules
 
 
-def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental'):
+# The two quizzes the pilot's outcome is measured on: the first quiz a learner
+# takes on a topic ("pre") and a final check they start themselves ("post").
+#
+# Practice quizzes differ between the arms by design: control is served medium,
+# experimental whatever tier the bandit picks, and the generator also varies
+# question count and wording with the learner's mastery. So a score on a
+# practice quiz partly reflects which quiz was served, and comparing first and
+# last practice scores across arms measures the routing as much as the
+# learning - the same confound the project's paper is about, in raw scores.
+# The probes remove it: both are generated with identical inputs for every
+# learner in either arm, so the only thing that can differ is the learner.
+PROBE_INPUTS = {
+    "difficulty": "medium",
+    "mastery": 0.5,
+    "cluster": "General Learner",
+    "speed": "Steady",
+}
+
+
+def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experimental',
+                       want_check=False):
     current_mastery = bkt_engine.get_mastery(user_id, topic_id)
     # Filtered by topic in the store: this is the one caller that needs the
     # per-question text, so narrowing it here keeps the heaviest read as
@@ -345,8 +365,23 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
         current_speed = 'Steady'
 
     from backend.adaptation.bandit_policy import bandit_adapter
-    
-    if study_group == 'control':
+
+    # Server-decided: the first quiz on a topic is always the pre-test, in
+    # either arm. The post-test is the learner's request, but only once a
+    # pre-test exists to compare it with.
+    if not user_topic_attempts:
+        probe = 'pre'
+    elif want_check:
+        probe = 'post'
+    else:
+        probe = None
+
+    if probe:
+        current_difficulty = PROBE_INPUTS['difficulty']
+        current_mastery = PROBE_INPUTS['mastery']
+        current_cluster = PROBE_INPUTS['cluster']
+        current_speed = PROBE_INPUTS['speed']
+    elif study_group == 'control':
         current_difficulty = 'medium'
         current_speed = 'Steady'
         current_mastery = 0.5  # Static midpoint
@@ -382,6 +417,10 @@ def build_quiz_payload(user_id, topic_id, video, watch_time, study_group='experi
         speed_label=current_speed,
         avoid_questions=avoid_questions
     )
+
+    if probe:
+        quiz['difficulty'] = PROBE_INPUTS['difficulty']
+    quiz['probe'] = probe
 
     question_count = len(quiz.get('questions', []))
     question_time_seconds = 15 if quiz.get('difficulty') == 'easy' else 12 if quiz.get('difficulty') == 'medium' else 10
@@ -1133,7 +1172,9 @@ def api_quiz_data(topic_id):
     user_video_progress = progress_repo.get_progress(user_id, topic_id)
     watch_time = user_video_progress.get('last_position', 0)
 
-    quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group)
+    want_check = request.args.get('check') == '1'
+    quiz = build_quiz_payload(user_id, topic_id, video, watch_time, study_group,
+                              want_check=want_check)
 
     # The quiz, answer key included, stays on the server. The client gets an
     # opaque token and a redacted copy. It previously received the whole object
@@ -1322,7 +1363,10 @@ def quiz_submit():
                     # The key written by build_quiz_payload is question_time_seconds.
                     # Reading 'timer_seconds' meant this logged 0 on every attempt.
                     "timer_seconds": quiz.get('question_time_seconds', 0),
-                    "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0)
+                    "hint_unlock_seconds": quiz.get('hint_unlock_seconds', 0),
+                    # "pre", "post" or None. The research outcome is computed
+                    # from the probe attempts only; see PROBE_INPUTS.
+                    "probe": quiz.get('probe'),
                 },
                 "question_results": reviewed_questions,
                 "ai_insights": ai_insights
@@ -1374,6 +1418,13 @@ def quiz_submit():
         next_difficulty = current_difficulty
         why = "Your group follows a fixed curriculum, so the difficulty does not change."
 
+    # Offer the final check once there is something to measure: the pre-test
+    # and at least two practice quizzes. Offered, not forced, and not after a
+    # check quiz itself.
+    probe = quiz.get('probe')
+    attempts_on_topic = quiz_repo.count_user_attempts(user_id, topic_id=topic_id)
+    check_available = probe != 'post' and attempts_on_topic >= config.CHECK_QUIZ_AFTER_ATTEMPTS
+
     return jsonify({
         'success': True, 
         'score': score,
@@ -1386,7 +1437,10 @@ def quiz_submit():
         'ai_insights': ai_insights,
         'served_difficulty': current_difficulty,
         'next_difficulty': next_difficulty,
-        'next_difficulty_reason': why
+        'next_difficulty_reason': why,
+        'probe': probe,
+        'check_available': check_available,
+        'topic_id': topic_id,
     })
 
 

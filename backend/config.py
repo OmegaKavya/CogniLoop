@@ -246,6 +246,11 @@ INSIGHT_REFINE_MAX_INFLIGHT = env_int("INSIGHT_REFINE_MAX_INFLIGHT", 4)
 VIDEO_TRACK_MAX = env_int("VIDEO_TRACK_MAX", 120)
 VIDEO_TRACK_WINDOW_SECONDS = env_int("VIDEO_TRACK_WINDOW_SECONDS", 300)
 
+# The final check quiz (the post-test) is offered once a learner has taken the
+# pre-test and at least two practice quizzes on a topic. Fewer than that and
+# there is no practice for the check to measure.
+CHECK_QUIZ_AFTER_ATTEMPTS = env_int("CHECK_QUIZ_AFTER_ATTEMPTS", 3)
+
 # The results screen asks a few times whether the model-written feedback has
 # arrived (four checks per submission). Generous for that, small for a script.
 INSIGHT_POLL_MAX = env_int("INSIGHT_POLL_MAX", 60)

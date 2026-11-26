@@ -443,7 +443,15 @@
         from { transform: rotate(0deg); }
         to   { transform: rotate(360deg); }
       }
-    </style>
+          .probe-banner {
+        margin: 0 0 16px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.9rem;
+      }
+</style>
     <script>
     // Applied before first paint so the page never flashes the wrong theme.
     (function(){try{var t=localStorage.getItem('cogniloop-theme');
@@ -675,6 +683,10 @@
         </div>
 
         <div id="quiz-content">
+          <!-- Shown on the two quizzes the study measures. They are the same
+               for every participant, which is why they are labelled: a
+               participant should know this one counts and is not adapted. -->
+          <p id="probe-banner" class="probe-banner" style="display:none;"></p>
           <div id="question-area"></div>
 
           <div
@@ -891,6 +903,13 @@
             flex-wrap: wrap;
           "
         >
+          <a
+            id="checkQuizLink"
+            href="#"
+            class="btn btn-primary"
+            style="width: auto; display: none"
+            >Take the final check quiz</a
+          >
           <a
             id="reviewLink"
             href="{{ url_for('quiz_review_list') }}"
@@ -1384,6 +1403,12 @@
 
           if (result.attempt_id) {
               document.getElementById('reviewLink').href = `/quiz-review/${result.attempt_id}`;
+              // Offered once the pre-test and two practice quizzes are done.
+              if (result.check_available && result.topic_id) {
+                  const check = document.getElementById('checkQuizLink');
+                  check.href = `/quiz/${encodeURIComponent(result.topic_id)}?check=1`;
+                  check.style.display = 'inline-block';
+              }
               // Nothing to rewrite after a perfect score: no model call is made.
               if (result.score < 100) pollRefinedInsights(result.attempt_id);
           }
@@ -1438,7 +1463,9 @@
                   }, 2200);
               }
 
-              const response = await fetch('/api/quiz-data/{{ topic_id }}');
+              // ?check=1 asks for the final check quiz (the post-test).
+              const wantCheck = new URLSearchParams(window.location.search).get('check') === '1';
+              const response = await fetch('/api/quiz-data/{{ topic_id }}' + (wantCheck ? '?check=1' : ''));
               const data = await response.json();
               if (!data.success) {
                   throw new Error(data.message || 'Quiz generation failed');
@@ -1446,6 +1473,17 @@
 
               quizData = data.quiz;
               quizToken = data.quiz_token;
+
+              const probeBanner = document.getElementById('probe-banner');
+              if (quizData.probe === 'pre') {
+                  probeBanner.textContent = 'Starting quiz. Everyone takes the same kind of quiz first, '
+                      + 'so we can measure where you begin. Just do your best.';
+                  probeBanner.style.display = 'block';
+              } else if (quizData.probe === 'post') {
+                  probeBanner.textContent = 'Final check quiz. The same kind of quiz as your first one, '
+                      + 'for everyone, so it measures how far you have come.';
+                  probeBanner.style.display = 'block';
+              }
               quizQuestions = quizData.questions || [];
               questionTimeLimit = Number(quizData.question_time_seconds || 12);
               currentQuestionIdx = 0;

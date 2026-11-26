@@ -1,7 +1,7 @@
 from backend.repositories.core_repositories import user_repo, quiz_repo
 
 class AnalyticsEngine:
-    """Calculates Normalized Learning Gain and Statistical validities for the A/B testing."""
+    """Normalized learning gain per arm, measured on the probe quizzes only."""
     
     def calculate_nlg(self, pre_test, post_test):
         """Calculates Normalized Learning Gain (NLG)"""
@@ -27,37 +27,62 @@ class AnalyticsEngine:
         for attempt in quiz_repo.all_attempts(include_responses=False):
             by_user.setdefault(str(attempt.get('user_id')), []).append(attempt)
 
+        excluded = {"control": 0, "experimental": 0}
+
         for user in users:
+            if not isinstance(user, dict) or user.get('deleted'):
+                continue
             uid = user.get('id')
             group = user.get('study_group', 'experimental')
+            if group not in report:
+                continue
 
-            # Pre/post within ONE topic, not across the whole history.
+            # Measured on the probes only: the first quiz on a topic ("pre")
+            # and the final check ("post"), which every learner in either arm
+            # gets with identical generation inputs (app.PROBE_INPUTS).
             #
-            # This used the first and last attempt overall. With a single
-            # curriculum that was merely imprecise; with Quantitative Aptitude
-            # added alongside the computer science subjects it is wrong, because
-            # a participant whose first attempt is Operating Systems and whose
-            # last is percentages would have those two scores compared as if
-            # they measured the same thing. The tester guide asks people not to
-            # switch topics, but a metric should not depend on them complying.
+            # This used the first and last attempt on a topic. Practice
+            # quizzes differ by arm - control is served medium, experimental
+            # whatever the bandit picks - so the last practice score depended
+            # on which tier happened to be served last, and the comparison
+            # measured the routing as much as the learning. The project's
+            # paper is about exactly that confound; the pilot must not have it.
             #
-            # The topic with the most attempts is used, since that is the one
-            # the participant actually worked at.
-            attempts = by_user.get(str(uid), [])
+            # Pre and post are taken within one topic, never across topics.
+            # Where a learner has both on several topics, the one with the most
+            # attempts is used, since that is the one they actually worked at.
             by_topic = {}
-            for attempt in attempts:
+            for attempt in by_user.get(str(uid), []):
                 by_topic.setdefault(attempt.get('topic_id', 'unknown'), []).append(attempt)
-            attempts = max(by_topic.values(), key=len) if by_topic else []
 
-            if len(attempts) >= 2:
-                pre_test = attempts[0].get('score', 0)
-                post_test = attempts[-1].get('score', 0)
-                nlg = self.calculate_nlg(pre_test, post_test)
-                
-                report[group]["nlg"].append(nlg)
-                report[group]["scores"].append(post_test)
-                report[group]["engagement"].append(len(attempts))
-                
+            best = None
+            for topic_attempts in by_topic.values():
+                pre = next((a for a in topic_attempts
+                            if (a.get('quiz_meta') or {}).get('probe') == 'pre'), None)
+                if pre is None:
+                    continue
+                after = topic_attempts[topic_attempts.index(pre) + 1:]
+                posts = [a for a in after if (a.get('quiz_meta') or {}).get('probe') == 'post']
+                if not posts:
+                    continue
+                if best is None or len(topic_attempts) > len(best[2]):
+                    best = (pre, posts[-1], topic_attempts)
+
+            if best is None:
+                # Took part but never reached a check quiz: reported, so a
+                # difference in drop-out between arms is visible rather than
+                # silently filtered away.
+                if by_user.get(str(uid)):
+                    excluded[group] += 1
+                continue
+
+            pre, post, topic_attempts = best
+            pre_test = pre.get('score', 0)
+            post_test = post.get('score', 0)
+            report[group]["nlg"].append(self.calculate_nlg(pre_test, post_test))
+            report[group]["scores"].append(post_test)
+            report[group]["engagement"].append(len(topic_attempts))
+
         # Calculate averages
         summary = {}
         for group in ["control", "experimental"]:
@@ -69,6 +94,7 @@ class AnalyticsEngine:
             
             summary[group] = {
                 "user_count": len(nlg_list),
+                "without_check_quiz": excluded[group],
                 "avg_nlg": round(avg_nlg, 3),
                 "avg_engagement_quizzes": round(avg_eng, 1)
             }

@@ -57,6 +57,7 @@ flowchart LR
 - `backend/quiz/quiz_insights.py`: Generates post-quiz diagnostic analyses, distinguishing rushed guessing (wrong in under 40% of the question's time limit) from genuine confusion (wrong after 85% of it or more), with thresholds set in `config.DIAGNOSIS_*_FRACTION`, while presenting our roadmap for expert-curated textbook study modules.
   - **The model call runs after the response, not inside it.** Submission stores the deterministic analysis and returns; a daemon thread then asks the model to rewrite the advice text and writes the result over the stored attempt, under the document lock. Nothing the learner is shown depends on it, since the score, the mastery update, the behaviour cluster and the next difficulty are all computed locally, and the deterministic version is usable content rather than a placeholder. Grading is the other model call in that handler and stays synchronous, because the response is the score.
 - `backend/analytics/metrics.py`: Computes cohort statistical significance and Normalized Learning Gains ($\text{NLG} = \frac{\text{Post} - \text{Pre}}{100 - \text{Pre}}$).
+  - **Pre and Post are probe quizzes, not practice quizzes.** The first quiz on a topic (pre) and a final check quiz the learner starts (post) are generated with identical inputs in both arms (`app.PROBE_INPUTS`: medium difficulty, fixed mastery and profile). Practice quizzes differ by arm by design, so comparing first and last practice scores would measure which tier was served as much as what was learned, the difficulty confound in raw scores. Participants who never take the check quiz are reported per arm as `without_check_quiz`, so differential drop-out is visible.
 
 ### Repository & Persistence Layer (`backend/repositories/` & `data/`)
 - Implements the Repository Pattern over `backend/storage.py`, which holds a single advisory lock across each read-modify-write and swaps the file in with an atomic `os.replace`. Reading and writing under separate locks loses concurrent updates, which is what the earlier implementation did.
@@ -111,7 +112,7 @@ element as the most recent attempt.
 
 ## 4. Quality Assurance & Verification
 
-CogniLoop features an automated verification suite of **591 unit and integration tests** executing via `pytest`:
+CogniLoop features an automated verification suite of **602 unit and integration tests** executing via `pytest`:
 - **Mathematical Validation**: Confirms precision in Bayesian probability equations and Beta distribution convergence in Thompson Sampling.
 - **Concurrency Testing**: Drives concurrent writes against every persisted store and asserts that no record is lost and no file is left unparseable, which earlier implementations failed.
 - **Resilience Testing**: Exercises provider selection and fallback for quiz generation, grading and insights with no provider configured, with one unreachable, and under rate limiting.
